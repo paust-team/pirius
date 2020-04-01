@@ -21,6 +21,11 @@ type Client struct {
 	buffer 		[]byte
 }
 
+type ReadResult struct {
+	Error error
+	Data []byte
+}
+
 func NewClient(ctx context.Context, hostUrl string, timeout time.Duration) *Client {
 	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, conn: nil, buffer: make([]byte, 1024)}
 }
@@ -45,31 +50,12 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) ReadOne(outCh chan <- []byte, errCh chan <- error) {
+func (c *Client) Read(outCh chan <- ReadResult) {
 
 	n, err := c.conn.Read(c.buffer)
 	if err != nil {
-		errCh <- err
+		outCh <- ReadResult{err, nil}
 	} else {
-		outCh <- c.buffer[0:n]
-	}
-}
-
-func (c *Client) Read(outCh chan <- []byte, errCh chan <- error) {
-
-	readCh := make(chan []byte)
-	readErrCh := make(chan error)
-
-	go c.ReadOne(readCh, readErrCh)
-
-	for {
-		select {
-		case <- c.Ctx.Done():
-			return
-		case data := <-readCh:
-			outCh <- data
-		case err := <-readErrCh:
-			errCh <- err
-		}
+		outCh <- ReadResult{err, c.buffer[0:n]}
 	}
 }

@@ -11,10 +11,27 @@ func NewPutRequestMsg(topic string, data []byte) ([]byte, error) {
 	return proto.Marshal(putRequest)
 }
 
-func ParseResponseMsg(received []byte) (*PutResponse, error) {
+func ParsePutResponseMsg(received []byte) (*PutResponse, error) {
 
 	putResponse := &PutResponse{}
 	err := proto.Unmarshal(received, putResponse)
 
 	return putResponse, err
+}
+
+func NewFetchRequestMsg(topic string, startOffset uint64) ([]byte, error) {
+
+	putRequest := &FetchRequest{
+		Magic: -1, TopicName: topic, StartOffset: startOffset,
+	}
+
+	return proto.Marshal(putRequest)
+}
+
+func ParseFetchResponseMsg(received []byte) (*FetchResponse, error) {
+
+	fetchResponse := &FetchResponse{}
+	err := proto.Unmarshal(received, fetchResponse)
+
+	return fetchResponse, err
 }

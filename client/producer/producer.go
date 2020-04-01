@@ -2,59 +2,81 @@ package producer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/elon0823/paustq/client"
 	"github.com/elon0823/paustq/paustqpb"
+	"log"
 	"time"
 )
 
+type SourceData struct {
+	Topic string
+	Data []byte
+}
+
 type Producer struct {
-	client *client.Client
+	client 			*client.Client
+	sourceChannel	chan SourceData
+	publishing		bool
 }
 
 func NewProducer(hostUrl string, timeout time.Duration) *Producer {
 	ctx := context.Background()
 	c := client.NewClient(ctx, hostUrl, timeout)
-	return &Producer{client: c}
+	producer := &Producer{client: c, sourceChannel: make(chan SourceData), publishing: false}
+
+	return producer
 }
 
-func (p *Producer) Publish(topic string, inCh <- chan []byte, errCh chan <- error) {
+func (p *Producer) receiveResult(ch chan client.ReadResult) {
+	select {
+	case res := <- ch:
+		if res.Error != nil {
+			log.Fatal("Error on read")
+			break
+		}
+		putRespMsg, err := paustqpb.ParsePutResponseMsg(res.Data)
+		if err != nil {
+			log.Fatal("Failed to parse data to PutResponse")
+		} else if putRespMsg.ErrorCode != 0{
+			log.Fatal("PutResponse Error: ", putRespMsg.ErrorCode)
+		} else {
+			fmt.Println("Success writing Topic: ", putRespMsg.TopicName)
+		}
+	}
+}
 
-	publishResChan := make(chan []byte)
-	readErrChan := make(chan error)
-
+func (p *Producer) startPublish() {
 	for {
 		select {
-		case data := <-inCh:
+		case sourceData := <-p.sourceChannel:
 
-			protoMsg, protoErr := paustqpb.NewPutRequestMsg(topic, data)
-			go p.client.ReadOne(publishResChan, readErrChan)
+			protoMsg, protoErr := paustqpb.NewPutRequestMsg(sourceData.Topic, sourceData.Data)
 
 			if protoErr != nil {
-				errCh <- protoErr
+				log.Fatal("Error to creating PutRequest message")
 			} else {
 				err := p.client.Write(protoMsg)
 				if err != nil {
-					errCh <- err
+					log.Fatal(err)
+				} else {
+					onReceiveResponse := make(chan client.ReadResult)
+					go p.receiveResult(onReceiveResponse)
+					go p.client.Read(onReceiveResponse)
 				}
 			}
-
-		case res := <-publishResChan:
-			putRespMsg, err := paustqpb.ParseResponseMsg(res)
-			if err != nil {
-				errCh <- err
-			} else if putRespMsg.ErrorCode != 0{
-				errCh <- errors.New(fmt.Sprintf("PutResponse error: %d", putRespMsg.ErrorCode))
-			}
-
-		case readErr := <-readErrChan:
-			errCh <- readErr
-
 		case <- p.client.Ctx.Done():
 			return
 		}
 	}
+}
+
+func (p *Producer) Publish(topic string, data []byte) {
+	if p.publishing == false {
+		p.publishing = true
+		p.startPublish()
+	}
+	p.sourceChannel <- SourceData{topic, data}
 }
 
 func (p *Producer) Connect() error {
@@ -62,5 +84,6 @@ func (p *Producer) Connect() error {
 }
 
 func (p *Producer) Close() error {
+	p.publishing = false
 	return p.client.Close()
 }

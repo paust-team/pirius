@@ -103,15 +103,14 @@ message PutResponse {
 
 message FetchRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
     uint64 start_offset = 3;
 }
 
 message FetchResponse {
     int32 magic = 1;
-    TopicInfo info = 2;
-    bytes data = 3;
-    uint64 offset = 4;
+    bytes data = 2;
+    Partition partition = 4;
     int32 error_code = 5;
 }
 
