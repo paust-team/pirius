@@ -16,7 +16,7 @@ type Client struct {
 	Ctx 		context.Context
 	HostUrl 	string
 	Timeout		time.Duration
-	SessionType paustq_proto.SessionType
+	SessionType paustqpb.SessionType
 	conn 		net.Conn
 	buffer 		[]byte
 }
@@ -45,7 +45,7 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) read(outCh chan <- []byte, errCh chan <- error) {
+func (c *Client) ReadOne(outCh chan <- []byte, errCh chan <- error) {
 
 	n, err := c.conn.Read(c.buffer)
 	if err != nil {
@@ -60,7 +60,7 @@ func (c *Client) Read(outCh chan <- []byte, errCh chan <- error) {
 	readCh := make(chan []byte)
 	readErrCh := make(chan error)
 
-	go c.read(readCh, readErrCh)
+	go c.ReadOne(readCh, readErrCh)
 
 	for {
 		select {
