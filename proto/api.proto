@@ -1,0 +1,195 @@
+syntax = "proto3";
+package paustq.proto;
+import "data.proto";
+
+// Config
+message SetConfigRequest {
+    int32 magic = 1;
+    bytes config = 2;
+}
+
+message SetConfigResponse {
+    int32 magic = 1;
+    bytes config = 2;
+}
+
+message AlterConfigRequest {
+    int32 magic = 1;
+    bytes config = 2;
+}
+
+message AlterConfigResponse {
+    int32 magic = 1;
+    bytes config = 2;
+}
+
+message ShowConfigRequest {
+    int32 magic = 1;
+}
+
+message ShowConfigResponse {
+    int32 magic = 1;
+    bytes config = 2;
+}
+
+
+// topic
+
+message CreateTopicsRequest {
+    int32 magic = 1;
+    repeated Topic topics = 2;
+}
+
+message CreateTopicResponse {
+    int32 magic = 1;
+    repeated Topic topics = 2;
+}
+
+message UpdateTopicRequest {
+    int32 magic = 1;
+    Topic topic = 2;
+}
+
+message UpdateTopicRequest {
+    int32 magic = 1;
+    Topic topic = 2;
+}
+
+message DeleteTopicRequest {
+    int32 magic = 1;
+    uint64 topic_id = 2;
+}
+
+message DeleteTopicResponse {
+    int32 magic = 1;
+    Topic topic = 2;
+}
+
+message ListTopicsRequest {
+    int32 magic = 1;
+}
+
+message ListTopicsResponse {
+    int32 magic = 1;
+    repeated Topic topics = 2;
+}
+
+message DescribeTopicRequest {
+    int32 magic = 1;
+    uint64 topic_id = 2;
+}
+
+message DescribeTopicResponse {
+    int32 magic = 1;
+    TopicInfo topic = 2;
+}
+
+// pubsub
+message PutRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+}
+
+message Ack {
+    int32 magic = 1;
+    TopicInfo info = 2;
+}
+
+message FetchRequest {
+    int32 magic = 1;
+    uint64 topic_id = 2;
+    uint64 start_offset = 3;
+}
+
+message FetchResponse {
+    int32 magic = 1;
+    TopicInfo info = 2;
+    bytes data = 3;
+    uint64 offset = 4;
+}
+
+// partition
+message CreatePartitionRequest {
+    int32 magic = 1;
+    uint64 topic_id = 2;
+    uint32 count = 3;
+}
+
+message CreatePartitionResponse {
+    int32 magic = 1;
+    Partition partition = 2;
+}
+
+// group
+message CreateGroupRequest {
+    int32 magic = 1;
+    string group_name = 2;
+    string description = 3;
+}
+
+message CreateGroupResponse {
+    int32 magic = 1;
+    Group group = 2;
+}
+
+message ListGroupsRequest {
+    int32 magic = 1;
+}
+
+message ListGroupsResponse {
+    int32 magic = 1;
+    repeated Group group = 2;
+}
+
+// Consumer can join only one group
+message JoinGroupRequest {
+    int32 magic = 1;
+    uint64 group_id = 2;
+}
+
+message JoinGroupResponse {
+    int32 magic = 1;
+    Group group = 2;
+}
+
+message LeaveGroupRequest {
+    int32 magic = 1;
+    uint64 group_id = 2;
+}
+
+message LeaveGroupResponse {
+    int32 magic = 1;
+    Group group = 2;
+}
+
+// Note:: Only group owner can delete group
+message DeleteGroupRequest {
+    int32 magic = 1;
+    uint64 group_id = 2;
+}
+
+message DeleteGroupResponse {
+    int32 magic = 1;
+    Group group = 2;
+}
+
+// connection
+
+message Connect {
+    int32 magic = 1;
+    SessionType session_type =2;
+    string topic = 3;
+}
+
+message HealthCheck {
+    int32 magic = 1;
+}
+
+message ShutdownBrokerRequest {
+    int32 magic = 1;
+    uint64 broker_id = 2;
+}
+
+message ShutdownBrokerResponse {
+    int32 magic = 1;
+}
