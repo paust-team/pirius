@@ -21,7 +21,7 @@ type Client struct {
 	buffer 		[]byte
 }
 
-type ReadResult struct {
+type ResultData struct {
 	Error error
 	Data []byte
 }
@@ -50,12 +50,12 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) Read(outCh chan <- ReadResult) {
+func (c *Client) Read(outCh chan <- ResultData) {
 
 	n, err := c.conn.Read(c.buffer)
 	if err != nil {
-		outCh <- ReadResult{err, nil}
+		outCh <- ResultData{err, nil}
 	} else {
-		outCh <- ReadResult{err, c.buffer[0:n]}
+		outCh <- ResultData{err, c.buffer[0:n]}
 	}
 }

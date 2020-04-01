@@ -28,7 +28,7 @@ func NewProducer(hostUrl string, timeout time.Duration) *Producer {
 	return producer
 }
 
-func (p *Producer) receiveResult(ch chan client.ReadResult) {
+func (p *Producer) receiveResult(ch chan client.ResultData) {
 	select {
 	case res := <- ch:
 		if res.Error != nil {
@@ -60,7 +60,7 @@ func (p *Producer) startPublish() {
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					onReceiveResponse := make(chan client.ReadResult)
+					onReceiveResponse := make(chan client.ResultData)
 					go p.receiveResult(onReceiveResponse)
 					go p.client.Read(onReceiveResponse)
 				}

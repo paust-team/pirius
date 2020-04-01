@@ -29,7 +29,7 @@ func NewConsumer(hostUrl string, timeout time.Duration) *Consumer {
 
 func (c *Consumer) startSubscribe() {
 
-	onReceiveResponse := make(chan client.ReadResult)
+	onReceiveResponse := make(chan client.ResultData)
 
 	for {
 		go c.client.Read(onReceiveResponse)
