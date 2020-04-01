@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"github.com/elon0823/paustq/proto"
+	"github.com/elon0823/paustq/paustqpb"
 	"net"
 	"time"
 )
