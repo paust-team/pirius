@@ -45,16 +45,6 @@ message CreateTopicResponse {
     repeated Topic topics = 2;
 }
 
-message UpdateTopicRequest {
-    int32 magic = 1;
-    Topic topic = 2;
-}
-
-message UpdateTopicRequest {
-    int32 magic = 1;
-    Topic topic = 2;
-}
-
 message DeleteTopicRequest {
     int32 magic = 1;
     uint64 topic_id = 2;
