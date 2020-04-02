@@ -11,6 +11,7 @@ message SetConfigRequest {
 message SetConfigResponse {
     int32 magic = 1;
     bytes config = 2;
+    int32 error_code = 3;
 }
 
 message AlterConfigRequest {
@@ -21,6 +22,7 @@ message AlterConfigRequest {
 message AlterConfigResponse {
     int32 magic = 1;
     bytes config = 2;
+    int32 error_code = 3;
 }
 
 message ShowConfigRequest {
@@ -30,6 +32,7 @@ message ShowConfigRequest {
 message ShowConfigResponse {
     int32 magic = 1;
     bytes config = 2;
+    int32 error_code = 3;
 }
 
 
@@ -43,16 +46,7 @@ message CreateTopicsRequest {
 message CreateTopicResponse {
     int32 magic = 1;
     repeated Topic topics = 2;
-}
-
-message UpdateTopicRequest {
-    int32 magic = 1;
-    Topic topic = 2;
-}
-
-message UpdateTopicRequest {
-    int32 magic = 1;
-    Topic topic = 2;
+    int32 error_code = 3;
 }
 
 message DeleteTopicRequest {
@@ -63,6 +57,7 @@ message DeleteTopicRequest {
 message DeleteTopicResponse {
     int32 magic = 1;
     Topic topic = 2;
+    int32 error_code = 3;
 }
 
 message ListTopicsRequest {
@@ -72,6 +67,7 @@ message ListTopicsRequest {
 message ListTopicsResponse {
     int32 magic = 1;
     repeated Topic topics = 2;
+    int32 error_code = 3;
 }
 
 message DescribeTopicRequest {
@@ -82,30 +78,40 @@ message DescribeTopicRequest {
 message DescribeTopicResponse {
     int32 magic = 1;
     TopicInfo topic = 2;
+    int32 error_code = 3;
 }
 
 // pubsub
-message PutRequest {
-    int32 magic = 1;
-    string topic_name = 2;
-}
 
 message Ack {
     int32 magic = 1;
     TopicInfo info = 2;
 }
 
+message PutRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+    bytes data = 3;
+}
+
+message PutResponse {
+    int32 magic = 1;
+    string topic_name = 2;
+    Partition partition = 3;
+    int32 error_code = 4;
+}
+
 message FetchRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
     uint64 start_offset = 3;
 }
 
 message FetchResponse {
     int32 magic = 1;
-    TopicInfo info = 2;
-    bytes data = 3;
-    uint64 offset = 4;
+    bytes data = 2;
+    Partition partition = 4;
+    int32 error_code = 5;
 }
 
 // partition
@@ -118,6 +124,7 @@ message CreatePartitionRequest {
 message CreatePartitionResponse {
     int32 magic = 1;
     Partition partition = 2;
+    int32 error_code = 3;
 }
 
 // group
@@ -130,6 +137,7 @@ message CreateGroupRequest {
 message CreateGroupResponse {
     int32 magic = 1;
     Group group = 2;
+    int32 error_code = 3;
 }
 
 message ListGroupsRequest {
@@ -139,6 +147,7 @@ message ListGroupsRequest {
 message ListGroupsResponse {
     int32 magic = 1;
     repeated Group group = 2;
+    int32 error_code = 3;
 }
 
 // Consumer can join only one group
@@ -150,6 +159,7 @@ message JoinGroupRequest {
 message JoinGroupResponse {
     int32 magic = 1;
     Group group = 2;
+    int32 error_code = 3;
 }
 
 message LeaveGroupRequest {
@@ -160,6 +170,7 @@ message LeaveGroupRequest {
 message LeaveGroupResponse {
     int32 magic = 1;
     Group group = 2;
+    int32 error_code = 3;
 }
 
 // Note:: Only group owner can delete group
@@ -171,6 +182,7 @@ message DeleteGroupRequest {
 message DeleteGroupResponse {
     int32 magic = 1;
     Group group = 2;
+    int32 error_code = 3;
 }
 
 // connection
@@ -178,11 +190,15 @@ message DeleteGroupResponse {
 message Connect {
     int32 magic = 1;
     SessionType session_type =2;
-    string topic = 3;
 }
 
-message HealthCheck {
+message HeartBeatRequest {
     int32 magic = 1;
+}
+
+message HeartBeatResponse {
+    int32 magic = 1;
+    int32 error_code = 2;
 }
 
 message ShutdownBrokerRequest {
@@ -192,4 +208,5 @@ message ShutdownBrokerRequest {
 
 message ShutdownBrokerResponse {
     int32 magic = 1;
+    int32 error_code = 2;
 }
