@@ -12,22 +12,22 @@ type TcpClient interface {
 	Close() error
 }
 
+type ReceivedData struct {
+	Error error
+	Data []byte
+}
+
 type Client struct {
 	Ctx 		context.Context
 	HostUrl 	string
 	Timeout		time.Duration
 	SessionType paustqpb.SessionType
 	conn 		net.Conn
-	buffer 		[]byte
-}
 
-type ResultData struct {
-	Error error
-	Data []byte
 }
 
 func NewClient(ctx context.Context, hostUrl string, timeout time.Duration) *Client {
-	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, conn: nil, buffer: make([]byte, 1024)}
+	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, conn: nil, }
 }
 
 func (c *Client) Connect() error {
@@ -50,12 +50,13 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) Read(outCh chan <- ResultData) {
+func (c *Client) Read(receiveCh chan <- ReceivedData) {
 
-	n, err := c.conn.Read(c.buffer)
+	readBuffer := make([]byte, 1024)
+	n, err := c.conn.Read(readBuffer)
 	if err != nil {
-		outCh <- ResultData{err, nil}
+		receiveCh <- ReceivedData{err, nil}
 	} else {
-		outCh <- ResultData{err, c.buffer[0:n]}
+		receiveCh <- ReceivedData{err, readBuffer[0:n]}
 	}
 }

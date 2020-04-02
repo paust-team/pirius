@@ -14,23 +14,32 @@ type SourceData struct {
 	Data []byte
 }
 
-type Producer struct {
-	client 			*client.Client
-	sourceChannel	chan SourceData
-	publishing		bool
+type ResendableResponseData struct {
+	sourceData			SourceData
+	responseCh 			chan client.ReceivedData
 }
 
-func NewProducer(hostUrl string, timeout time.Duration) *Producer {
+type Producer struct {
+	client 				*client.Client
+	sourceChannel		chan SourceData
+	publishing			bool
+}
+
+func NewProducer(hostUrl string, timeout time.Duration, recvBufferedChSize int8) *Producer {
 	ctx := context.Background()
 	c := client.NewClient(ctx, hostUrl, timeout)
+
 	producer := &Producer{client: c, sourceChannel: make(chan SourceData), publishing: false}
 
 	return producer
 }
 
-func (p *Producer) receiveResult(ch chan client.ResultData) {
+func (p *Producer) waitResponse(resendableData ResendableResponseData) {
+
+	go p.client.Read(resendableData.responseCh)
+
 	select {
-	case res := <- ch:
+	case res := <- resendableData.responseCh:
 		if res.Error != nil {
 			log.Fatal("Error on read")
 			break
@@ -43,6 +52,10 @@ func (p *Producer) receiveResult(ch chan client.ResultData) {
 		} else {
 			fmt.Println("Success writing Topic: ", putRespMsg.TopicName)
 		}
+	case <- time.After(time.Second * p.client.Timeout):
+		log.Fatal("Receive PutResponse Timeout. Resend data..: ")
+		p.sourceChannel <- resendableData.sourceData
+		return
 	}
 }
 
@@ -60,9 +73,8 @@ func (p *Producer) startPublish() {
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					onReceiveResponse := make(chan client.ResultData)
-					go p.receiveResult(onReceiveResponse)
-					go p.client.Read(onReceiveResponse)
+					resendableData := ResendableResponseData{sourceData:sourceData, responseCh: make(chan client.ReceivedData)}
+					go p.waitResponse(resendableData)
 				}
 			}
 		case <- p.client.Ctx.Done():
