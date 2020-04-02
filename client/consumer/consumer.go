@@ -12,27 +12,27 @@ import (
 )
 
 type Consumer struct {
-	client 			*client.Client
-	sinkChannel		chan SinkData
-	subscribing		bool
+	client      *client.Client
+	sinkChannel chan SinkData
+	subscribing bool
 }
 
 type SinkData struct {
 	Error error
-	Data []byte
+	Data  []byte
 }
 
 func NewConsumer(hostUrl string, timeout time.Duration) *Consumer {
 	ctx := context.Background()
 	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_SUBSCRIBER)
-	return &Consumer{client: c, sinkChannel:make(chan SinkData), subscribing: false}
+	return &Consumer{client: c, sinkChannel: make(chan SinkData), subscribing: false}
 }
 
 func (c *Consumer) startSubscribe() {
 
 	onReceiveResponse := make(chan client.ReceivedData)
 
-	for {
+	for c.subscribing {
 		go c.client.Read(onReceiveResponse)
 
 		select {
@@ -41,17 +41,15 @@ func (c *Consumer) startSubscribe() {
 				c.sinkChannel <- SinkData{res.Error, nil}
 				break
 			}
-			fetchRespMsg, err := message.ParseFetchResponseMsg(res.Data)
+			fetchRespMsg := &paustq_proto.FetchResponse{}
+			err := message.UnPackTo(res.Data, fetchRespMsg)
 			if err != nil {
 				c.sinkChannel <- SinkData{err, nil}
-			} else if fetchRespMsg.ErrorCode != 0{
+			} else if fetchRespMsg.ErrorCode != 0 {
 				c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
 			} else {
 				c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
 			}
-
-		case <- c.client.Ctx.Done():
-			return
 		}
 	}
 }

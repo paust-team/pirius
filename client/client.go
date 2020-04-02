@@ -16,20 +16,20 @@ type TcpClient interface {
 
 type ReceivedData struct {
 	Error error
-	Data []byte
+	Data  []byte
 }
 
 type Client struct {
-	Ctx         context.Context
-	HostUrl     string
-	Timeout     time.Duration
-	SessionType paustq_proto.SessionType
-	Connected  	bool
+	ctx         context.Context
 	conn        net.Conn
+	Timeout     time.Duration
+	HostUrl     string
+	SessionType paustq_proto.SessionType
+	Connected   bool
 }
 
 func NewClient(ctx context.Context, hostUrl string, timeout time.Duration, sessionType paustq_proto.SessionType) *Client {
-	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
+	return &Client{ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
 }
 
 func (c *Client) Connect() error {
@@ -37,6 +37,8 @@ func (c *Client) Connect() error {
 	if err != nil {
 		return err
 	}
+
+	c.conn = conn
 
 	protoMsg, protoErr := message.NewConnectMsg(c.SessionType)
 	if protoErr != nil {
@@ -50,13 +52,13 @@ func (c *Client) Connect() error {
 		return c.Close()
 	}
 
-	c.conn = conn
 	c.Connected = true
+
 	return nil
 }
 
 func (c *Client) Close() error {
-	_, cancel := context.WithCancel(c.Ctx)
+	_, cancel := context.WithCancel(c.ctx)
 	cancel()
 	return c.conn.Close()
 }
@@ -66,7 +68,7 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) Read(receiveCh chan <- ReceivedData) {
+func (c *Client) Read(receiveCh chan<- ReceivedData) {
 
 	readBuffer := make([]byte, 1024)
 	n, err := c.conn.Read(readBuffer)
