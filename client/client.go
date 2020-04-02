@@ -2,7 +2,9 @@ package client
 
 import (
 	"context"
-	"github.com/elon0823/paustq/paustqpb"
+	"github.com/elon0823/paustq/message"
+	"github.com/elon0823/paustq/proto"
+	"log"
 	"net"
 	"time"
 )
@@ -18,16 +20,16 @@ type ReceivedData struct {
 }
 
 type Client struct {
-	Ctx 		context.Context
-	HostUrl 	string
-	Timeout		time.Duration
-	SessionType paustqpb.SessionType
-	conn 		net.Conn
-
+	Ctx         context.Context
+	HostUrl     string
+	Timeout     time.Duration
+	SessionType paustq_proto.SessionType
+	Connected  	bool
+	conn        net.Conn
 }
 
-func NewClient(ctx context.Context, hostUrl string, timeout time.Duration) *Client {
-	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, conn: nil, }
+func NewClient(ctx context.Context, hostUrl string, timeout time.Duration, sessionType paustq_proto.SessionType) *Client {
+	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
 }
 
 func (c *Client) Connect() error {
@@ -35,7 +37,21 @@ func (c *Client) Connect() error {
 	if err != nil {
 		return err
 	}
+
+	protoMsg, protoErr := message.NewConnectMsg(c.SessionType)
+	if protoErr != nil {
+		log.Fatal("Failed to create Connect message")
+		return c.Close()
+
+	}
+	connReqErr := c.Write(protoMsg)
+	if connReqErr != nil {
+		log.Fatal("Failed to send connect request to broker")
+		return c.Close()
+	}
+
 	c.conn = conn
+	c.Connected = true
 	return nil
 }
 

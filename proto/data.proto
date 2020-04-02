@@ -1,5 +1,5 @@
 syntax = "proto3";
-package paustqpb;
+package paustq.proto;
 
 enum SessionType {
     PUBLISHER = 0;

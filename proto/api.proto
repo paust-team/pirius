@@ -1,5 +1,5 @@
 syntax = "proto3";
-package paustqpb;
+package paustq.proto;
 import "data.proto";
 
 // Config
@@ -190,7 +190,6 @@ message DeleteGroupResponse {
 message Connect {
     int32 magic = 1;
     SessionType session_type =2;
-    string topic = 3;
 }
 
 message HeartBeatRequest {

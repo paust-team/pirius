@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/elon0823/paustq/client"
-	"github.com/elon0823/paustq/paustqpb"
+	"github.com/elon0823/paustq/message"
+	"github.com/elon0823/paustq/proto"
 	"log"
 	"time"
 )
@@ -25,9 +26,9 @@ type Producer struct {
 	publishing			bool
 }
 
-func NewProducer(hostUrl string, timeout time.Duration, recvBufferedChSize int8) *Producer {
+func NewProducer(hostUrl string, timeout time.Duration) *Producer {
 	ctx := context.Background()
-	c := client.NewClient(ctx, hostUrl, timeout)
+	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_PUBLISHER)
 
 	producer := &Producer{client: c, sourceChannel: make(chan SourceData), publishing: false}
 
@@ -44,7 +45,7 @@ func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 			log.Fatal("Error on read")
 			break
 		}
-		putRespMsg, err := paustqpb.ParsePutResponseMsg(res.Data)
+		putRespMsg, err := message.ParsePutResponseMsg(res.Data)
 		if err != nil {
 			log.Fatal("Failed to parse data to PutResponse")
 		} else if putRespMsg.ErrorCode != 0{
@@ -64,10 +65,10 @@ func (p *Producer) startPublish() {
 		select {
 		case sourceData := <-p.sourceChannel:
 
-			protoMsg, protoErr := paustqpb.NewPutRequestMsg(sourceData.Topic, sourceData.Data)
+			protoMsg, protoErr := message.NewPutRequestMsg(sourceData.Topic, sourceData.Data)
 
 			if protoErr != nil {
-				log.Fatal("Error to creating PutRequest message")
+				log.Fatal("Failed to create PutRequest message")
 			} else {
 				err := p.client.Write(protoMsg)
 				if err != nil {
