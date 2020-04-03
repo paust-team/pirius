@@ -16,20 +16,19 @@ func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel ch
 		putReqMsg := &paustq_proto.PutRequest{}
 
 		if err := message.UnPackTo(received, putReqMsg); err != nil {
-			fmt.Println(err)
 			continue
 		}
 
 		putResMsg, err := message.NewPutResponseMsg(putReqMsg.TopicName, 0)
 		if err != nil {
-			fmt.Println("Failed to create PutRequest message")
+			fmt.Println("Failed to create PutResponse message")
 			continue
 		}
 		serverSendChannel <- putResMsg
 	}
 }
 
-func TestClient_Publish(t *testing.T) {
+func TestProducerPublish(t *testing.T) {
 
 	// Setup test tcp server
 	serverReceiveChannel := make(chan []byte)
@@ -47,7 +46,7 @@ func TestClient_Publish(t *testing.T) {
 	defer server.Stop()
 
 	// Test Producer Client
-	records := [][]byte{
+	testRecords := [][]byte{
 		{'g', 'o', 'o', 'g', 'l', 'e'},
 		{'p', 'a', 'u', 's', 't', 'q'},
 		{'1', '2', '3', '4', '5', '6'},
@@ -76,7 +75,7 @@ func TestClient_Publish(t *testing.T) {
 		}
 	}()
 
-	for i, record := range records {
+	for i, record := range testRecords {
 		waitGroup.Add(1)
 		client.Publish(topics[i], record)
 	}

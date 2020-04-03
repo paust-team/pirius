@@ -36,7 +36,7 @@ func (c *Consumer) startSubscribe() {
 	onReceiveResponse := make(chan client.ReceivedData)
 
 	for {
-		c.client.Read(onReceiveResponse, c.client.Timeout)
+		go c.client.Read(onReceiveResponse, c.client.Timeout)
 
 		select {
 		case res := <-onReceiveResponse:
@@ -45,15 +45,21 @@ func (c *Consumer) startSubscribe() {
 			} else {
 				fetchRespMsg := &paustq_proto.FetchResponse{}
 				err := message.UnPackTo(res.Data, fetchRespMsg)
-				if err != nil {
+				if message.UnPackTo(res.Data, fetchRespMsg) != nil {
 					c.sinkChannel <- SinkData{err, nil}
-				} else if fetchRespMsg.ErrorCode != 0 {
+					break
+				}
+
+				if fetchRespMsg.ErrorCode == 1 { // Consumed all record
+					c.subscribing = false
+					close(c.sinkChannel)
+					return
+				} else if fetchRespMsg.ErrorCode > 1 {
 					c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
 				} else {
 					c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
 				}
 			}
-
 		case <-c.ctx.Done():
 			return
 		}
@@ -64,6 +70,7 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 
 	if c.subscribing == false {
 		c.subscribing = true
+		go c.startSubscribe()
 
 		protoMsg, protoErr := message.NewFetchRequestMsg(topic, 0)
 		if protoErr != nil {
@@ -76,8 +83,6 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 			log.Fatal(err)
 			return nil
 		}
-
-		c.startSubscribe()
 	}
 
 	return c.sinkChannel

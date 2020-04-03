@@ -79,7 +79,7 @@ func (server *TcpServer) handleWrite(conn net.Conn) {
 			close(server.endWrite)
 			return
 		}
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -113,7 +113,6 @@ func (server *TcpServer) handleConnection(conn net.Conn) {
 }
 
 func (server *TcpServer) StartListen() error {
-	fmt.Println("Start Listen")
 	listener, err := net.Listen("tcp", server.Port)
 	if err != nil {
 		fmt.Println("Listen error: ", err)
@@ -125,7 +124,6 @@ func (server *TcpServer) StartListen() error {
 }
 
 func (server *TcpServer) Stop() {
-	fmt.Println("Stop Server")
 	server.endAccept <- true
 	server.endWrite <- true
 	server.endRead <- true
