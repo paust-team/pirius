@@ -20,11 +20,11 @@ type ResendableResponseData struct {
 }
 
 type Producer struct {
-	ctx         		context.Context
-	client				*client.Client
-	sourceChannel     	chan SourceData
-	publishing        	bool
-	onReceiveResponse 	chan paustq_proto.PutResponse
+	ctx               context.Context
+	client            *client.Client
+	sourceChannel     chan SourceData
+	publishing        bool
+	onReceiveResponse chan paustq_proto.PutResponse
 }
 
 func NewProducer(ctx context.Context, hostUrl string, timeout time.Duration) *Producer {
@@ -60,7 +60,7 @@ func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 			}
 		}
 
-	case <- p.ctx.Done():
+	case <-p.ctx.Done():
 		return
 	case <-time.After(time.Second * 10):
 		log.Fatal("Receive PutResponse Timeout. Resend data..: ")
@@ -89,7 +89,7 @@ func (p *Producer) startPublish() {
 					go p.waitResponse(resendableData)
 				}
 			}
-		case <- p.ctx.Done():
+		case <-p.ctx.Done():
 			return
 		}
 		time.Sleep(100 * time.Microsecond)

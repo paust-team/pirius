@@ -57,7 +57,7 @@ func (server *TcpServer) handleAccept(listener net.Listener) {
 		go server.accept(onAccepted, listener)
 
 		select {
-		case conn := <- onAccepted:
+		case conn := <-onAccepted:
 			if conn != nil {
 				go server.handleConnection(conn)
 			}
@@ -94,7 +94,7 @@ func (server *TcpServer) handleRead(conn net.Conn) {
 		case <-server.endRead:
 			close(server.endRead)
 			return
-		case res := <- onReceiveResponse:
+		case res := <-onReceiveResponse:
 			if res.Error != nil {
 				break
 			}

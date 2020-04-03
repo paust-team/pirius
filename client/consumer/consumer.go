@@ -54,7 +54,7 @@ func (c *Consumer) startSubscribe() {
 				}
 			}
 
-		case <- c.ctx.Done():
+		case <-c.ctx.Done():
 			return
 		}
 	}

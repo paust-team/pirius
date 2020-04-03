@@ -65,7 +65,6 @@ func TestClient_Publish(t *testing.T) {
 		t.Error("Error on connect")
 	}
 
-
 	go func() {
 		for response := range onResponse {
 			if response.ErrorCode != 0 {
