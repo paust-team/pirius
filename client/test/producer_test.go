@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"github.com/elon0823/paustq/client/producer"
 	"github.com/elon0823/paustq/message"
@@ -51,31 +52,47 @@ func TestClient_Publish(t *testing.T) {
 		{'p', 'a', 'u', 's', 't', 'q'},
 		{'1', '2', '3', '4', '5', '6'},
 	}
-	topic := "test_topic"
+	topics := []string{"topic1", "topic2", "topic3"}
+	var receivedTopics []string
 	var waitGroup sync.WaitGroup
 
 	onResponse := make(chan paustq_proto.PutResponse)
 	host := "127.0.0.1:8000"
-	client := producer.NewProducer(host, 5).WithOnReceiveResponse(onResponse)
+	ctx := context.Background()
+
+	client := producer.NewProducer(ctx, host, 5).WithOnReceiveResponse(onResponse)
 	if client.Connect() != nil {
 		t.Error("Error on connect")
 	}
+
 
 	go func() {
 		for response := range onResponse {
 			if response.ErrorCode != 0 {
 				t.Error("PutResponse has error code: ", response.ErrorCode)
+			} else {
+				receivedTopics = append(receivedTopics, response.TopicName)
 			}
 			waitGroup.Done()
 		}
 	}()
 
-	for _, record := range records {
+	for i, record := range records {
 		waitGroup.Add(1)
-		client.Publish(topic, record)
+		client.Publish(topics[i], record)
 	}
 
 	waitGroup.Wait()
+	if len(topics) != len(receivedTopics) {
+		t.Error("Length Mismatch - Send records: ", len(topics), ", Received records: ", len(receivedTopics))
+	}
+	for _, topic := range topics {
+		if !contains(receivedTopics, topic) {
+			t.Error("Topic not exists in received topics")
+			break
+		}
+	}
+
 	err = client.Close()
 	if err != nil {
 		t.Error(err)

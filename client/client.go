@@ -58,8 +58,6 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) Close() error {
-	_, cancel := context.WithCancel(c.ctx)
-	cancel()
 	return c.conn.Close()
 }
 
@@ -68,8 +66,9 @@ func (c *Client) Write(data []byte) error {
 	return err
 }
 
-func (c *Client) Read(receiveCh chan<- ReceivedData) {
+func (c *Client) Read(receiveCh chan<- ReceivedData, timeout time.Duration) {
 
+	c.conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
 	readBuffer := make([]byte, 1024)
 	n, err := c.conn.Read(readBuffer)
 	if err != nil {

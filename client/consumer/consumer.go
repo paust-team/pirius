@@ -12,6 +12,7 @@ import (
 )
 
 type Consumer struct {
+	ctx         context.Context
 	client      *client.Client
 	sinkChannel chan SinkData
 	subscribing bool
@@ -22,34 +23,39 @@ type SinkData struct {
 	Data  []byte
 }
 
-func NewConsumer(hostUrl string, timeout time.Duration) *Consumer {
-	ctx := context.Background()
+func NewConsumer(ctx context.Context, hostUrl string, timeout time.Duration) *Consumer {
 	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_SUBSCRIBER)
-	return &Consumer{client: c, sinkChannel: make(chan SinkData), subscribing: false}
+	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false}
 }
 
 func (c *Consumer) startSubscribe() {
 
+	if !c.subscribing {
+		return
+	}
 	onReceiveResponse := make(chan client.ReceivedData)
 
-	for c.subscribing {
-		go c.client.Read(onReceiveResponse)
+	for {
+		c.client.Read(onReceiveResponse, c.client.Timeout)
 
 		select {
 		case res := <-onReceiveResponse:
 			if res.Error != nil {
 				c.sinkChannel <- SinkData{res.Error, nil}
-				break
-			}
-			fetchRespMsg := &paustq_proto.FetchResponse{}
-			err := message.UnPackTo(res.Data, fetchRespMsg)
-			if err != nil {
-				c.sinkChannel <- SinkData{err, nil}
-			} else if fetchRespMsg.ErrorCode != 0 {
-				c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
 			} else {
-				c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
+				fetchRespMsg := &paustq_proto.FetchResponse{}
+				err := message.UnPackTo(res.Data, fetchRespMsg)
+				if err != nil {
+					c.sinkChannel <- SinkData{err, nil}
+				} else if fetchRespMsg.ErrorCode != 0 {
+					c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
+				} else {
+					c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
+				}
 			}
+
+		case <- c.ctx.Done():
+			return
 		}
 	}
 }
@@ -83,5 +89,7 @@ func (c *Consumer) Connect() error {
 
 func (c *Consumer) Close() error {
 	c.subscribing = false
+	_, cancel := context.WithCancel(c.ctx)
+	cancel()
 	return c.client.Close()
 }

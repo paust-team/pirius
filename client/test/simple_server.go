@@ -2,7 +2,9 @@ package test
 
 import (
 	"fmt"
+	"github.com/elon0823/paustq/client"
 	"net"
+	"reflect"
 	"time"
 )
 
@@ -20,23 +22,49 @@ func NewTcpServer(port string, sink chan<- []byte, source <-chan []byte) *TcpSer
 		sink, source}
 }
 
-func (server *TcpServer) accept(listener net.Listener) {
+func (server *TcpServer) accept(onAccepted chan net.Conn, listener net.Listener) {
+
+	listener.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))
+	conn, err := listener.Accept()
+	if err != nil {
+		onAccepted <- nil
+	} else {
+		onAccepted <- conn
+	}
+}
+
+func (server *TcpServer) write(data []byte, conn net.Conn) error {
+	_, err := conn.Write(data)
+	return err
+}
+
+func (server *TcpServer) read(receiveCh chan<- client.ReceivedData, conn net.Conn) {
+
+	readBuffer := make([]byte, 1024)
+	n, err := conn.Read(readBuffer)
+	if err != nil {
+		receiveCh <- client.ReceivedData{err, nil}
+	} else {
+		receiveCh <- client.ReceivedData{err, readBuffer[0:n]}
+	}
+}
+
+func (server *TcpServer) handleAccept(listener net.Listener) {
+
+	onAccepted := make(chan net.Conn)
 
 	for {
+		go server.accept(onAccepted, listener)
+
 		select {
+		case conn := <- onAccepted:
+			if conn != nil {
+				go server.handleConnection(conn)
+			}
 		case <-server.endAccept:
 			close(server.endAccept)
 			return // runs into "defer listener.Close()"
-		default: // nothing to do
 		}
-
-		listener.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))
-		conn, err := listener.Accept()
-		if err != nil {
-			continue
-		}
-
-		go server.handleConnection(conn)
 	}
 }
 
@@ -44,40 +72,35 @@ func (server *TcpServer) handleWrite(conn net.Conn) {
 	for {
 		select {
 		case data := <-server.source:
-			_, err := conn.Write(data)
-			if err != nil {
+			if err := server.write(data, conn); err != nil {
 				fmt.Println("Failed to write data to connection")
 			}
 		case <-server.endWrite:
 			close(server.endWrite)
 			return
-		case <-time.After(time.Second * 2):
-			break
 		}
+		time.Sleep(100 * time.Microsecond)
 	}
 }
 
 func (server *TcpServer) handleRead(conn net.Conn) {
 
+	onReceiveResponse := make(chan client.ReceivedData)
+
 	for {
+		go server.read(onReceiveResponse, conn)
+
 		select {
 		case <-server.endRead:
 			close(server.endRead)
 			return
-		default:
-		}
-
-		buf := make([]byte, 1024)
-		n, err := conn.Read(buf)
-
-		if err != nil {
-			if n > 0 {
-				fmt.Println("Failed to read data from connection")
+		case res := <- onReceiveResponse:
+			if res.Error != nil {
+				break
 			}
-			continue
-		}
-		if server.sink != nil {
-			server.sink <- buf[0:n]
+			if server.sink != nil {
+				server.sink <- res.Data
+			}
 		}
 	}
 }
@@ -97,7 +120,7 @@ func (server *TcpServer) StartListen() error {
 		return err
 	}
 
-	go server.accept(listener)
+	go server.handleAccept(listener)
 	return nil
 }
 
@@ -110,4 +133,18 @@ func (server *TcpServer) Stop() {
 	if server.sink != nil {
 		close(server.sink)
 	}
+}
+
+func contains(s interface{}, e interface{}) bool {
+	arrV := reflect.ValueOf(s)
+
+	if arrV.Kind() == reflect.Slice {
+		for i := 0; i < arrV.Len(); i++ {
+			if arrV.Index(i).Interface() == e {
+				return true
+			}
+		}
+	}
+
+	return false
 }
