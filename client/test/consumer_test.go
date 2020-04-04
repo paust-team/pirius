@@ -8,9 +8,10 @@ import (
 	"github.com/elon0823/paustq/message"
 	"github.com/elon0823/paustq/proto"
 	"testing"
+	"time"
 )
 
-func handleSubscribeMessage(serverReceiveChannel chan []byte, serverSendChannel chan []byte, testData map[string][][]byte) {
+func mockConsumerHandler(serverReceiveChannel chan []byte, serverSendChannel chan []byte, testData RecordMap) {
 
 	for received := range serverReceiveChannel {
 		fetchReqMsg := &paustq_proto.FetchRequest{}
@@ -42,35 +43,35 @@ func handleSubscribeMessage(serverReceiveChannel chan []byte, serverSendChannel 
 	}
 }
 
-func TestConsumerSubscribe(t *testing.T) {
+func TestConsumer_Subscribe(t *testing.T) {
+
+	ip := "127.0.0.1"
+	port := ":8001"
+	timeout := 5
 
 	testRecordMap := map[string][][]byte{
-		"topic1": {{'g', 'o', 'o', 'g', 'l', 'e'}, {'p', 'a', 'u', 's', 't', 'q'}, {'1', '2', '3', '4', '5', '6'}},
-		"topic2": {{'t', 'e', 's', 't'}},
+		"topic1": {
+			{'g', 'o', 'o', 'g', 'l', 'e'},
+			{'p', 'a', 'u', 's', 't', 'q'},
+			{'1', '2', '3', '4', '5', '6'}},
 	}
-
-	var receivedRecords [][]byte
 	topic := "topic1"
+	receivedRecordMap := make(map[string][][]byte)
 
-	// Setup test tcp server
-	serverReceiveChannel := make(chan []byte)
-	serverSendChannel := make(chan []byte)
+	host := fmt.Sprintf("%s%s", ip, port)
+	ctx := context.Background()
 
-	server := NewTcpServer(":8001", serverReceiveChannel, serverSendChannel)
-	err := server.StartListen()
+	// Start Server
+	server, err := StartTestServer(port, mockConsumerHandler, testRecordMap)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	go handleSubscribeMessage(serverReceiveChannel, serverSendChannel, testRecordMap)
-
 	defer server.Stop()
 
-	host := "127.0.0.1:8001"
-	ctx := context.Background()
-
-	client := consumer.NewConsumer(ctx, host, 5)
+	// Start Client
+	client := consumer.NewConsumer(ctx, host, time.Duration(timeout))
 	if client.Connect() != nil {
 		t.Error("Error on connect")
 	}
@@ -79,15 +80,18 @@ func TestConsumerSubscribe(t *testing.T) {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {
-			receivedRecords = append(receivedRecords, response.Data)
+			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
 		}
 	}
 
-	if len(testRecordMap["topic1"]) != len(receivedRecords) {
-		t.Error("Length Mismatch - Send records: ", len(testRecordMap["topic1"]), ", Received records: ", len(receivedRecords))
+	expectedResults := testRecordMap[topic]
+	receivedResults := receivedRecordMap[topic]
+
+	if len(expectedResults) != len(receivedResults) {
+		t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
 	}
-	for i, record := range testRecordMap["topic1"] {
-		if bytes.Compare(receivedRecords[i], record) != 0 {
+	for i, record := range expectedResults {
+		if bytes.Compare(receivedResults[i], record) != 0 {
 			t.Error("Record is not same")
 		}
 	}

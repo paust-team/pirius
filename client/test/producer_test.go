@@ -8,9 +8,10 @@ import (
 	"github.com/elon0823/paustq/message"
 	"github.com/elon0823/paustq/proto"
 	"testing"
+	"time"
 )
 
-func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel chan []byte, receivedRecords *[][]byte) {
+func mockProducerHandler(serverReceiveChannel chan []byte, serverSendChannel chan []byte, receivedRecordMap RecordMap) {
 
 	for received := range serverReceiveChannel {
 		putReqMsg := &paustq_proto.PutRequest{}
@@ -24,56 +25,58 @@ func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel ch
 			fmt.Println("Failed to create PutResponse message")
 			continue
 		}
-		*receivedRecords = append(*receivedRecords, putReqMsg.Data)
+
+		receivedRecordMap[putReqMsg.TopicName] = append(receivedRecordMap[putReqMsg.TopicName], putReqMsg.Data)
 		serverSendChannel <- putResMsg
 	}
 }
 
-func TestProducerPublish(t *testing.T) {
+func TestProducer_Publish(t *testing.T) {
 
-	testRecords := [][]byte{
-		{'g', 'o', 'o', 'g', 'l', 'e'},
-		{'p', 'a', 'u', 's', 't', 'q'},
-		{'1', '2', '3', '4', '5', '6'},
+	ip := "127.0.0.1"
+	port := ":8000"
+	timeout := 5
+	host := fmt.Sprintf("%s%s", ip, port)
+	ctx := context.Background()
+
+	testRecordMap := map[string][][]byte{
+		"topic1": {
+			{'g', 'o', 'o', 'g', 'l', 'e'},
+			{'p', 'a', 'u', 's', 't', 'q'},
+			{'1', '2', '3', '4', '5', '6'}},
 	}
-
-	var receivedRecords [][]byte
 	topic := "topic1"
+	receivedRecordMap := make(map[string][][]byte)
 
-	// Setup test tcp server
-	serverReceiveChannel := make(chan []byte)
-	serverSendChannel := make(chan []byte)
-
-	server := NewTcpServer(":8000", serverReceiveChannel, serverSendChannel)
-	err := server.StartListen()
+	// Start Server
+	server, err := StartTestServer(port, mockProducerHandler, receivedRecordMap)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	go handlePublishMessage(serverReceiveChannel, serverSendChannel, &receivedRecords)
-
 	defer server.Stop()
 
-	host := "127.0.0.1:8000"
-	ctx := context.Background()
-
-	client := producer.NewProducer(ctx, host, 5)
+	// Start Client
+	client := producer.NewProducer(ctx, host, time.Duration(timeout))
 	if client.Connect() != nil {
 		t.Error("Error on connect")
 	}
 
-	for _, record := range testRecords {
+	for _, record := range testRecordMap[topic] {
 		client.Publish(topic, record)
 	}
 
 	client.WaitAllPublishResponse()
 
-	if len(testRecords) != len(receivedRecords) {
-		t.Error("Length Mismatch - Send records: ", len(testRecords), ", Received records: ", len(receivedRecords))
+	expectedResults := testRecordMap[topic]
+	receivedResults := receivedRecordMap[topic]
+
+	if len(expectedResults) != len(receivedResults) {
+		t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
 	}
-	for i, record := range testRecords {
-		if bytes.Compare(receivedRecords[i], record) != 0 {
+	for i, record := range expectedResults {
+		if bytes.Compare(receivedResults[i], record) != 0 {
 			t.Error("Record is not same")
 		}
 	}

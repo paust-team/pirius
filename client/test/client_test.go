@@ -2,14 +2,43 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"github.com/elon0823/paustq/client"
 	"testing"
+	"time"
 )
 
-func TestClient_Create(t *testing.T) {
+type RecordMap map[string][][]byte
+type MockMessageHandler func(chan []byte, chan []byte, RecordMap)
 
-	server := NewTcpServer(":3000", nil, nil)
+func StartTestServer(port string, mockMsgHandler MockMessageHandler, testRecordMap RecordMap) (*TcpServer, error) {
+
+	recvCh := make(chan []byte)
+	sendCh := make(chan []byte)
+
+	server := NewTcpServer(port, recvCh, sendCh)
 	err := server.StartListen()
+	if err != nil {
+		return nil, err
+	}
+
+	if mockMsgHandler != nil {
+		go mockMsgHandler(recvCh, sendCh, testRecordMap)
+	}
+
+	return server, nil
+}
+
+func TestClient_Connect(t *testing.T) {
+
+	ip := "127.0.0.1"
+	port := ":3000"
+	timeout := 5
+	host := fmt.Sprintf("%s%s", ip, port)
+	ctx := context.Background()
+
+	// Start Server
+	server, err := StartTestServer(port, nil, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -17,9 +46,8 @@ func TestClient_Create(t *testing.T) {
 
 	defer server.Stop()
 
-	host := "127.0.0.1:3000"
-	ctx := context.Background()
-	c := client.NewClient(ctx, host, 5, 0)
+	// Start Client
+	c := client.NewClient(ctx, host, time.Duration(timeout), 0)
 
 	if c.Connect() != nil {
 		t.Error("Error on connect")
