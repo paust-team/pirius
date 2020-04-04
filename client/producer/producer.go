@@ -2,10 +2,12 @@ package producer
 
 import (
 	"context"
+	"fmt"
 	"github.com/elon0823/paustq/client"
 	"github.com/elon0823/paustq/message"
 	"github.com/elon0823/paustq/proto"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -15,29 +17,24 @@ type SourceData struct {
 }
 
 type ResendableResponseData struct {
-	sourceData SourceData
-	responseCh chan client.ReceivedData
+	requestData []byte
+	responseCh  chan client.ReceivedData
 }
 
 type Producer struct {
-	ctx               context.Context
-	client            *client.Client
-	sourceChannel     chan SourceData
-	publishing        bool
-	onReceiveResponse chan paustq_proto.PutResponse
+	ctx           context.Context
+	client        *client.Client
+	sourceChannel chan SourceData
+	publishing    bool
+	waitGroup     sync.WaitGroup
 }
 
 func NewProducer(ctx context.Context, hostUrl string, timeout time.Duration) *Producer {
 	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_PUBLISHER)
 
-	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan SourceData), publishing: false, onReceiveResponse: nil}
+	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan SourceData), publishing: false}
 
 	return producer
-}
-
-func (p *Producer) WithOnReceiveResponse(receiveCh chan paustq_proto.PutResponse) *Producer {
-	p.onReceiveResponse = receiveCh
-	return p
 }
 
 func (p *Producer) waitResponse(resendableData ResendableResponseData) {
@@ -53,18 +50,20 @@ func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 			err := message.UnPackTo(res.Data, putRespMsg)
 			if err != nil {
 				log.Fatal("Failed to parse data to PutResponse")
-			} else {
-				if p.onReceiveResponse != nil {
-					p.onReceiveResponse <- *putRespMsg
-				}
+			} else if putRespMsg.ErrorCode != 0 {
+				log.Fatal("PutResponse has error code: ", putRespMsg.ErrorCode)
 			}
+			p.waitGroup.Done()
 		}
 
 	case <-p.ctx.Done():
+		p.waitGroup.Done()
 		return
 	case <-time.After(time.Second * 10):
-		log.Fatal("Receive PutResponse Timeout. Resend data..: ")
-		p.sourceChannel <- resendableData.sourceData
+		fmt.Println("Wait Response Timeout.. Resend Put Request")
+		close(resendableData.responseCh)
+		resendableData := ResendableResponseData{requestData: resendableData.requestData, responseCh: make(chan client.ReceivedData)}
+		go p.waitResponse(resendableData)
 		return
 	}
 }
@@ -76,16 +75,17 @@ func (p *Producer) startPublish() {
 	for {
 		select {
 		case sourceData := <-p.sourceChannel:
-			protoMsg, protoErr := message.NewPutRequestMsg(sourceData.Topic, sourceData.Data)
+			requestData, err := message.NewPutRequestMsgData(sourceData.Topic, sourceData.Data)
 
-			if protoErr != nil {
+			if err != nil {
 				log.Fatal("Failed to create PutRequest message")
 			} else {
-				err := p.client.Write(protoMsg)
+				err := p.client.Write(requestData)
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					resendableData := ResendableResponseData{sourceData: sourceData, responseCh: make(chan client.ReceivedData)}
+					resendableData := ResendableResponseData{requestData: requestData, responseCh: make(chan client.ReceivedData)}
+					p.waitGroup.Add(1)
 					go p.waitResponse(resendableData)
 				}
 			}
@@ -102,6 +102,12 @@ func (p *Producer) Publish(topic string, data []byte) {
 		go p.startPublish()
 	}
 	p.sourceChannel <- SourceData{topic, data}
+}
+
+func (p *Producer) WaitAllPublishResponse() {
+	if p.publishing {
+		p.waitGroup.Wait()
+	}
 }
 
 func (p *Producer) Connect() error {

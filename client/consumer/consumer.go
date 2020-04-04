@@ -72,13 +72,13 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 		c.subscribing = true
 		go c.startSubscribe()
 
-		protoMsg, protoErr := message.NewFetchRequestMsg(topic, 0)
-		if protoErr != nil {
+		requestData, err := message.NewFetchRequestMsgData(topic, 0)
+		if err != nil {
 			log.Fatal("Failed to create FetchRequest message")
 			return nil
 		}
 
-		err := c.client.Write(protoMsg)
+		err = c.client.Write(requestData)
 		if err != nil {
 			log.Fatal(err)
 			return nil

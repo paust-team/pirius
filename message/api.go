@@ -27,11 +27,11 @@ func UnPackTo(data []byte, msg proto.Message) error {
 	if ptypes.Is(anyCont, msg) {
 		return ptypes.UnmarshalAny(anyCont, msg)
 	} else {
-		return errors.New("Not same type: " + anyCont.TypeUrl )
+		return errors.New("Not same type: " + anyCont.TypeUrl)
 	}
 }
 
-func NewConnectMsg(sessionType paustq_proto.SessionType) ([]byte, error) {
+func NewConnectMsgData(sessionType paustq_proto.SessionType) ([]byte, error) {
 	connectReq := &paustq_proto.Connect{
 		Magic: -1, SessionType: sessionType,
 	}
@@ -39,7 +39,7 @@ func NewConnectMsg(sessionType paustq_proto.SessionType) ([]byte, error) {
 	return PackFrom(connectReq)
 }
 
-func NewPutRequestMsg(topic string, data []byte) ([]byte, error) {
+func NewPutRequestMsgData(topic string, data []byte) ([]byte, error) {
 
 	putRequest := &paustq_proto.PutRequest{
 		Magic: -1, TopicName: topic, Data: data,
@@ -48,20 +48,20 @@ func NewPutRequestMsg(topic string, data []byte) ([]byte, error) {
 	return PackFrom(putRequest)
 }
 
-func NewPutResponseMsg(topic string, errorCode int32) ([]byte, error) {
+func NewPutResponseMsgData(topic string, errorCode int32) ([]byte, error) {
 
 	partition := &paustq_proto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
 	putResponse := &paustq_proto.PutResponse{
-		Magic: -1, TopicName: topic, Partition: partition, ErrorCode:errorCode,
+		Magic: -1, TopicName: topic, Partition: partition, ErrorCode: errorCode,
 	}
 
 	return PackFrom(putResponse)
 }
 
-func NewFetchRequestMsg(topic string, startOffset uint64) ([]byte, error) {
+func NewFetchRequestMsgData(topic string, startOffset uint64) ([]byte, error) {
 
 	fetchRequest := &paustq_proto.FetchRequest{
 		Magic: -1, TopicName: topic, StartOffset: startOffset,
@@ -70,13 +70,13 @@ func NewFetchRequestMsg(topic string, startOffset uint64) ([]byte, error) {
 	return PackFrom(fetchRequest)
 }
 
-func NewFetchResponseMsg(data []byte, errorCode int32) ([]byte, error) {
+func NewFetchResponseMsgData(data []byte, errorCode int32) ([]byte, error) {
 	partition := &paustq_proto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
 	fetchResponse := &paustq_proto.FetchResponse{
-		Magic: -1, Partition: partition, Data: data, ErrorCode:errorCode,
+		Magic: -1, Partition: partition, Data: data, ErrorCode: errorCode,
 	}
 
 	return PackFrom(fetchResponse)

@@ -23,7 +23,7 @@ func handleSubscribeMessage(serverReceiveChannel chan []byte, serverSendChannel 
 			topicData := testData[fetchReqMsg.TopicName]
 
 			for _, record := range topicData {
-				fetchResMsg, err := message.NewFetchResponseMsg(record, 0)
+				fetchResMsg, err := message.NewFetchResponseMsgData(record, 0)
 				if err != nil {
 					fmt.Println("Failed to create FetchResponse message")
 					continue
@@ -31,7 +31,7 @@ func handleSubscribeMessage(serverReceiveChannel chan []byte, serverSendChannel 
 				serverSendChannel <- fetchResMsg
 			}
 
-			fetchEnd, err := message.NewFetchResponseMsg(nil, 1)
+			fetchEnd, err := message.NewFetchResponseMsgData(nil, 1)
 			if err != nil {
 				fmt.Println("Failed to create FetchResponse message")
 				continue
@@ -48,6 +48,9 @@ func TestConsumerSubscribe(t *testing.T) {
 		"topic1": {{'g', 'o', 'o', 'g', 'l', 'e'}, {'p', 'a', 'u', 's', 't', 'q'}, {'1', '2', '3', '4', '5', '6'}},
 		"topic2": {{'t', 'e', 's', 't'}},
 	}
+
+	var receivedRecords [][]byte
+	topic := "topic1"
 
 	// Setup test tcp server
 	serverReceiveChannel := make(chan []byte)
@@ -72,8 +75,7 @@ func TestConsumerSubscribe(t *testing.T) {
 		t.Error("Error on connect")
 	}
 
-	var receivedRecords [][]byte
-	for response := range client.Subscribe("topic1") {
+	for response := range client.Subscribe(topic) {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {

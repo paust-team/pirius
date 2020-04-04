@@ -40,13 +40,13 @@ func (c *Client) Connect() error {
 
 	c.conn = conn
 
-	protoMsg, protoErr := message.NewConnectMsg(c.SessionType)
-	if protoErr != nil {
+	requestData, err := message.NewConnectMsgData(c.SessionType)
+	if err != nil {
 		log.Fatal("Failed to create Connect message")
 		return c.Close()
 
 	}
-	connReqErr := c.Write(protoMsg)
+	connReqErr := c.Write(requestData)
 	if connReqErr != nil {
 		log.Fatal("Failed to send connect request to broker")
 		return c.Close()

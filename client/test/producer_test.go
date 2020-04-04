@@ -1,16 +1,16 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/elon0823/paustq/client/producer"
 	"github.com/elon0823/paustq/message"
 	"github.com/elon0823/paustq/proto"
-	"sync"
 	"testing"
 )
 
-func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel chan []byte) {
+func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel chan []byte, receivedRecords *[][]byte) {
 
 	for received := range serverReceiveChannel {
 		putReqMsg := &paustq_proto.PutRequest{}
@@ -19,16 +19,26 @@ func handlePublishMessage(serverReceiveChannel chan []byte, serverSendChannel ch
 			continue
 		}
 
-		putResMsg, err := message.NewPutResponseMsg(putReqMsg.TopicName, 0)
+		putResMsg, err := message.NewPutResponseMsgData(putReqMsg.TopicName, 0)
 		if err != nil {
 			fmt.Println("Failed to create PutResponse message")
 			continue
 		}
+		*receivedRecords = append(*receivedRecords, putReqMsg.Data)
 		serverSendChannel <- putResMsg
 	}
 }
 
 func TestProducerPublish(t *testing.T) {
+
+	testRecords := [][]byte{
+		{'g', 'o', 'o', 'g', 'l', 'e'},
+		{'p', 'a', 'u', 's', 't', 'q'},
+		{'1', '2', '3', '4', '5', '6'},
+	}
+
+	var receivedRecords [][]byte
+	topic := "topic1"
 
 	// Setup test tcp server
 	serverReceiveChannel := make(chan []byte)
@@ -41,53 +51,30 @@ func TestProducerPublish(t *testing.T) {
 		return
 	}
 
-	go handlePublishMessage(serverReceiveChannel, serverSendChannel)
+	go handlePublishMessage(serverReceiveChannel, serverSendChannel, &receivedRecords)
 
 	defer server.Stop()
 
-	// Test Producer Client
-	testRecords := [][]byte{
-		{'g', 'o', 'o', 'g', 'l', 'e'},
-		{'p', 'a', 'u', 's', 't', 'q'},
-		{'1', '2', '3', '4', '5', '6'},
-	}
-	topics := []string{"topic1", "topic2", "topic3"}
-	var receivedTopics []string
-	var waitGroup sync.WaitGroup
-
-	onResponse := make(chan paustq_proto.PutResponse)
 	host := "127.0.0.1:8000"
 	ctx := context.Background()
 
-	client := producer.NewProducer(ctx, host, 5).WithOnReceiveResponse(onResponse)
+	client := producer.NewProducer(ctx, host, 5)
 	if client.Connect() != nil {
 		t.Error("Error on connect")
 	}
 
-	go func() {
-		for response := range onResponse {
-			if response.ErrorCode != 0 {
-				t.Error("PutResponse has error code: ", response.ErrorCode)
-			} else {
-				receivedTopics = append(receivedTopics, response.TopicName)
-			}
-			waitGroup.Done()
-		}
-	}()
+	for _, record := range testRecords {
+		client.Publish(topic, record)
+	}
 
+	client.WaitAllPublishResponse()
+
+	if len(testRecords) != len(receivedRecords) {
+		t.Error("Length Mismatch - Send records: ", len(testRecords), ", Received records: ", len(receivedRecords))
+	}
 	for i, record := range testRecords {
-		waitGroup.Add(1)
-		client.Publish(topics[i], record)
-	}
-
-	waitGroup.Wait()
-	if len(topics) != len(receivedTopics) {
-		t.Error("Length Mismatch - Send records: ", len(topics), ", Received records: ", len(receivedTopics))
-	}
-	for _, topic := range topics {
-		if !contains(receivedTopics, topic) {
-			t.Error("Topic not exists in received topics")
-			break
+		if bytes.Compare(receivedRecords[i], record) != 0 {
+			t.Error("Record is not same")
 		}
 	}
 
