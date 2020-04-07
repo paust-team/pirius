@@ -11,17 +11,17 @@ import (
 	"time"
 )
 
-func mockConsumerHandler(serverReceiveChannel chan []byte, serverSendChannel chan []byte, testData RecordMap) {
+func mockConsumerHandler(serverReceiveChannel chan TopicData, serverSendChannel chan []byte, testData RecordMap) {
 
 	for received := range serverReceiveChannel {
 		fetchReqMsg := &paustq_proto.FetchRequest{}
 
-		if err := message.UnPackTo(received, fetchReqMsg); err != nil {
+		if err := message.UnPackTo(received.Data, fetchReqMsg); err != nil {
 			continue
 		}
 
-		if testData[fetchReqMsg.TopicName] != nil {
-			topicData := testData[fetchReqMsg.TopicName]
+		if testData[received.Topic] != nil {
+			topicData := testData[received.Topic]
 
 			for _, record := range topicData {
 				fetchResMsg, err := message.NewFetchResponseMsgData(record, 0)
@@ -72,8 +72,9 @@ func TestConsumer_Subscribe(t *testing.T) {
 
 	// Start Client
 	client := consumer.NewConsumer(ctx, host, time.Duration(timeout))
-	if client.Connect() != nil {
+	if client.Connect(topic) != nil {
 		t.Error("Error on connect")
+		return
 	}
 
 	for response := range client.Subscribe(topic) {

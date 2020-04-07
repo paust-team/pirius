@@ -9,11 +9,11 @@ import (
 )
 
 type RecordMap map[string][][]byte
-type MockMessageHandler func(chan []byte, chan []byte, RecordMap)
+type MockMessageHandler func(chan TopicData, chan []byte, RecordMap)
 
 func StartTestServer(port string, mockMsgHandler MockMessageHandler, testRecordMap RecordMap) (*TcpServer, error) {
 
-	recvCh := make(chan []byte)
+	recvCh := make(chan TopicData)
 	sendCh := make(chan []byte)
 
 	server := NewTcpServer(port, recvCh, sendCh)
@@ -36,6 +36,7 @@ func TestClient_Connect(t *testing.T) {
 	timeout := 5
 	host := fmt.Sprintf("%s%s", ip, port)
 	ctx := context.Background()
+	topic := "test_topic1"
 
 	// Start Server
 	server, err := StartTestServer(port, nil, nil)
@@ -49,9 +50,11 @@ func TestClient_Connect(t *testing.T) {
 	// Start Client
 	c := client.NewClient(ctx, host, time.Duration(timeout), 0)
 
-	if c.Connect() != nil {
+	if c.Connect(topic) != nil {
 		t.Error("Error on connect")
+		return
 	}
+
 	err = c.Close()
 	if err != nil {
 		t.Error(err)

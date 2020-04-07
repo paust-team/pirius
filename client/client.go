@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/elon0823/paustq/message"
 	"github.com/elon0823/paustq/proto"
 	"log"
@@ -32,26 +34,45 @@ func NewClient(ctx context.Context, hostUrl string, timeout time.Duration, sessi
 	return &Client{ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
 }
 
-func (c *Client) Connect() error {
+func (c *Client) Connect(topicName string) error {
 	conn, err := net.DialTimeout("tcp", c.HostUrl, c.Timeout*time.Second)
 	if err != nil {
 		return err
 	}
 
-	c.conn = conn
-
-	requestData, err := message.NewConnectMsgData(c.SessionType)
+	requestData, err := message.NewConnectRequestMsgData(c.SessionType, topicName)
 	if err != nil {
 		log.Fatal("Failed to create Connect message")
-		return c.Close()
+		_ = conn.Close()
+		return err
 
 	}
-	connReqErr := c.Write(requestData)
-	if connReqErr != nil {
+
+	if _, err = conn.Write(requestData); err != nil {
 		log.Fatal("Failed to send connect request to broker")
-		return c.Close()
+		_ = conn.Close()
+		return err
 	}
 
+	readBuffer := make([]byte, 1024)
+	conn.SetReadDeadline(time.Now().Add(c.Timeout * time.Second))
+	n, err := conn.Read(readBuffer)
+
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+
+	connectRespMsg := &paustq_proto.ConnectResponse{}
+	if message.UnPackTo(readBuffer[0:n], connectRespMsg) != nil {
+		_ = conn.Close()
+		return errors.New("failed to parse data to PutResponse")
+	} else if connectRespMsg.ErrorCode != 0 {
+		_ = conn.Close()
+		return errors.New(fmt.Sprintf("connectRequest has error code with %d", connectRespMsg.ErrorCode))
+	}
+
+	c.conn = conn
 	c.Connected = true
 
 	return nil

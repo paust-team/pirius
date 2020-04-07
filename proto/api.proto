@@ -90,28 +90,25 @@ message Ack {
 
 message PutRequest {
     int32 magic = 1;
-    string topic_name = 2;
-    bytes data = 3;
+    bytes data = 2;
 }
 
 message PutResponse {
     int32 magic = 1;
-    string topic_name = 2;
-    Partition partition = 3;
-    int32 error_code = 4;
+    Partition partition = 2;
+    int32 error_code = 3;
 }
 
 message FetchRequest {
     int32 magic = 1;
-    string topic_name = 2;
-    uint64 start_offset = 3;
+    uint64 start_offset = 2;
 }
 
 message FetchResponse {
     int32 magic = 1;
     bytes data = 2;
-    Partition partition = 4;
-    int32 error_code = 5;
+    Partition partition = 3;
+    int32 error_code = 4;
 }
 
 // partition
@@ -187,9 +184,15 @@ message DeleteGroupResponse {
 
 // connection
 
-message Connect {
+message ConnectRequest {
     int32 magic = 1;
-    SessionType session_type =2;
+    SessionType session_type = 2;
+    string topic_name = 3;
+}
+
+message ConnectResponse {
+    int32 magic = 1;
+    int32 error_code = 2;
 }
 
 message HeartBeatRequest {

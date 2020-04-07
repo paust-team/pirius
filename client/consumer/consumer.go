@@ -44,8 +44,7 @@ func (c *Consumer) startSubscribe() {
 				c.sinkChannel <- SinkData{res.Error, nil}
 			} else {
 				fetchRespMsg := &paustq_proto.FetchResponse{}
-				err := message.UnPackTo(res.Data, fetchRespMsg)
-				if message.UnPackTo(res.Data, fetchRespMsg) != nil {
+				if err := message.UnPackTo(res.Data, fetchRespMsg); err != nil {
 					c.sinkChannel <- SinkData{err, nil}
 					break
 				}
@@ -57,7 +56,7 @@ func (c *Consumer) startSubscribe() {
 				} else if fetchRespMsg.ErrorCode > 1 {
 					c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
 				} else {
-					c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
+					c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
 				}
 			}
 		case <-c.ctx.Done():
@@ -72,7 +71,7 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 		c.subscribing = true
 		go c.startSubscribe()
 
-		requestData, err := message.NewFetchRequestMsgData(topic, 0)
+		requestData, err := message.NewFetchRequestMsgData(0)
 		if err != nil {
 			log.Fatal("Failed to create FetchRequest message")
 			return nil
@@ -88,8 +87,8 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 	return c.sinkChannel
 }
 
-func (c *Consumer) Connect() error {
-	return c.client.Connect()
+func (c *Consumer) Connect(topic string) error {
+	return c.client.Connect(topic)
 }
 
 func (c *Consumer) Close() error {

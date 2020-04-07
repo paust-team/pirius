@@ -11,22 +11,22 @@ import (
 	"time"
 )
 
-func mockProducerHandler(serverReceiveChannel chan []byte, serverSendChannel chan []byte, receivedRecordMap RecordMap) {
+func mockProducerHandler(serverReceiveChannel chan TopicData, serverSendChannel chan []byte, receivedRecordMap RecordMap) {
 
 	for received := range serverReceiveChannel {
 		putReqMsg := &paustq_proto.PutRequest{}
 
-		if err := message.UnPackTo(received, putReqMsg); err != nil {
+		if err := message.UnPackTo(received.Data, putReqMsg); err != nil {
 			continue
 		}
 
-		putResMsg, err := message.NewPutResponseMsgData(putReqMsg.TopicName, 0)
+		putResMsg, err := message.NewPutResponseMsgData(0)
 		if err != nil {
 			fmt.Println("Failed to create PutResponse message")
 			continue
 		}
 
-		receivedRecordMap[putReqMsg.TopicName] = append(receivedRecordMap[putReqMsg.TopicName], putReqMsg.Data)
+		receivedRecordMap[received.Topic] = append(receivedRecordMap[received.Topic], putReqMsg.Data)
 		serverSendChannel <- putResMsg
 	}
 }
@@ -59,12 +59,12 @@ func TestProducer_Publish(t *testing.T) {
 
 	// Start Client
 	client := producer.NewProducer(ctx, host, time.Duration(timeout))
-	if client.Connect() != nil {
+	if client.Connect(topic) != nil {
 		t.Error("Error on connect")
 	}
 
 	for _, record := range testRecordMap[topic] {
-		client.Publish(topic, record)
+		client.Publish(record)
 	}
 
 	client.WaitAllPublishResponse()

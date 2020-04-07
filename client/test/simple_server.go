@@ -1,8 +1,11 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"github.com/elon0823/paustq/client"
+	"github.com/elon0823/paustq/message"
+	"github.com/elon0823/paustq/proto"
 	"net"
 	"reflect"
 	"time"
@@ -13,11 +16,62 @@ type TcpServer struct {
 	endAccept chan bool
 	endWrite  chan bool
 	endRead   chan bool
-	sink      chan<- []byte
+	sink      chan<- TopicData
 	source    <-chan []byte
 }
 
-func NewTcpServer(port string, sink chan<- []byte, source <-chan []byte) *TcpServer {
+type TopicData struct {
+	Data  []byte
+	Topic string
+}
+
+type Session struct {
+	conn  net.Conn
+	topic string
+}
+
+func NewSession(conn net.Conn) *Session {
+	conn.SetDeadline(time.Now().Add(3 * time.Second))
+	return &Session{conn: conn}
+}
+
+func (sess *Session) SetTopic(topic string) {
+	sess.topic = topic
+}
+
+func (sess *Session) Write(data []byte) error {
+	_, err := sess.conn.Write(data)
+	return err
+}
+
+func (sess *Session) Read(receiveCh chan<- client.ReceivedData) {
+
+	readBuffer := make([]byte, 1024)
+	n, err := sess.conn.Read(readBuffer)
+	if err != nil {
+		receiveCh <- client.ReceivedData{err, nil}
+	} else {
+		connReqMsg := &paustq_proto.ConnectRequest{}
+		data := readBuffer[0:n]
+		if err = message.UnPackTo(data, connReqMsg); err == nil {
+
+			sess.topic = connReqMsg.TopicName
+
+			connResMsg, err := message.NewConnectResponseMsgData(0)
+			if err != nil {
+				fmt.Println("Failed to create ConnectResponse message")
+			}
+			if err = sess.Write(connResMsg); err != nil {
+				fmt.Println("Failed to write data to connection")
+			}
+			receiveCh <- client.ReceivedData{errors.New("Skip"), nil}
+		} else {
+			receiveCh <- client.ReceivedData{nil, data}
+		}
+	}
+}
+
+func NewTcpServer(port string, sink chan<- TopicData, source <-chan []byte) *TcpServer {
 	return &TcpServer{port, make(chan bool), make(chan bool), make(chan bool),
 		sink, source}
 }
@@ -26,26 +80,11 @@ func (server *TcpServer) accept(onAccepted chan net.Conn, listener net.Listener)
 
 	listener.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))
 	conn, err := listener.Accept()
+
 	if err != nil {
 		onAccepted <- nil
 	} else {
 		onAccepted <- conn
-	}
-}
-
-func (server *TcpServer) write(data []byte, conn net.Conn) error {
-	_, err := conn.Write(data)
-	return err
-}
-
-func (server *TcpServer) read(receiveCh chan<- client.ReceivedData, conn net.Conn) {
-
-	readBuffer := make([]byte, 1024)
-	n, err := conn.Read(readBuffer)
-	if err != nil {
-		receiveCh <- client.ReceivedData{err, nil}
-	} else {
-		receiveCh <- client.ReceivedData{err, readBuffer[0:n]}
 	}
 }
 
@@ -68,11 +107,11 @@ func (server *TcpServer) handleAccept(listener net.Listener) {
 	}
 }
 
-func (server *TcpServer) handleWrite(conn net.Conn) {
+func (server *TcpServer) handleWrite(sess *Session) {
 	for {
 		select {
 		case data := <-server.source:
-			if err := server.write(data, conn); err != nil {
+			if err := sess.Write(data); err != nil {
 				fmt.Println("Failed to write data to connection")
 			}
 		case <-server.endWrite:
@@ -83,12 +122,12 @@ func (server *TcpServer) handleWrite(conn net.Conn) {
 	}
 }
 
-func (server *TcpServer) handleRead(conn net.Conn) {
+func (server *TcpServer) handleRead(sess *Session) {
 
 	onReceiveResponse := make(chan client.ReceivedData)
 
 	for {
-		go server.read(onReceiveResponse, conn)
+		go sess.Read(onReceiveResponse)
 
 		select {
 		case <-server.endRead:
@@ -99,7 +138,7 @@ func (server *TcpServer) handleRead(conn net.Conn) {
 				break
 			}
 			if server.sink != nil {
-				server.sink <- res.Data
+				server.sink <- TopicData{Topic: sess.topic, Data: res.Data}
 			}
 		}
 	}
@@ -107,9 +146,10 @@ func (server *TcpServer) handleRead(conn net.Conn) {
 
 func (server *TcpServer) handleConnection(conn net.Conn) {
 
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	go server.handleRead(conn)
-	go server.handleWrite(conn)
+	sess := NewSession(conn)
+
+	go server.handleRead(sess)
+	go server.handleWrite(sess)
 }
 
 func (server *TcpServer) StartListen() error {
