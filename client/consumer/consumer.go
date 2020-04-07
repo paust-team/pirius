@@ -36,7 +36,7 @@ func (c *Consumer) startSubscribe() {
 	onReceiveResponse := make(chan client.ReceivedData)
 
 	for {
-		go c.client.Read(onReceiveResponse, c.client.Timeout)
+		go c.client.ReadToChan(onReceiveResponse, c.client.Timeout)
 
 		select {
 		case res := <-onReceiveResponse:

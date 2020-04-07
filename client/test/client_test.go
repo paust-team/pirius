@@ -50,8 +50,8 @@ func TestClient_Connect(t *testing.T) {
 	// Start Client
 	c := client.NewClient(ctx, host, time.Duration(timeout), 0)
 
-	if c.Connect(topic) != nil {
-		t.Error("Error on connect")
+	if err := c.Connect(topic); err != nil {
+		t.Error("Error on connect. ", err)
 		return
 	}
 

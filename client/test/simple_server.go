@@ -1,7 +1,6 @@
 package test
 
 import (
-	"errors"
 	"fmt"
 	"github.com/elon0823/paustq/client"
 	"github.com/elon0823/paustq/message"
@@ -39,34 +38,54 @@ func (sess *Session) SetTopic(topic string) {
 	sess.topic = topic
 }
 
-func (sess *Session) Write(data []byte) error {
-	_, err := sess.conn.Write(data)
+func (sess *Session) Write(msgData []byte) error {
+	data, err := message.Serialize(msgData)
+	if err != nil {
+		return err
+	}
+	_, err = sess.conn.Write(data)
 	return err
 }
 
 func (sess *Session) Read(receiveCh chan<- client.ReceivedData) {
 
-	readBuffer := make([]byte, 1024)
-	n, err := sess.conn.Read(readBuffer)
-	if err != nil {
-		receiveCh <- client.ReceivedData{err, nil}
-	} else {
-		connReqMsg := &paustq_proto.ConnectRequest{}
-		data := readBuffer[0:n]
-		if err = message.UnPackTo(data, connReqMsg); err == nil {
-
-			sess.topic = connReqMsg.TopicName
-
-			connResMsg, err := message.NewConnectResponseMsgData(0)
-			if err != nil {
-				fmt.Println("Failed to create ConnectResponse message")
+	var totalData []byte
+	for {
+		readBuffer := make([]byte, 1024)
+		n, err := sess.conn.Read(readBuffer)
+		if err != nil {
+			if n > 0 {
+				receiveCh <- client.ReceivedData{err, nil}
 			}
-			if err = sess.Write(connResMsg); err != nil {
-				fmt.Println("Failed to write data to connection")
-			}
-			receiveCh <- client.ReceivedData{errors.New("Skip"), nil}
 		} else {
-			receiveCh <- client.ReceivedData{nil, data}
+
+			totalData = append(totalData, readBuffer[:n]...)
+			data, err := message.Deserialize(totalData)
+
+			if err != nil {
+				if data != nil {
+					continue
+				}
+				receiveCh <- client.ReceivedData{err, nil}
+				return
+			}
+			connReqMsg := &paustq_proto.ConnectRequest{}
+			if err = message.UnPackTo(data, connReqMsg); err == nil {
+
+				sess.topic = connReqMsg.TopicName
+
+				connResMsg, err := message.NewConnectResponseMsgData(0)
+				if err != nil {
+					fmt.Println("Failed to create ConnectResponse message")
+				}
+				if err = sess.Write(connResMsg); err != nil {
+					fmt.Println("Failed to write data to connection")
+				}
+				receiveCh <- client.ReceivedData{nil, nil}
+			} else {
+				receiveCh <- client.ReceivedData{nil, data}
+			}
+			return
 		}
 	}
 }
@@ -135,9 +154,10 @@ func (server *TcpServer) handleRead(sess *Session) {
 			return
 		case res := <-onReceiveResponse:
 			if res.Error != nil {
+				fmt.Println(res.Error)
 				break
 			}
-			if server.sink != nil {
+			if res.Data != nil && server.sink != nil {
 				server.sink <- TopicData{Topic: sess.topic, Data: res.Data}
 			}
 		}

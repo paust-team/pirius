@@ -40,23 +40,23 @@ func (c *Client) Connect(topicName string) error {
 		return err
 	}
 
+	c.conn = conn
+	c.Connected = true
+
 	requestData, err := message.NewConnectRequestMsgData(c.SessionType, topicName)
 	if err != nil {
 		log.Fatal("Failed to create Connect message")
 		_ = conn.Close()
 		return err
-
 	}
 
-	if _, err = conn.Write(requestData); err != nil {
+	if c.Write(requestData) != nil {
 		log.Fatal("Failed to send connect request to broker")
 		_ = conn.Close()
 		return err
 	}
 
-	readBuffer := make([]byte, 1024)
-	conn.SetReadDeadline(time.Now().Add(c.Timeout * time.Second))
-	n, err := conn.Read(readBuffer)
+	data, err := c.Read(3)
 
 	if err != nil {
 		_ = conn.Close()
@@ -64,7 +64,7 @@ func (c *Client) Connect(topicName string) error {
 	}
 
 	connectRespMsg := &paustq_proto.ConnectResponse{}
-	if message.UnPackTo(readBuffer[0:n], connectRespMsg) != nil {
+	if message.UnPackTo(data, connectRespMsg) != nil {
 		_ = conn.Close()
 		return errors.New("failed to parse data to PutResponse")
 	} else if connectRespMsg.ErrorCode != 0 {
@@ -72,29 +72,67 @@ func (c *Client) Connect(topicName string) error {
 		return errors.New(fmt.Sprintf("connectRequest has error code with %d", connectRespMsg.ErrorCode))
 	}
 
-	c.conn = conn
-	c.Connected = true
-
 	return nil
 }
 
 func (c *Client) Close() error {
+	c.Connected = false
 	return c.conn.Close()
 }
 
-func (c *Client) Write(data []byte) error {
-	_, err := c.conn.Write(data)
-	return err
+func (c *Client) Write(msgData []byte) error {
+	if c.Connected {
+		data, err := message.Serialize(msgData)
+		if err != nil {
+			return err
+		}
+		_, err = c.conn.Write(data)
+		return err
+	}
+	return errors.New("disconnected")
 }
 
-func (c *Client) Read(receiveCh chan<- ReceivedData, timeout time.Duration) {
+func (c *Client) Read(timeout time.Duration) ([]byte, error) {
+
+	if c.Connected {
+		c.conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
+
+		var totalData []byte
+		for {
+			readBuffer := make([]byte, 1024)
+			n, err := c.conn.Read(readBuffer)
+			if err != nil {
+				return nil, err
+			}
+
+			totalData = append(totalData, readBuffer[:n]...)
+			data, err := message.Deserialize(totalData)
+
+			if err != nil {
+				if data != nil {
+					continue
+				}
+				return nil, err
+			}
+
+			return data, nil
+		}
+	}
+	return nil, errors.New("disconnected")
+}
+
+func (c *Client) ReadToChan(receiveCh chan<- ReceivedData, timeout time.Duration) {
 
 	c.conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
-	readBuffer := make([]byte, 1024)
-	n, err := c.conn.Read(readBuffer)
+
+	data, err := c.Read(timeout)
 	if err != nil {
 		receiveCh <- ReceivedData{err, nil}
 	} else {
-		receiveCh <- ReceivedData{err, readBuffer[0:n]}
+		if err != nil {
+			receiveCh <- ReceivedData{err, nil}
+		} else {
+			receiveCh <- ReceivedData{nil, data}
+		}
 	}
 }

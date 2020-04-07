@@ -34,7 +34,7 @@ func NewProducer(ctx context.Context, hostUrl string, timeout time.Duration) *Pr
 
 func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 
-	go p.client.Read(resendableData.responseCh, p.client.Timeout)
+	go p.client.ReadToChan(resendableData.responseCh, p.client.Timeout)
 
 	select {
 	case res := <-resendableData.responseCh:
