@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/elon0823/paustq/client/producer"
-	"github.com/elon0823/paustq/message"
-	"github.com/elon0823/paustq/proto"
+	"github.com/paust-team/paustq/client/producer"
+	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/proto"
 	"testing"
 	"time"
 )

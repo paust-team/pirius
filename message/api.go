@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/elon0823/paustq/proto"
+	"github.com/paust-team/paustq/proto"
 )
 
 func NewConnectRequestMsgData(sessionType paustq_proto.SessionType, topic string) ([]byte, error) {

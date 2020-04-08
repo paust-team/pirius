@@ -3,7 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/elon0823/paustq/client"
+	"github.com/paust-team/paustq/client"
 	"testing"
 	"time"
 )
