@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/proto"
 	"log"
 	"net"
 	"time"
