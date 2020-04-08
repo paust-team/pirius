@@ -1,48 +1,65 @@
 package message
 
 import (
-	"github.com/elon0823/paustq/proto"
-	"github.com/golang/protobuf/proto"
+	"github.com/paust-team/paustq/proto"
 )
 
-func NewConnectMsg(sessionType paustq_proto.SessionType) ([]byte, error) {
-	connectReq := &paustq_proto.Connect{
-		Magic: -1, SessionType: sessionType,
+func NewConnectRequestMsgData(sessionType paustq_proto.SessionType, topic string) ([]byte, error) {
+	connectReq := &paustq_proto.ConnectRequest{
+		Magic: -1, SessionType: sessionType, TopicName: topic,
 	}
 
-	return proto.Marshal(connectReq)
+	return PackFrom(connectReq)
 }
 
-func NewPutRequestMsg(topic string, data []byte) ([]byte, error) {
+func NewConnectResponseMsgData(errorCode int32) ([]byte, error) {
+
+	putResponse := &paustq_proto.ConnectResponse{
+		Magic: -1, ErrorCode: errorCode,
+	}
+
+	return PackFrom(putResponse)
+}
+
+func NewPutRequestMsgData(data []byte) ([]byte, error) {
 
 	putRequest := &paustq_proto.PutRequest{
-		Magic: -1, TopicName: topic, Data: data,
+		Magic: -1, Data: data,
 	}
 
-	return proto.Marshal(putRequest)
+	return PackFrom(putRequest)
 }
 
-func ParsePutResponseMsg(received []byte) (*paustq_proto.PutResponse, error) {
+func NewPutResponseMsgData(errorCode int32) ([]byte, error) {
 
-	putResponse := &paustq_proto.PutResponse{}
-	err := proto.Unmarshal(received, putResponse)
-
-	return putResponse, err
-}
-
-func NewFetchRequestMsg(topic string, startOffset uint64) ([]byte, error) {
-
-	putRequest := &paustq_proto.FetchRequest{
-		Magic: -1, TopicName: topic, StartOffset: startOffset,
+	partition := &paustq_proto.Partition{
+		PartitionId: 1, Offset: 0,
 	}
 
-	return proto.Marshal(putRequest)
+	putResponse := &paustq_proto.PutResponse{
+		Magic: -1, Partition: partition, ErrorCode: errorCode,
+	}
+
+	return PackFrom(putResponse)
 }
 
-func ParseFetchResponseMsg(received []byte) (*paustq_proto.FetchResponse, error) {
+func NewFetchRequestMsgData(startOffset uint64) ([]byte, error) {
 
-	fetchResponse := &paustq_proto.FetchResponse{}
-	err := proto.Unmarshal(received, fetchResponse)
+	fetchRequest := &paustq_proto.FetchRequest{
+		Magic: -1, StartOffset: startOffset,
+	}
 
-	return fetchResponse, err
+	return PackFrom(fetchRequest)
+}
+
+func NewFetchResponseMsgData(data []byte, errorCode int32) ([]byte, error) {
+	partition := &paustq_proto.Partition{
+		PartitionId: 1, Offset: 0,
+	}
+
+	fetchResponse := &paustq_proto.FetchResponse{
+		Magic: -1, Partition: partition, Data: data, ErrorCode: errorCode,
+	}
+
+	return PackFrom(fetchResponse)
 }

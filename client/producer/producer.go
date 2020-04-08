@@ -3,100 +3,114 @@ package producer
 import (
 	"context"
 	"fmt"
-	"github.com/elon0823/paustq/client"
-	"github.com/elon0823/paustq/message"
-	"github.com/elon0823/paustq/proto"
+	"github.com/paust-team/paustq/client"
+	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/proto"
 	"log"
+	"sync"
 	"time"
 )
 
-type SourceData struct {
-	Topic string
-	Data []byte
-}
-
 type ResendableResponseData struct {
-	sourceData			SourceData
-	responseCh 			chan client.ReceivedData
+	requestData []byte
+	responseCh  chan client.ReceivedData
 }
 
 type Producer struct {
-	client 				*client.Client
-	sourceChannel		chan SourceData
-	publishing			bool
+	ctx           context.Context
+	client        *client.Client
+	sourceChannel chan []byte
+	publishing    bool
+	waitGroup     sync.WaitGroup
 }
 
-func NewProducer(hostUrl string, timeout time.Duration) *Producer {
-	ctx := context.Background()
+func NewProducer(ctx context.Context, hostUrl string, timeout time.Duration) *Producer {
 	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_PUBLISHER)
 
-	producer := &Producer{client: c, sourceChannel: make(chan SourceData), publishing: false}
+	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan []byte), publishing: false}
 
 	return producer
 }
 
 func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 
-	go p.client.Read(resendableData.responseCh)
+	go p.client.ReadToChan(resendableData.responseCh, p.client.Timeout)
 
 	select {
-	case res := <- resendableData.responseCh:
+	case res := <-resendableData.responseCh:
 		if res.Error != nil {
-			log.Fatal("Error on read")
-			break
-		}
-		putRespMsg, err := message.ParsePutResponseMsg(res.Data)
-		if err != nil {
-			log.Fatal("Failed to parse data to PutResponse")
-		} else if putRespMsg.ErrorCode != 0{
-			log.Fatal("PutResponse Error: ", putRespMsg.ErrorCode)
+			log.Fatal("Error on read: timeout!")
 		} else {
-			fmt.Println("Success writing Topic: ", putRespMsg.TopicName)
+			putRespMsg := &paustq_proto.PutResponse{}
+			if message.UnPackTo(res.Data, putRespMsg) != nil {
+				log.Fatal("Failed to parse data to PutResponse")
+			} else if putRespMsg.ErrorCode != 0 {
+				log.Fatal("PutResponse has error code: ", putRespMsg.ErrorCode)
+			}
+			p.waitGroup.Done()
 		}
-	case <- time.After(time.Second * p.client.Timeout):
-		log.Fatal("Receive PutResponse Timeout. Resend data..: ")
-		p.sourceChannel <- resendableData.sourceData
+
+	case <-p.ctx.Done():
+		p.waitGroup.Done()
+		return
+	case <-time.After(time.Second * 10):
+		fmt.Println("Wait Response Timeout.. Resend Put Request")
+		close(resendableData.responseCh)
+		resendableData := ResendableResponseData{requestData: resendableData.requestData, responseCh: make(chan client.ReceivedData)}
+		go p.waitResponse(resendableData)
 		return
 	}
 }
 
 func (p *Producer) startPublish() {
+	if !p.publishing {
+		return
+	}
 	for {
 		select {
 		case sourceData := <-p.sourceChannel:
+			requestData, err := message.NewPutRequestMsgData(sourceData)
 
-			protoMsg, protoErr := message.NewPutRequestMsg(sourceData.Topic, sourceData.Data)
-
-			if protoErr != nil {
+			if err != nil {
 				log.Fatal("Failed to create PutRequest message")
 			} else {
-				err := p.client.Write(protoMsg)
+				err := p.client.Write(requestData)
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					resendableData := ResendableResponseData{sourceData:sourceData, responseCh: make(chan client.ReceivedData)}
+					resendableData := ResendableResponseData{requestData: requestData, responseCh: make(chan client.ReceivedData)}
+					p.waitGroup.Add(1)
 					go p.waitResponse(resendableData)
 				}
 			}
-		case <- p.client.Ctx.Done():
+		case <-p.ctx.Done():
 			return
 		}
+		time.Sleep(100 * time.Microsecond)
 	}
 }
 
-func (p *Producer) Publish(topic string, data []byte) {
+func (p *Producer) Publish(data []byte) {
 	if p.publishing == false {
 		p.publishing = true
-		p.startPublish()
+		go p.startPublish()
 	}
-	p.sourceChannel <- SourceData{topic, data}
+	p.sourceChannel <- data
 }
 
-func (p *Producer) Connect() error {
-	return p.client.Connect()
+func (p *Producer) WaitAllPublishResponse() {
+	if p.publishing {
+		p.waitGroup.Wait()
+	}
+}
+
+func (p *Producer) Connect(topic string) error {
+	return p.client.Connect(topic)
 }
 
 func (p *Producer) Close() error {
 	p.publishing = false
+	_, cancel := context.WithCancel(p.ctx)
+	cancel()
 	return p.client.Close()
 }

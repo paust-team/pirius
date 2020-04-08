@@ -4,53 +4,62 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/elon0823/paustq/client"
-	"github.com/elon0823/paustq/message"
-	"github.com/elon0823/paustq/proto"
+	"github.com/paust-team/paustq/client"
+	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/proto"
 	"log"
 	"time"
 )
 
 type Consumer struct {
-	client 			*client.Client
-	sinkChannel		chan SinkData
-	subscribing		bool
+	ctx         context.Context
+	client      *client.Client
+	sinkChannel chan SinkData
+	subscribing bool
 }
 
 type SinkData struct {
 	Error error
-	Data []byte
+	Data  []byte
 }
 
-func NewConsumer(hostUrl string, timeout time.Duration) *Consumer {
-	ctx := context.Background()
+func NewConsumer(ctx context.Context, hostUrl string, timeout time.Duration) *Consumer {
 	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_SUBSCRIBER)
-	return &Consumer{client: c, sinkChannel:make(chan SinkData), subscribing: false}
+	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false}
 }
 
 func (c *Consumer) startSubscribe() {
 
+	if !c.subscribing {
+		return
+	}
 	onReceiveResponse := make(chan client.ReceivedData)
 
 	for {
-		go c.client.Read(onReceiveResponse)
+		go c.client.ReadToChan(onReceiveResponse, c.client.Timeout)
 
 		select {
 		case res := <-onReceiveResponse:
 			if res.Error != nil {
 				c.sinkChannel <- SinkData{res.Error, nil}
-				break
-			}
-			fetchRespMsg, err := message.ParseFetchResponseMsg(res.Data)
-			if err != nil {
-				c.sinkChannel <- SinkData{err, nil}
-			} else if fetchRespMsg.ErrorCode != 0{
-				c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
 			} else {
-				c.sinkChannel <- SinkData{err, fetchRespMsg.Data}
-			}
+				fetchRespMsg := &paustq_proto.FetchResponse{}
+				if err := message.UnPackTo(res.Data, fetchRespMsg); err != nil {
+					c.sinkChannel <- SinkData{err, nil}
+					break
+				}
 
-		case <- c.client.Ctx.Done():
+				if fetchRespMsg.ErrorCode == 1 { // Consumed all record
+					c.subscribing = false
+					close(c.sinkChannel)
+					return
+				} else if fetchRespMsg.ErrorCode > 1 {
+					c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
+				} else {
+					c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
+				}
+			}
+		case <-c.ctx.Done():
 			return
 		}
 	}
@@ -60,30 +69,31 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 
 	if c.subscribing == false {
 		c.subscribing = true
+		go c.startSubscribe()
 
-		protoMsg, protoErr := message.NewFetchRequestMsg(topic, 0)
-		if protoErr != nil {
+		requestData, err := message.NewFetchRequestMsgData(0)
+		if err != nil {
 			log.Fatal("Failed to create FetchRequest message")
 			return nil
 		}
 
-		err := c.client.Write(protoMsg)
+		err = c.client.Write(requestData)
 		if err != nil {
 			log.Fatal(err)
 			return nil
 		}
-
-		c.startSubscribe()
 	}
 
 	return c.sinkChannel
 }
 
-func (c *Consumer) Connect() error {
-	return c.client.Connect()
+func (c *Consumer) Connect(topic string) error {
+	return c.client.Connect(topic)
 }
 
 func (c *Consumer) Close() error {
 	c.subscribing = false
+	_, cancel := context.WithCancel(c.ctx)
+	cancel()
 	return c.client.Close()
 }

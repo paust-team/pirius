@@ -2,8 +2,11 @@ package client
 
 import (
 	"context"
-	"github.com/elon0823/paustq/message"
-	"github.com/elon0823/paustq/proto"
+	"errors"
+	"fmt"
+	"github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/proto"
 	"log"
 	"net"
 	"time"
@@ -16,63 +19,121 @@ type TcpClient interface {
 
 type ReceivedData struct {
 	Error error
-	Data []byte
+	Data  []byte
 }
 
 type Client struct {
-	Ctx         context.Context
-	HostUrl     string
-	Timeout     time.Duration
-	SessionType paustq_proto.SessionType
-	Connected  	bool
+	ctx         context.Context
 	conn        net.Conn
+	Timeout     time.Duration
+	HostUrl     string
+	SessionType paustq_proto.SessionType
+	Connected   bool
 }
 
 func NewClient(ctx context.Context, hostUrl string, timeout time.Duration, sessionType paustq_proto.SessionType) *Client {
-	return &Client{Ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
+	return &Client{ctx: ctx, HostUrl: hostUrl, Timeout: timeout, SessionType: sessionType, conn: nil, Connected: false}
 }
 
-func (c *Client) Connect() error {
+func (c *Client) Connect(topicName string) error {
 	conn, err := net.DialTimeout("tcp", c.HostUrl, c.Timeout*time.Second)
 	if err != nil {
 		return err
 	}
 
-	protoMsg, protoErr := message.NewConnectMsg(c.SessionType)
-	if protoErr != nil {
-		log.Fatal("Failed to create Connect message")
-		return c.Close()
-
-	}
-	connReqErr := c.Write(protoMsg)
-	if connReqErr != nil {
-		log.Fatal("Failed to send connect request to broker")
-		return c.Close()
-	}
-
 	c.conn = conn
 	c.Connected = true
+
+	requestData, err := message.NewConnectRequestMsgData(c.SessionType, topicName)
+	if err != nil {
+		log.Fatal("Failed to create Connect message")
+		_ = conn.Close()
+		return err
+	}
+
+	if c.Write(requestData) != nil {
+		log.Fatal("Failed to send connect request to broker")
+		_ = conn.Close()
+		return err
+	}
+
+	data, err := c.Read(3)
+
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+
+	connectRespMsg := &paustq_proto.ConnectResponse{}
+	if message.UnPackTo(data, connectRespMsg) != nil {
+		_ = conn.Close()
+		return errors.New("failed to parse data to PutResponse")
+	} else if connectRespMsg.ErrorCode != 0 {
+		_ = conn.Close()
+		return errors.New(fmt.Sprintf("connectRequest has error code with %d", connectRespMsg.ErrorCode))
+	}
+
 	return nil
 }
 
 func (c *Client) Close() error {
-	_, cancel := context.WithCancel(c.Ctx)
-	cancel()
+	c.Connected = false
 	return c.conn.Close()
 }
 
-func (c *Client) Write(data []byte) error {
-	_, err := c.conn.Write(data)
-	return err
+func (c *Client) Write(msgData []byte) error {
+	if c.Connected {
+		data, err := message.Serialize(msgData)
+		if err != nil {
+			return err
+		}
+		_, err = c.conn.Write(data)
+		return err
+	}
+	return errors.New("disconnected")
 }
 
-func (c *Client) Read(receiveCh chan <- ReceivedData) {
+func (c *Client) Read(timeout time.Duration) ([]byte, error) {
 
-	readBuffer := make([]byte, 1024)
-	n, err := c.conn.Read(readBuffer)
+	if c.Connected {
+		c.conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
+
+		var totalData []byte
+		for {
+			readBuffer := make([]byte, 1024)
+			n, err := c.conn.Read(readBuffer)
+			if err != nil {
+				return nil, err
+			}
+
+			totalData = append(totalData, readBuffer[:n]...)
+			data, err := message.Deserialize(totalData)
+
+			if err != nil {
+				if data != nil {
+					continue
+				}
+				return nil, err
+			}
+
+			return data, nil
+		}
+	}
+	return nil, errors.New("disconnected")
+}
+
+func (c *Client) ReadToChan(receiveCh chan<- ReceivedData, timeout time.Duration) {
+
+	c.conn.SetReadDeadline(time.Now().Add(timeout * time.Second))
+
+	data, err := c.Read(timeout)
 	if err != nil {
 		receiveCh <- ReceivedData{err, nil}
 	} else {
-		receiveCh <- ReceivedData{err, readBuffer[0:n]}
+		if err != nil {
+			receiveCh <- ReceivedData{err, nil}
+		} else {
+			receiveCh <- ReceivedData{nil, data}
+		}
 	}
 }
