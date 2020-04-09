@@ -38,26 +38,24 @@ message ShowConfigResponse {
 
 // topic
 
-message CreateTopicsRequest {
+message CreateTopicRequest {
     int32 magic = 1;
-    repeated Topic topics = 2;
+    Topic topic = 2;
 }
 
 message CreateTopicResponse {
     int32 magic = 1;
-    repeated Topic topics = 2;
-    int32 error_code = 3;
+    int32 error_code = 2;
 }
 
 message DeleteTopicRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
 }
 
 message DeleteTopicResponse {
     int32 magic = 1;
-    Topic topic = 2;
-    int32 error_code = 3;
+    int32 error_code = 2;
 }
 
 message ListTopicsRequest {
@@ -72,12 +70,12 @@ message ListTopicsResponse {
 
 message DescribeTopicRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
 }
 
 message DescribeTopicResponse {
     int32 magic = 1;
-    TopicInfo topic = 2;
+    TopicInfo topic_info = 2;
     int32 error_code = 3;
 }
 
@@ -114,7 +112,7 @@ message FetchResponse {
 // partition
 message CreatePartitionRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
     uint32 count = 3;
 }
 
