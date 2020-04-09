@@ -2,16 +2,35 @@
 
 
 [[projects]]
-  digest = "1:d1e35b720b5f5156502ffdd174000c81295919293735342da78582e4dc7a8bcd"
+  digest = "1:ecd73c8c5c5e48f9079e042ae733c3f3ab021218d6c4da3411d82727fd5a412a"
   name = "github.com/golang/protobuf"
-  packages = ["proto"]
+  packages = [
+    "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
+    "ptypes/timestamp",
+  ]
   pruneopts = "UT"
   revision = "84668698ea25b64748563aa20726db66a6b8d299"
   version = "v1.3.5"
 
+[[projects]]
+  digest = "1:1205ba08ebfb1b33d335b1a788ff176a83b934dc3048edda6a409b7e95b12984"
+  name = "github.com/tecbot/gorocksdb"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f0fad39f321c61bf05fcb4a01fe259606235e712"
+  version = "v1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = ["github.com/golang/protobuf/proto"]
+  input-imports = [
+    "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes",
+    "github.com/golang/protobuf/ptypes/any",
+    "github.com/tecbot/gorocksdb",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
