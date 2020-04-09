@@ -3,6 +3,7 @@ package message
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -78,6 +79,7 @@ func Deserialize(data []byte) ([]byte, error) {
 	if header.Checksum == checksum {
 		return msgData, nil
 	}
+	fmt.Println(uint32(len(msgData)), header.Len)
 	return nil, errors.New("checksum failed")
 }
 

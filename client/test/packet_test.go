@@ -9,7 +9,7 @@ import (
 
 func TestPacketHeader(t *testing.T) {
 
-	testByte := []byte{1,2,3,4,5}
+	testByte := []byte{1, 2, 3, 4, 5}
 	expectedLen := uint32(len(testByte))
 	expectedChecksum := crc32.ChecksumIEEE(testByte)
 
@@ -36,7 +36,7 @@ func TestPacketHeader(t *testing.T) {
 
 func TestPacket(t *testing.T) {
 
-	testByte := []byte{1,2,3,4,5,6,7,8,9}
+	testByte := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 	serializedData, err := message.Serialize(testByte)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestPacket(t *testing.T) {
 		t.Error(err)
 	}
 
-	if bytes.Compare(testByte, deserializedData) !=0 {
+	if bytes.Compare(testByte, deserializedData) != 0 {
 		t.Error("Bytes are not equal")
 	}
 }

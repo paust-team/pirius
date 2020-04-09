@@ -73,20 +73,21 @@ func (p *Producer) startPublish() {
 
 			if err != nil {
 				log.Fatal("Failed to create PutRequest message")
+				p.waitGroup.Done()
 			} else {
 				err := p.client.Write(requestData)
 				if err != nil {
 					log.Fatal(err)
+					p.waitGroup.Done()
 				} else {
 					resendableData := ResendableResponseData{requestData: requestData, responseCh: make(chan client.ReceivedData)}
-					p.waitGroup.Add(1)
 					go p.waitResponse(resendableData)
 				}
 			}
 		case <-p.ctx.Done():
 			return
 		}
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -95,6 +96,7 @@ func (p *Producer) Publish(data []byte) {
 		p.publishing = true
 		go p.startPublish()
 	}
+	p.waitGroup.Add(1)
 	p.sourceChannel <- data
 }
 

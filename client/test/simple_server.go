@@ -137,7 +137,7 @@ func (server *TcpServer) handleWrite(sess *Session) {
 			close(server.endWrite)
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
