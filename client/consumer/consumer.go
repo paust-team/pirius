@@ -44,7 +44,7 @@ func (c *Consumer) startSubscribe() {
 				c.sinkChannel <- SinkData{res.Error, nil}
 			} else {
 				fetchRespMsg := &paustq_proto.FetchResponse{}
-				if err := message.UnPackTo(res.Data, fetchRespMsg); err != nil {
+				if err := message.UnpackTo(res.Data, fetchRespMsg); err != nil {
 					c.sinkChannel <- SinkData{err, nil}
 					break
 				}
@@ -71,7 +71,7 @@ func (c *Consumer) Subscribe(topic string) chan SinkData {
 		c.subscribing = true
 		go c.startSubscribe()
 
-		requestData, err := message.NewFetchRequestMsgData(0)
+		requestData, err := message.PackFrom(message.NewFetchRequestMsg(0))
 		if err != nil {
 			log.Fatal("Failed to create FetchRequest message")
 			return nil

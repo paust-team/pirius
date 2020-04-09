@@ -42,7 +42,7 @@ func (p *Producer) waitResponse(resendableData ResendableResponseData) {
 			log.Fatal("Error on read: timeout!")
 		} else {
 			putRespMsg := &paustq_proto.PutResponse{}
-			if message.UnPackTo(res.Data, putRespMsg) != nil {
+			if message.UnpackTo(res.Data, putRespMsg) != nil {
 				log.Fatal("Failed to parse data to PutResponse")
 			} else if putRespMsg.ErrorCode != 0 {
 				log.Fatal("PutResponse has error code: ", putRespMsg.ErrorCode)
@@ -69,7 +69,7 @@ func (p *Producer) startPublish() {
 	for {
 		select {
 		case sourceData := <-p.sourceChannel:
-			requestData, err := message.NewPutRequestMsgData(sourceData)
+			requestData, err := message.PackFrom(message.NewPutRequestMsg(sourceData))
 
 			if err != nil {
 				log.Fatal("Failed to create PutRequest message")

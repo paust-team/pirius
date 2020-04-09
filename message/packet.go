@@ -3,7 +3,6 @@ package message
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -49,7 +48,7 @@ func PackFrom(msg proto.Message) ([]byte, error) {
 	return proto.Marshal(anyMsg)
 }
 
-func UnPackTo(data []byte, msg proto.Message) error {
+func UnpackTo(data []byte, msg proto.Message) error {
 
 	anyCont := &any.Any{}
 	if err := proto.Unmarshal(data, anyCont); err != nil {
@@ -79,7 +78,6 @@ func Deserialize(data []byte) ([]byte, error) {
 	if header.Checksum == checksum {
 		return msgData, nil
 	}
-	fmt.Println(uint32(len(msgData)), header.Len)
 	return nil, errors.New("checksum failed")
 }
 
