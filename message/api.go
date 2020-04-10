@@ -43,12 +43,12 @@ func NewFetchRequestMsg(startOffset uint64) *paustq_proto.FetchRequest {
 	}
 }
 
-func NewFetchResponseMsg(data []byte, errorCode int32) *paustq_proto.FetchResponse {
+func NewFetchResponseMsg(data []byte, lastOffset uint64, errorCode int32) *paustq_proto.FetchResponse {
 	partition := &paustq_proto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
 	return &paustq_proto.FetchResponse{
-		Magic: -1, Partition: partition, Data: data, ErrorCode: errorCode,
+		Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset, ErrorCode: errorCode,
 	}
 }
