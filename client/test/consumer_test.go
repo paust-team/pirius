@@ -16,7 +16,7 @@ func mockConsumerHandler(serverReceiveChannel chan TopicData, serverSendChannel 
 	for received := range serverReceiveChannel {
 		fetchReqMsg := &paustq_proto.FetchRequest{}
 
-		if err := message.UnPackTo(received.Data, fetchReqMsg); err != nil {
+		if err := message.UnpackTo(received.Data, fetchReqMsg); err != nil {
 			continue
 		}
 
@@ -24,7 +24,7 @@ func mockConsumerHandler(serverReceiveChannel chan TopicData, serverSendChannel 
 			topicData := testData[received.Topic]
 
 			for _, record := range topicData {
-				fetchResMsg, err := message.NewFetchResponseMsgData(record, 0)
+				fetchResMsg, err := message.PackFrom(message.NewFetchResponseMsg(record, 0))
 				if err != nil {
 					fmt.Println("Failed to create FetchResponse message")
 					continue
@@ -32,7 +32,7 @@ func mockConsumerHandler(serverReceiveChannel chan TopicData, serverSendChannel 
 				serverSendChannel <- fetchResMsg
 			}
 
-			fetchEnd, err := message.NewFetchResponseMsgData(nil, 1)
+			fetchEnd, err := message.PackFrom(message.NewFetchResponseMsg(nil, 1))
 			if err != nil {
 				fmt.Println("Failed to create FetchResponse message")
 				continue

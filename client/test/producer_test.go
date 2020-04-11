@@ -16,11 +16,11 @@ func mockProducerHandler(serverReceiveChannel chan TopicData, serverSendChannel 
 	for received := range serverReceiveChannel {
 		putReqMsg := &paustq_proto.PutRequest{}
 
-		if err := message.UnPackTo(received.Data, putReqMsg); err != nil {
+		if err := message.UnpackTo(received.Data, putReqMsg); err != nil {
 			continue
 		}
 
-		putResMsg, err := message.NewPutResponseMsgData(0)
+		putResMsg, err := message.PackFrom(message.NewPutResponseMsg(0))
 		if err != nil {
 			fmt.Println("Failed to create PutResponse message")
 			continue

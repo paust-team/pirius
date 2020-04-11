@@ -48,7 +48,7 @@ func PackFrom(msg proto.Message) ([]byte, error) {
 	return proto.Marshal(anyMsg)
 }
 
-func UnPackTo(data []byte, msg proto.Message) error {
+func UnpackTo(data []byte, msg proto.Message) error {
 
 	anyCont := &any.Any{}
 	if err := proto.Unmarshal(data, anyCont); err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/proto"
 	"log"
@@ -44,7 +43,7 @@ func (c *Client) Connect(topicName string) error {
 	c.conn = conn
 	c.Connected = true
 
-	requestData, err := message.NewConnectRequestMsgData(c.SessionType, topicName)
+	requestData, err := message.PackFrom(message.NewConnectRequestMsg(c.SessionType, topicName))
 	if err != nil {
 		log.Fatal("Failed to create Connect message")
 		_ = conn.Close()
@@ -65,7 +64,7 @@ func (c *Client) Connect(topicName string) error {
 	}
 
 	connectRespMsg := &paustq_proto.ConnectResponse{}
-	if message.UnPackTo(data, connectRespMsg) != nil {
+	if message.UnpackTo(data, connectRespMsg) != nil {
 		_ = conn.Close()
 		return errors.New("failed to parse data to PutResponse")
 	} else if connectRespMsg.ErrorCode != 0 {

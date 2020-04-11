@@ -70,11 +70,11 @@ func (sess *Session) Read(receiveCh chan<- client.ReceivedData) {
 				return
 			}
 			connReqMsg := &paustq_proto.ConnectRequest{}
-			if err = message.UnPackTo(data, connReqMsg); err == nil {
+			if err = message.UnpackTo(data, connReqMsg); err == nil {
 
 				sess.topic = connReqMsg.TopicName
 
-				connResMsg, err := message.NewConnectResponseMsgData(0)
+				connResMsg, err := message.PackFrom(message.NewConnectResponseMsg(0))
 				if err != nil {
 					fmt.Println("Failed to create ConnectResponse message")
 				}
@@ -137,7 +137,7 @@ func (server *TcpServer) handleWrite(sess *Session) {
 			close(server.endWrite)
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
