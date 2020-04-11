@@ -11,14 +11,14 @@ import (
 type CFIndex int
 
 const (
-	DefaultCF= iota
+	DefaultCF = iota
 	TopicCF
 	RecordCF
 )
 
 // QRocksDB is helper for gorocksdb
 type QRocksDB struct {
-	db 					*gorocksdb.DB
+	db                  *gorocksdb.DB
 	ro                  *gorocksdb.ReadOptions
 	wo                  *gorocksdb.WriteOptions
 	columnFamilyHandles gorocksdb.ColumnFamilyHandles
@@ -60,6 +60,15 @@ func (db QRocksDB) PutRecord(topic string, offset uint64, data []byte) error {
 	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes(), data)
 }
 
+func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
+	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
+}
+
+func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+	value := NewTopicValue(topicMeta, numPartitions, replicationFactor)
+	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Bytes())
+}
+
 func (db *QRocksDB) Close() {
 	db.db.Close()
 	db.ro.Destroy()
@@ -75,11 +84,11 @@ func (db QRocksDB) Scan(cfIndex CFIndex) *gorocksdb.Iterator {
 }
 
 type RecordKey struct {
-	bytes 	[]byte
+	bytes []byte
 }
 
 func NewRecordKey(topic string, offset uint64) *RecordKey {
-	storage := make([]byte, len(topic) + 1 + int(unsafe.Sizeof(offset)))
+	storage := make([]byte, len(topic)+1+int(unsafe.Sizeof(offset)))
 	copy(storage, topic+"@")
 	binary.BigEndian.PutUint64(storage[len(topic)+1:], offset)
 	return &RecordKey{bytes: storage}
@@ -90,24 +99,28 @@ func (key RecordKey) Bytes() []byte {
 }
 
 func (key RecordKey) Topic() string {
-	return string(key.bytes[:len(key.bytes) - int(unsafe.Sizeof(uint64(0))) -1])
+	return string(key.bytes[:len(key.bytes)-int(unsafe.Sizeof(uint64(0)))-1])
 }
 
 func (key RecordKey) Offset() uint64 {
-	return binary.BigEndian.Uint64(key.bytes[len(key.bytes) - int(unsafe.Sizeof(uint64(0))):])
+	return binary.BigEndian.Uint64(key.bytes[len(key.bytes)-int(unsafe.Sizeof(uint64(0))):])
 }
 
 type TopicValue struct {
-	bytes 	[]byte
+	bytes []byte
 }
 
 func NewTopicValue(topicMeta string, numPartitions uint32, replicationFactor uint32) *TopicValue {
-	storage := make([]byte, len(topicMeta) + int(unsafe.Sizeof(numPartitions)) + int(unsafe.Sizeof(replicationFactor)))
+	storage := make([]byte, len(topicMeta)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
 	copy(storage, topicMeta)
 	binary.BigEndian.PutUint32(storage[len(topicMeta):], numPartitions)
 	binary.BigEndian.PutUint32(storage[len(topicMeta)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
 
 	return &TopicValue{bytes: storage}
+}
+
+func NewTopicValueWithBytes(bytes []byte) *TopicValue {
+	return &TopicValue{bytes: bytes}
 }
 
 func (key TopicValue) Bytes() []byte {
@@ -116,15 +129,15 @@ func (key TopicValue) Bytes() []byte {
 
 func (key TopicValue) TopicMeta() string {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return string(key.bytes[:len(key.bytes) - uint32Len * 2])
+	return string(key.bytes[:len(key.bytes)-uint32Len*2])
 }
 
 func (key TopicValue) NumPartitions() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.bytes[len(key.bytes) - uint32Len * 2: len(key.bytes) - uint32Len])
+	return binary.BigEndian.Uint32(key.bytes[len(key.bytes)-uint32Len*2 : len(key.bytes)-uint32Len])
 }
 
 func (key TopicValue) ReplicationFactor() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.bytes[len(key.bytes) - uint32Len:])
+	return binary.BigEndian.Uint32(key.bytes[len(key.bytes)-uint32Len:])
 }

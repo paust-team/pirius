@@ -40,6 +40,41 @@ func TestTopicValue(t *testing.T) {
 	}
 }
 
+func TestQRocksDBTopic(t *testing.T) {
+
+	db, err := storage.NewQRocksDB("qstore", ".")
+	defer db.Close()
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	topic := "test_topic"
+	topicMeta := "test"
+	var numPartitions uint32 = 2
+	var replicationFactor uint32 = 3
+
+	expected := storage.NewTopicValue(topicMeta, numPartitions, replicationFactor)
+
+	if db.PutTopic(topic, topicMeta, numPartitions, replicationFactor) != nil {
+		t.Error(err)
+		return
+	}
+
+	result, err := db.GetTopic(topic)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	topicValue := storage.NewTopicValueWithBytes(result.Data())
+
+	if bytes.Compare(expected.Bytes(), topicValue.Bytes()) != 0 {
+		t.Error("topic value not equal ")
+	}
+}
 
 func TestQRocksDBRecord(t *testing.T) {
 
@@ -51,7 +86,7 @@ func TestQRocksDBRecord(t *testing.T) {
 		return
 	}
 
-	expected := []byte{1,2,3,4,5}
+	expected := []byte{1, 2, 3, 4, 5}
 	topic := "test_topic"
 	if db.PutRecord(topic, 0, expected) != nil {
 		t.Error(err)

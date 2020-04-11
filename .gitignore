@@ -17,4 +17,4 @@ vendor/
 .idea/
 
 *.pb.go
-.storage
+*.dbstorage
