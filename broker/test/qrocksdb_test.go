@@ -43,12 +43,13 @@ func TestTopicValue(t *testing.T) {
 func TestQRocksDBTopic(t *testing.T) {
 
 	db, err := storage.NewQRocksDB("qstore", ".")
-	defer db.Close()
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
+
+	defer db.Close()
 
 	topic := "test_topic"
 	topicMeta := "test"
@@ -79,12 +80,13 @@ func TestQRocksDBTopic(t *testing.T) {
 func TestQRocksDBRecord(t *testing.T) {
 
 	db, err := storage.NewQRocksDB("qstore", ".")
-	defer db.Close()
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
+
+	defer db.Close()
 
 	expected := []byte{1, 2, 3, 4, 5}
 	topic := "test_topic"
