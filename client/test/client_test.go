@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/paust-team/paustq/client"
+	paustq_proto "github.com/paust-team/paustq/proto"
 	"testing"
 	"time"
 )
@@ -48,7 +49,7 @@ func TestClient_Connect(t *testing.T) {
 	defer server.Stop()
 
 	// Start Client
-	c := client.NewClient(ctx, host, time.Duration(timeout), 0)
+	c := client.NewClient(ctx, host, time.Duration(timeout), paustq_proto.SessionType_NORMAL)
 
 	if err := c.Connect(topic); err != nil {
 		t.Error("Error on connect. ", err)

@@ -2,8 +2,9 @@ syntax = "proto3";
 package paustq.proto;
 
 enum SessionType {
-    PUBLISHER = 0;
-    SUBSCRIBER = 1;
+    ADMIN = 0;
+    PUBLISHER = 1;
+    SUBSCRIBER = 2;
 }
 
 message Group {
