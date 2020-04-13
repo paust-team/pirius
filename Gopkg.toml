@@ -37,3 +37,7 @@ ignored = ["github.com/paust-team/paustq/thirdparty*"]
 [[constraint]]
   name = "github.com/tecbot/gorocksdb"
   version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  version = "1.0.0"

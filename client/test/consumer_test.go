@@ -77,7 +77,7 @@ func TestConsumer_Subscribe(t *testing.T) {
 		return
 	}
 
-	for response := range client.Subscribe(topic) {
+	for response := range client.Subscribe() {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {

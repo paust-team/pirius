@@ -65,7 +65,7 @@ func (c *Consumer) startSubscribe() {
 	}
 }
 
-func (c *Consumer) Subscribe(topic string) chan SinkData {
+func (c *Consumer) Subscribe() chan SinkData {
 
 	if c.subscribing == false {
 		c.subscribing = true
