@@ -36,7 +36,7 @@ func NewPublishCmd() *cobra.Command {
 		},
 	}
 
-	publishCmd.Flags().StringVarP(&topicName, "topic", "tn", "","topic name to publish to")
+	publishCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to publish to")
 	publishCmd.Flags().BytesBase64VarP(&data, "data", "d", nil, "base64 data")
 
 	return publishCmd

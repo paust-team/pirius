@@ -35,7 +35,7 @@ func NewSubscribeCmd() *cobra.Command {
 		},
 	}
 
-	subscribeCmd.Flags().StringVarP(&topicName, "topic", "tn", "","topic name to subscribe from")
+	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to subscribe from")
 
 	return subscribeCmd
 }

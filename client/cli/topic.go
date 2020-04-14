@@ -20,9 +20,9 @@ func NewCreateTopicCmd() *cobra.Command {
 		},
 	}
 
-	createTopicCmd.Flags().StringVarP(&topicName, "name", "n", "","new topic name to create")
-	createTopicCmd.Flags().Uint8VarP(&numPartition, "partitions", "pt", 1, "num partition")
-	createTopicCmd.Flags().Uint8VarP(&replicationFactor, "replication-factor", "rf", 1, "replication factor")
+	createTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","new topic name to create")
+	createTopicCmd.Flags().Uint8VarP(&numPartition, "partitions", "p", 1, "num partition")
+	createTopicCmd.Flags().Uint8VarP(&replicationFactor, "replication-factor", "r", 1, "replication factor")
 
 	return createTopicCmd
 }
@@ -37,7 +37,7 @@ func NewListTopicCmd() *cobra.Command {
 		},
 	}
 
-	listTopicCmd.Flags().StringVarP(&topicName, "topic", "tn", "","new topic name to create")
+	listTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to listing")
 
 	return listTopicCmd
 }
