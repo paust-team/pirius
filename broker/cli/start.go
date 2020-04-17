@@ -38,6 +38,8 @@ func NewStartCmd() *cobra.Command {
 
 			grpcServer := grpc.NewServer()
 			paustq_proto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
+			paustq_proto.RegisterPubSubServiceServer(grpcServer, rpc.NewPubSubServiceServer(db))
+
 			if err = grpcServer.Serve(lis); err != nil {
 				log.Fatal(err)
 			}
