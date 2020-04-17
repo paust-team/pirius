@@ -1,7 +1,14 @@
 package cli
 
 import (
+	"fmt"
+	"github.com/paust-team/paustq/broker/rpc"
+	"github.com/paust-team/paustq/broker/storage"
+	paustq_proto "github.com/paust-team/paustq/proto"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"log"
+	"net"
 	"os"
 )
 
@@ -16,7 +23,24 @@ func NewStartCmd() *cobra.Command {
 		Use: "start",
 		Short: "start paustq broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Start broker application
+			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+			if err != nil {
+				log.Fatalf("failed to listen: %v", err)
+			}
+
+			db, err := storage.NewQRocksDB("qstore", ".")
+			defer db.Close()
+
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+			grpcServer := grpc.NewServer()
+			paustq_proto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
+			if err = grpcServer.Serve(lis); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 

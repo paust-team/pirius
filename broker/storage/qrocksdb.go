@@ -18,6 +18,7 @@ const (
 
 // QRocksDB is helper for gorocksdb
 type QRocksDB struct {
+	dbPath				string
 	db                  *gorocksdb.DB
 	ro                  *gorocksdb.ReadOptions
 	wo                  *gorocksdb.WriteOptions
@@ -25,6 +26,7 @@ type QRocksDB struct {
 }
 
 func NewQRocksDB(name, dir string) (*QRocksDB, error) {
+
 	dbPath := filepath.Join(dir, name+".dbstorage")
 	columnFamilyNames := []string{"default", "topic", "record"}
 
@@ -37,7 +39,6 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	defaultOpts.SetCompression(gorocksdb.SnappyCompression)
 	opts := gorocksdb.NewDefaultOptions()
 	db, columnFamilyHandles, err := gorocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*gorocksdb.Options{opts, opts, opts})
-
 	if err != nil {
 		log.Fatal("DB open error: ", err)
 		return nil, err
@@ -45,8 +46,7 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 
 	ro := gorocksdb.NewDefaultReadOptions()
 	wo := gorocksdb.NewDefaultWriteOptions()
-
-	rocksdb := &QRocksDB{db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}
+	rocksdb := &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}
 	return rocksdb, nil
 }
 
@@ -60,6 +60,11 @@ func (db QRocksDB) PutRecord(topic string, offset uint64, data []byte) error {
 	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes(), data)
 }
 
+func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
+	key := NewRecordKey(topic, offset)
+	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes())
+}
+
 func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
 	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
 }
@@ -69,10 +74,18 @@ func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32
 	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Bytes())
 }
 
+func (db QRocksDB) DeleteTopic(topic string) error {
+	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
+}
+
 func (db *QRocksDB) Close() {
 	db.db.Close()
 	db.ro.Destroy()
 	db.wo.Destroy()
+}
+
+func (db *QRocksDB) Destroy() error {
+	return gorocksdb.DestroyDb(db.dbPath, gorocksdb.NewDefaultOptions())
 }
 
 func (db QRocksDB) ColumnFamilyHandles() gorocksdb.ColumnFamilyHandles {

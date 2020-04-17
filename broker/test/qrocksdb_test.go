@@ -49,6 +49,7 @@ func TestQRocksDBTopic(t *testing.T) {
 		return
 	}
 
+	defer db.Destroy()
 	defer db.Close()
 
 	topic := "test_topic"
@@ -64,7 +65,6 @@ func TestQRocksDBTopic(t *testing.T) {
 	}
 
 	result, err := db.GetTopic(topic)
-
 	if err != nil {
 		t.Error(err)
 		return
@@ -86,6 +86,7 @@ func TestQRocksDBRecord(t *testing.T) {
 		return
 	}
 
+	defer db.Destroy()
 	defer db.Close()
 
 	expected := []byte{1, 2, 3, 4, 5}
