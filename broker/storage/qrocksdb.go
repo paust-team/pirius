@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/tecbot/gorocksdb"
 	"log"
 	"path/filepath"
@@ -65,8 +66,22 @@ func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
 	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes())
 }
 
-func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
-	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
+func (db QRocksDB) PutTopicIfNotExists(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+
+	result, err := db.GetTopic(topic)
+
+	if err != nil {
+		return err
+	}
+
+	if result != nil && result.Exists() {
+		return errors.New("topic already exists")
+	}
+
+	if err := db.PutTopic(topic, topicMeta, numPartitions, replicationFactor); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
@@ -74,8 +89,26 @@ func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32
 	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Bytes())
 }
 
+func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
+	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
+}
+
 func (db QRocksDB) DeleteTopic(topic string) error {
 	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
+}
+
+func (db QRocksDB) GetAllTopics() map[string]TopicValue {
+	iter := db.Scan(TopicCF)
+	iter.SeekToFirst()
+	topics := make(map[string]TopicValue)
+	for iter.Valid() {
+		topicName := string(iter.Key().Data())
+		topicValue := NewTopicValueWithBytes(iter.Value().Data())
+		topics[topicName] = *topicValue
+		iter.Next()
+	}
+
+	return topics
 }
 
 func (db *QRocksDB) Close() {

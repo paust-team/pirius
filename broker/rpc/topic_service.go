@@ -17,17 +17,7 @@ func NewTopicServiceServer(db *storage.QRocksDB) *TopicServiceServer {
 
 func (s *TopicServiceServer) CreateTopic(_ context.Context, request *paustq_proto.CreateTopicRequest) (*paustq_proto.CreateTopicResponse, error) {
 
-	result, err := s.DB.GetTopic(request.Topic.TopicName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if result != nil && result.Exists() {
-		return nil, errors.New("topic already exists")
-	}
-
-	if err := s.DB.PutTopic(request.Topic.TopicName, request.Topic.TopicMeta,
+	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
 		return nil, err
 	}
@@ -65,16 +55,12 @@ func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustq_pr
 
 func (s *TopicServiceServer) ListTopics(_ context.Context, _ *paustq_proto.ListTopicsRequest) (*paustq_proto.ListTopicsResponse, error) {
 
-	iter := s.DB.Scan(storage.TopicCF)
-	iter.SeekToFirst()
 	var topics []*paustq_proto.Topic
-	for iter.Valid() {
-		topicName := string(iter.Key().Data())
-		topicValue := storage.NewTopicValueWithBytes(iter.Value().Data())
+	topicMap := s.DB.GetAllTopics()
+	for topicName, topicValue := range topicMap {
 		topic := &paustq_proto.Topic{TopicName: topicName, TopicMeta: topicValue.TopicMeta(),
 			NumPartitions: topicValue.NumPartitions(), ReplicationFactor: topicValue.ReplicationFactor()}
 		topics = append(topics, topic)
-		iter.Next()
 	}
 
 	return &paustq_proto.ListTopicsResponse{Magic: -1, Topics: topics}, nil
