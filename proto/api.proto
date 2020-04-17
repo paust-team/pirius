@@ -1,6 +1,42 @@
 syntax = "proto3";
 package paustq.proto;
 import "data.proto";
+import "google/protobuf/any.proto";
+
+service TopicService {
+    rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
+    rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse) {}
+    rpc DescribeTopic(DescribeTopicRequest) returns (DescribeTopicResponse) {}
+    rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse) {}
+}
+
+service PartitionService {
+    rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionResponse) {}
+}
+
+service ConnectionService {
+    rpc SendHeartbeat(HeartBeatRequest) returns (HeartBeatResponse) {}
+    rpc Connect(ConnectRequest) returns (ConnectResponse) {}
+    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
+}
+
+service ConfigService {
+    rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
+    rpc AlterConfig(AlterConfigRequest) returns (AlterConfigResponse) {}
+    rpc ShowConfig(ShowConfigRequest) returns (ShowConfigResponse) {}
+}
+
+service GroupService {
+    rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse) {}
+    rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {}
+    rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {}
+    rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {}
+    rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse) {}
+}
+
+service PubSubService {
+    rpc FlowStream(stream PubSubRequest) returns (stream PubSubResponse) {}
+}
 
 // Config
 message SetConfigRequest {
@@ -35,9 +71,6 @@ message ShowConfigResponse {
     int32 error_code = 3;
 }
 
-
-// topic
-
 message CreateTopicRequest {
     int32 magic = 1;
     Topic topic = 2;
@@ -45,7 +78,6 @@ message CreateTopicRequest {
 
 message CreateTopicResponse {
     int32 magic = 1;
-    int32 error_code = 2;
 }
 
 message DeleteTopicRequest {
@@ -55,7 +87,6 @@ message DeleteTopicRequest {
 
 message DeleteTopicResponse {
     int32 magic = 1;
-    int32 error_code = 2;
 }
 
 message ListTopicsRequest {
@@ -65,7 +96,6 @@ message ListTopicsRequest {
 message ListTopicsResponse {
     int32 magic = 1;
     repeated Topic topics = 2;
-    int32 error_code = 3;
 }
 
 message DescribeTopicRequest {
@@ -76,38 +106,6 @@ message DescribeTopicRequest {
 message DescribeTopicResponse {
     int32 magic = 1;
     TopicInfo topic_info = 2;
-    int32 error_code = 3;
-}
-
-// pubsub
-
-message Ack {
-    int32 magic = 1;
-    TopicInfo info = 2;
-}
-
-message PutRequest {
-    int32 magic = 1;
-    bytes data = 2;
-}
-
-message PutResponse {
-    int32 magic = 1;
-    Partition partition = 2;
-    int32 error_code = 3;
-}
-
-message FetchRequest {
-    int32 magic = 1;
-    uint64 start_offset = 2;
-}
-
-message FetchResponse {
-    int32 magic = 1;
-    bytes data = 2;
-    Partition partition = 3;
-    uint64 last_offset = 4;
-    int32 error_code = 5;
 }
 
 // partition
@@ -120,7 +118,6 @@ message CreatePartitionRequest {
 message CreatePartitionResponse {
     int32 magic = 1;
     Partition partition = 2;
-    int32 error_code = 3;
 }
 
 // group
@@ -133,7 +130,6 @@ message CreateGroupRequest {
 message CreateGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 message ListGroupsRequest {
@@ -155,7 +151,6 @@ message JoinGroupRequest {
 message JoinGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 message LeaveGroupRequest {
@@ -166,7 +161,6 @@ message LeaveGroupRequest {
 message LeaveGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 // Note:: Only group owner can delete group
@@ -178,7 +172,6 @@ message DeleteGroupRequest {
 message DeleteGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 // connection
@@ -191,7 +184,6 @@ message ConnectRequest {
 
 message ConnectResponse {
     int32 magic = 1;
-    int32 error_code = 2;
 }
 
 message HeartBeatRequest {
@@ -210,5 +202,43 @@ message ShutdownBrokerRequest {
 
 message ShutdownBrokerResponse {
     int32 magic = 1;
-    int32 error_code = 2;
+}
+
+// pubsub
+
+message PubSubRequest {
+    int32 magic = 1;
+    google.protobuf.Any request = 2;
+}
+
+message PubSubResponse {
+    int32 magic = 1;
+    google.protobuf.Any response = 2;
+}
+
+message Ack {
+    int32 magic = 1;
+    TopicInfo info = 2;
+}
+
+message PutRequest {
+    int32 magic = 1;
+    bytes data = 2;
+}
+
+message PutResponse {
+    int32 magic = 1;
+    Partition partition = 2;
+}
+
+message FetchRequest {
+    int32 magic = 1;
+    uint64 start_offset = 2;
+}
+
+message FetchResponse {
+    int32 magic = 1;
+    bytes data = 2;
+    Partition partition = 3;
+    uint64 last_offset = 4;
 }

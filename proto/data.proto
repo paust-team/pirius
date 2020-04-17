@@ -29,6 +29,5 @@ message TopicInfo {
     Topic topic = 1;
     uint64 num_publishers = 2;
     uint64 num_subscribers = 3;
-    uint64 last_offset = 4;
-    repeated Partition partition = 5;
+    repeated Partition partitions = 4;
 }
