@@ -1,7 +1,6 @@
 syntax = "proto3";
 package paustq.proto;
 import "data.proto";
-import "google/protobuf/any.proto";
 
 service TopicService {
     rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
@@ -16,7 +15,6 @@ service PartitionService {
 
 service ConnectionService {
     rpc SendHeartbeat(HeartBeatRequest) returns (HeartBeatResponse) {}
-    rpc Connect(ConnectRequest) returns (ConnectResponse) {}
     rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
 }
 
@@ -34,8 +32,8 @@ service GroupService {
     rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse) {}
 }
 
-service PubSubService {
-    rpc FlowStream(stream PubSubRequest) returns (stream PubSubResponse) {}
+service StreamService {
+    rpc FlowStream(stream StreamRequest) returns (stream StreamResponse) {}
 }
 
 // Config
@@ -206,14 +204,14 @@ message ShutdownBrokerResponse {
 
 // pubsub
 
-message PubSubRequest {
+message StreamRequest {
     int32 magic = 1;
-    google.protobuf.Any request = 2;
+    bytes requestBytes = 2;
 }
 
-message PubSubResponse {
+message StreamResponse {
     int32 magic = 1;
-    google.protobuf.Any response = 2;
+    bytes responseBytes = 2;
 }
 
 message Ack {

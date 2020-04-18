@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/paust-team/paustq/broker/rpc"
 	"github.com/paust-team/paustq/broker/storage"
-	paustq_proto "github.com/paust-team/paustq/proto"
+	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"log"
@@ -37,8 +37,8 @@ func NewStartCmd() *cobra.Command {
 			}
 
 			grpcServer := grpc.NewServer()
-			paustq_proto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
-			paustq_proto.RegisterPubSubServiceServer(grpcServer, rpc.NewPubSubServiceServer(db))
+			paustqproto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
+			paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db))
 
 			if err = grpcServer.Serve(lis); err != nil {
 				log.Fatal(err)

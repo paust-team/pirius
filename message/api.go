@@ -1,54 +1,54 @@
 package message
 
 import (
-	"github.com/paust-team/paustq/proto"
+	paustqproto "github.com/paust-team/paustq/proto"
 )
 
-func NewConnectRequestMsg(sessionType paustq_proto.SessionType, topic string) *paustq_proto.ConnectRequest {
+func NewConnectRequestMsg(sessionType paustqproto.SessionType, topic string) *paustqproto.ConnectRequest {
 
-	return &paustq_proto.ConnectRequest{
+	return &paustqproto.ConnectRequest{
 		Magic: -1, SessionType: sessionType, TopicName: topic,
 	}
 }
 
-func NewConnectResponseMsg(errorCode int32) *paustq_proto.ConnectResponse {
+func NewConnectResponseMsg() *paustqproto.ConnectResponse {
 
-	return &paustq_proto.ConnectResponse{
-		Magic: -1, ErrorCode: errorCode,
+	return &paustqproto.ConnectResponse{
+		Magic: -1,
 	}
 }
 
-func NewPutRequestMsg(data []byte) *paustq_proto.PutRequest {
+func NewPutRequestMsg(data []byte) *paustqproto.PutRequest {
 
-	return &paustq_proto.PutRequest{
+	return &paustqproto.PutRequest{
 		Magic: -1, Data: data,
 	}
 }
 
-func NewPutResponseMsg(errorCode int32) *paustq_proto.PutResponse {
+func NewPutResponseMsg() *paustqproto.PutResponse {
 
-	partition := &paustq_proto.Partition{
+	partition := &paustqproto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
-	return &paustq_proto.PutResponse{
-		Magic: -1, Partition: partition, ErrorCode: errorCode,
+	return &paustqproto.PutResponse{
+		Magic: -1, Partition: partition,
 	}
 }
 
-func NewFetchRequestMsg(startOffset uint64) *paustq_proto.FetchRequest {
+func NewFetchRequestMsg(startOffset uint64) *paustqproto.FetchRequest {
 
-	return &paustq_proto.FetchRequest{
+	return &paustqproto.FetchRequest{
 		Magic: -1, StartOffset: startOffset,
 	}
 }
 
-func NewFetchResponseMsg(data []byte, lastOffset uint64, errorCode int32) *paustq_proto.FetchResponse {
-	partition := &paustq_proto.Partition{
+func NewFetchResponseMsg(data []byte, lastOffset uint64) *paustqproto.FetchResponse {
+	partition := &paustqproto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
-	return &paustq_proto.FetchResponse{
-		Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset, ErrorCode: errorCode,
+	return &paustqproto.FetchResponse{
+		Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset,
 	}
 }
