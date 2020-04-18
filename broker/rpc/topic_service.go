@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/paust-team/paustq/broker/storage"
-	paustq_proto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/message"
+	paustqproto "github.com/paust-team/paustq/proto"
 )
 
 type TopicServiceServer struct {
@@ -15,26 +16,26 @@ func NewTopicServiceServer(db *storage.QRocksDB) *TopicServiceServer {
 	return &TopicServiceServer{db}
 }
 
-func (s *TopicServiceServer) CreateTopic(_ context.Context, request *paustq_proto.CreateTopicRequest) (*paustq_proto.CreateTopicResponse, error) {
+func (s *TopicServiceServer) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
 
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
 		return nil, err
 	}
 
-	return &paustq_proto.CreateTopicResponse{Magic: -1}, nil
+	return message.NewCreateTopicResponseMsg(), nil
 }
 
-func (s *TopicServiceServer) DeleteTopic(_ context.Context, request *paustq_proto.DeleteTopicRequest) (*paustq_proto.DeleteTopicResponse, error) {
+func (s *TopicServiceServer) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
 
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return nil, err
 	}
 
-	return &paustq_proto.DeleteTopicResponse{Magic: -1}, nil
+	return message.NewDeleteTopicResponseMsg(), nil
 }
 
-func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustq_proto.DescribeTopicRequest) (*paustq_proto.DescribeTopicResponse, error) {
+func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error) {
 
 	result, err := s.DB.GetTopic(request.TopicName)
 
@@ -46,23 +47,20 @@ func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustq_pr
 		return nil, errors.New("topic not exists")
 	}
 	topicValue := storage.NewTopicValueWithBytes(result.Data())
-	topic := &paustq_proto.Topic{TopicName: request.TopicName, TopicMeta: topicValue.TopicMeta(),
-		NumPartitions: topicValue.NumPartitions(), ReplicationFactor: topicValue.ReplicationFactor()}
-	topicInfo := &paustq_proto.TopicInfo{Topic: topic} // TODO:: temporary topic info
+	topic := message.NewTopicMsg(request.TopicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor())
 
-	return &paustq_proto.DescribeTopicResponse{Magic: -1, TopicInfo: topicInfo}, nil
+	return message.NewDescribeTopicResponseMsg(topic, 1,1), nil
 }
 
-func (s *TopicServiceServer) ListTopics(_ context.Context, _ *paustq_proto.ListTopicsRequest) (*paustq_proto.ListTopicsResponse, error) {
+func (s *TopicServiceServer) ListTopics(_ context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
 
-	var topics []*paustq_proto.Topic
+	var topics []*paustqproto.Topic
 	topicMap := s.DB.GetAllTopics()
 	for topicName, topicValue := range topicMap {
-		topic := &paustq_proto.Topic{TopicName: topicName, TopicMeta: topicValue.TopicMeta(),
-			NumPartitions: topicValue.NumPartitions(), ReplicationFactor: topicValue.ReplicationFactor()}
+		topic := message.NewTopicMsg(topicName, topicValue.TopicMeta(),topicValue.NumPartitions(),topicValue.ReplicationFactor())
 		topics = append(topics, topic)
 	}
 
-	return &paustq_proto.ListTopicsResponse{Magic: -1, Topics: topics}, nil
+	return message.NewListTopicsResponseMsg(topics), nil
 }
 

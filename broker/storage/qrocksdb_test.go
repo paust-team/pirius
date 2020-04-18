@@ -1,8 +1,7 @@
-package test
+package storage
 
 import (
 	"bytes"
-	"github.com/paust-team/paustq/broker/storage"
 	"testing"
 )
 
@@ -11,7 +10,7 @@ func TestRecordKey(t *testing.T) {
 	topic := "test_topic"
 	var offset uint64 = 1
 
-	key := storage.NewRecordKey(topic, offset)
+	key := NewRecordKey(topic, offset)
 
 	if key.Topic() != topic {
 		t.Error("Unknown topic")
@@ -27,7 +26,7 @@ func TestTopicValue(t *testing.T) {
 	var numPartitions uint32 = 2
 	var replicationFactor uint32 = 3
 
-	key := storage.NewTopicValue(topicMeta, numPartitions, replicationFactor)
+	key := NewTopicValue(topicMeta, numPartitions, replicationFactor)
 
 	if key.TopicMeta() != topicMeta {
 		t.Error("Unknown topicMeta")
@@ -42,7 +41,7 @@ func TestTopicValue(t *testing.T) {
 
 func TestQRocksDBTopic(t *testing.T) {
 
-	db, err := storage.NewQRocksDB("qstore", ".")
+	db, err := NewQRocksDB("qstore", ".")
 
 	if err != nil {
 		t.Error(err)
@@ -58,7 +57,7 @@ func TestQRocksDBTopic(t *testing.T) {
 	var numPartitions uint32 = 2
 	var replicationFactor uint32 = 3
 
-	expected := storage.NewTopicValue(topicMeta, numPartitions, replicationFactor)
+	expected := NewTopicValue(topicMeta, numPartitions, replicationFactor)
 
 	if db.PutTopic(topic, topicMeta, numPartitions, replicationFactor) != nil {
 		t.Error(err)
@@ -81,7 +80,7 @@ func TestQRocksDBTopic(t *testing.T) {
 		return
 	}
 
-	topicValue := storage.NewTopicValueWithBytes(result.Data())
+	topicValue := NewTopicValueWithBytes(result.Data())
 
 	if bytes.Compare(expected.Bytes(), topicValue.Bytes()) != 0 {
 		t.Error("topic value not equal ")
@@ -123,7 +122,7 @@ func TestQRocksDBTopic(t *testing.T) {
 
 func TestQRocksDBRecord(t *testing.T) {
 
-	db, err := storage.NewQRocksDB("qstore", ".")
+	db, err := NewQRocksDB("qstore", ".")
 
 	if err != nil {
 		t.Error(err)

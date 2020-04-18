@@ -2,18 +2,16 @@ package consumer
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/proto"
+	paustqproto "github.com/paust-team/paustq/proto"
 	"log"
 	"time"
 )
 
 type Consumer struct {
 	ctx         context.Context
-	client      *client.Client
+	client        *client.StreamClient
 	sinkChannel chan SinkData
 	subscribing bool
 }
@@ -23,8 +21,8 @@ type SinkData struct {
 	Data  []byte
 }
 
-func NewConsumer(ctx context.Context, hostUrl string, timeout time.Duration) *Consumer {
-	c := client.NewClient(ctx, hostUrl, timeout, paustq_proto.SessionType_SUBSCRIBER)
+func NewConsumer(ctx context.Context, serverUrl string, timeout time.Duration) *Consumer {
+	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_SUBSCRIBER)
 	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false}
 }
 
@@ -36,28 +34,25 @@ func (c *Consumer) startSubscribe() {
 	onReceiveResponse := make(chan client.ReceivedData)
 
 	for {
-		go c.client.ReadToChan(onReceiveResponse, c.client.Timeout)
+		go c.client.ReceiveToChan(onReceiveResponse)
 
 		select {
 		case res := <-onReceiveResponse:
 			if res.Error != nil {
 				c.sinkChannel <- SinkData{res.Error, nil}
+				close(c.sinkChannel)
+				return
+			} else if res.Msg == nil { // stream finished
+				close(c.sinkChannel)
+				return
 			} else {
-				fetchRespMsg := &paustq_proto.FetchResponse{}
-				if err := message.UnpackTo(res.Data, fetchRespMsg); err != nil {
+				fetchRespMsg := &paustqproto.FetchResponse{}
+				if err := res.Msg.UnpackTo(fetchRespMsg); err != nil {
 					c.sinkChannel <- SinkData{err, nil}
-					break
+					return
 				}
 
-				if fetchRespMsg.ErrorCode == 1 { // Consumed all record
-					c.subscribing = false
-					close(c.sinkChannel)
-					return
-				} else if fetchRespMsg.ErrorCode > 1 {
-					c.sinkChannel <- SinkData{errors.New(fmt.Sprintf("FetchResponse Error: %d", fetchRespMsg.ErrorCode)), nil}
-				} else {
-					c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
-				}
+				c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
 			}
 		case <-c.ctx.Done():
 			return
@@ -65,22 +60,18 @@ func (c *Consumer) startSubscribe() {
 	}
 }
 
-func (c *Consumer) Subscribe() chan SinkData {
+func (c *Consumer) Subscribe(startOffset uint64) chan SinkData {
 
 	if c.subscribing == false {
 		c.subscribing = true
 		go c.startSubscribe()
 
-		requestData, err := message.PackFrom(message.NewFetchRequestMsg(0))
-		if err != nil {
-			log.Fatal("Failed to create FetchRequest message")
-			return nil
-		}
-
-		err = c.client.Write(requestData)
+		reqMsg, err := message.NewQMessageWithFetchRequest(startOffset)
 		if err != nil {
 			log.Fatal(err)
-			return nil
+		}
+		if err = c.client.Send(reqMsg); err != nil {
+			log.Fatal(err)
 		}
 	}
 
@@ -88,7 +79,7 @@ func (c *Consumer) Subscribe() chan SinkData {
 }
 
 func (c *Consumer) Connect(topic string) error {
-	return c.client.Connect(topic)
+	return c.client.ConnectWithTopic(topic)
 }
 
 func (c *Consumer) Close() error {

@@ -2,36 +2,25 @@ package rpc
 
 import (
 	"errors"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/paust-team/paustq/broker/storage"
+	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
-	"io"
+	"log"
 	"time"
 )
 
 // TODO:: Temporary structure
 type Session struct {
-	Stream      paustqproto.StreamService_FlowStreamServer
-	Topic       string
-	Offset      uint64
-	SessionType paustqproto.SessionType
-	Connected   bool
+	StreamReaderWriter     	*common.StreamReaderWriter
+	Topic       			string
+	Offset      			uint64
+	SessionType 			paustqproto.SessionType
+	Connected   			bool
 }
 
 type StreamServiceServer struct {
 	DB  		*storage.QRocksDB
-}
-
-func (sess *Session) Send(msg *any.Any) error {
-	responseBytes, err := proto.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
-	return sess.Stream.Send(&paustqproto.StreamResponse{Magic: -1, ResponseBytes: responseBytes})
 }
 
 func NewStreamServiceServer(db *storage.QRocksDB) *StreamServiceServer {
@@ -39,102 +28,94 @@ func NewStreamServiceServer(db *storage.QRocksDB) *StreamServiceServer {
 }
 
 func (s *StreamServiceServer) FlowStream(stream paustqproto.StreamService_FlowStreamServer) error {
-
-	sess := &Session{Stream: stream}
-	var totalData []byte
+	sess := &Session{StreamReaderWriter: common.NewStreamReaderWriter(stream)}
+	log.Println("start stream")
 	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			return nil
+		msg, err := sess.StreamReaderWriter.RecvMsg()
+		if err != nil {
+			return err
 		}
+		if msg == nil { // end stream
+			break
+		}
+		finishStream, err := s.HandleFlow(sess, msg)
 		if err != nil {
 			return err
 		}
 
-		totalData = append(totalData, in.RequestBytes...)
-		data, err := message.Deserialize(totalData)
-
-		if err != nil {
-			if data != nil { // Wait for rest chunks
-				continue
-			}
-			return err
-		}
-
-		anyMsg := &any.Any{}
-		if err := proto.Unmarshal(data, anyMsg); err != nil {
-			return err
-		}
-
-		if err = s.HandleFlow(sess, anyMsg); err != nil {
-			return err
+		if finishStream {
+			break
 		}
 	}
+
+	log.Println("end stream")
+	return nil
 }
 
 // TODO:: will be replaced using pipeline package
-func (s *StreamServiceServer) HandleFlow(session *Session, requestMsg *any.Any) error {
+func (s *StreamServiceServer) HandleFlow(session *Session, receivedMsg *message.QMessage) (bool, error) {
 
-	if ptypes.Is(requestMsg, &paustqproto.ConnectRequest{}) { // connect
-
+	if receivedMsg.Is(&paustqproto.ConnectRequest{}) { // connect
+		log.Println("Received connect request")
 		connectRequestMsg := &paustqproto.ConnectRequest{}
-		if err := ptypes.UnmarshalAny(requestMsg, connectRequestMsg); err != nil {
-			return err
+		if err := receivedMsg.UnpackTo(connectRequestMsg); err != nil {
+			return false, err
 		}
 
 		session.Topic = connectRequestMsg.TopicName
 		session.SessionType = connectRequestMsg.SessionType
 		session.Connected = true
 
-		respMsg := message.NewConnectResponseMsg()
-		anyMsg, err := ptypes.MarshalAny(respMsg)
+		respMsg, err := message.NewQMessageWithConnectResponse()
 		if err != nil {
-			if err = session.Send(anyMsg); err != nil {
-				return err
-			}
+			return false, err
 		}
-	} else if ptypes.Is(requestMsg, &paustqproto.PutRequest{}) { // put
-
+		if err := session.StreamReaderWriter.SendMsg(respMsg); err != nil {
+			return false, err
+		}
+	} else if receivedMsg.Is(&paustqproto.PutRequest{}) { // put
+		log.Println("Received put request")
 		if !session.Connected {
-			return errors.New("initial connect request required")
+			return false, errors.New("initial connect request required")
 		}
 
 		if session.SessionType != paustqproto.SessionType_PUBLISHER {
-			return errors.New("session type `publisher` required to operate `put`")
+			return false, errors.New("session type `publisher` required to operate `put`")
 		}
 
 		putRequestMsg := &paustqproto.PutRequest{}
-		if err := ptypes.UnmarshalAny(requestMsg, putRequestMsg); err != nil {
-			return err
+		if err := receivedMsg.UnpackTo(putRequestMsg); err != nil {
+			return false, err
 		}
 
 		if err := s.DB.PutRecord(session.Topic, session.Offset, putRequestMsg.Data); err != nil {
-			return err
+			return false, err
 		}
 		// TODO:: This works on single producer only. To support multiple producer, manage topic offset globally.
+		log.Printf("put record with offset %d", session.Offset)
 		session.Offset++
 
-		respMsg := message.NewPutResponseMsg()
-		anyMsg, err := ptypes.MarshalAny(respMsg)
+		respMsg, err := message.NewQMessageWithPutResponse()
 		if err != nil {
-			if err = session.Send(anyMsg); err != nil {
-				return err
-			}
+			return false, err
+		}
+		if err := session.StreamReaderWriter.SendMsg(respMsg); err != nil {
+			return false, err
 		}
 
-	} else if ptypes.Is(requestMsg, &paustqproto.FetchRequest{}) { //fetch
-
+	} else if receivedMsg.Is(&paustqproto.FetchRequest{}) { //fetch
+		log.Println("Received fetch request")
 		if !session.Connected {
-			return errors.New("initial connect request required")
+			return false, errors.New("initial connect request required")
 		}
 
 		if session.SessionType != paustqproto.SessionType_SUBSCRIBER {
-			return errors.New("session type `subscriber` required to operate `fetch`")
+			return false, errors.New("session type `subscriber` required to operate `fetch`")
 		}
 
 		fetchRequestMsg := &paustqproto.FetchRequest{}
-		if err := ptypes.UnmarshalAny(requestMsg, fetchRequestMsg); err != nil {
-			return err
+		if err := receivedMsg.UnpackTo(fetchRequestMsg); err != nil {
+			return false, err
 		}
 
 		session.Offset = fetchRequestMsg.StartOffset
@@ -142,15 +123,16 @@ func (s *StreamServiceServer) HandleFlow(session *Session, requestMsg *any.Any) 
 
 		for {
 			result, err := s.DB.GetRecord(session.Topic, session.Offset)
+			log.Printf("get record with offset %d", session.Offset)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			// TODO:: Wait for topic with cv.wait and should check whether any producer publishing to topic exists or not
 			if !result.Exists() {
 				// for testing, wait 5 sec to new record
 				if counter == 5 {
-					return nil // end stream
+					return true, nil// end stream
 				}
 				counter++
 				time.Sleep(1*time.Second)
@@ -160,14 +142,14 @@ func (s *StreamServiceServer) HandleFlow(session *Session, requestMsg *any.Any) 
 			counter = 0
 			session.Offset++
 
-			respMsg := message.NewFetchResponseMsg(result.Data(), session.Offset)
-			anyMsg, err := ptypes.MarshalAny(respMsg)
+			respMsg, err := message.NewQMessageWithFetchResponse(result.Data(), session.Offset)
 			if err != nil {
-				if err = session.Send(anyMsg); err != nil {
-					return err
-				}
+				return false, err
+			}
+			if err = session.StreamReaderWriter.SendMsg(respMsg); err != nil {
+				return false, err
 			}
 		}
 	}
-	return nil
+	return false, nil
 }

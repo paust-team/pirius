@@ -16,7 +16,7 @@ func NewCreateTopicCmd() *cobra.Command {
 		Use: "create-topic",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Todo:: send rpc request
+
 		},
 	}
 

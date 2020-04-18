@@ -24,10 +24,3 @@ message Topic {
     uint32 num_partitions = 3;
     uint32 replication_factor = 4;
 }
-
-message TopicInfo {
-    Topic topic = 1;
-    uint64 num_publishers = 2;
-    uint64 num_subscribers = 3;
-    repeated Partition partitions = 4;
-}

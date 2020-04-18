@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+var (
+	startOffset 				uint64
+)
+
 func NewSubscribeCmd() *cobra.Command {
 
 	var subscribeCmd = &cobra.Command{
@@ -25,7 +29,7 @@ func NewSubscribeCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			for response := range client.Subscribe() {
+			for response := range client.Subscribe(startOffset) {
 				if response.Error != nil {
 					log.Fatal(response.Error)
 				} else {
@@ -36,6 +40,7 @@ func NewSubscribeCmd() *cobra.Command {
 	}
 
 	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to subscribe from")
+	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0,"start offset")
 
 	return subscribeCmd
 }

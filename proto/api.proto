@@ -33,7 +33,7 @@ service GroupService {
 }
 
 service StreamService {
-    rpc FlowStream(stream StreamRequest) returns (stream StreamResponse) {}
+    rpc FlowStream(stream StreamData) returns (stream StreamData) {}
 }
 
 // Config
@@ -103,7 +103,10 @@ message DescribeTopicRequest {
 
 message DescribeTopicResponse {
     int32 magic = 1;
-    TopicInfo topic_info = 2;
+    Topic topic = 2;
+    uint64 num_publishers = 3;
+    uint64 num_subscribers = 4;
+    repeated Partition partitions = 5;
 }
 
 // partition
@@ -202,21 +205,24 @@ message ShutdownBrokerResponse {
     int32 magic = 1;
 }
 
-// pubsub
-
-message StreamRequest {
-    int32 magic = 1;
-    bytes requestBytes = 2;
+// stream
+message StreamHeader {
+    uint32 total_chunk_count = 1;
+    uint32 current_chunk_idx = 2;
 }
 
-message StreamResponse {
+message StreamBody {
+    bytes data = 1;
+}
+
+message StreamData {
     int32 magic = 1;
-    bytes responseBytes = 2;
+    StreamHeader header = 2;
+    StreamBody body = 3;
 }
 
 message Ack {
     int32 magic = 1;
-    TopicInfo info = 2;
 }
 
 message PutRequest {
