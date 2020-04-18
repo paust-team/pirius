@@ -2,11 +2,9 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/spf13/cobra"
 	"log"
-	"os"
 	"time"
 )
 
@@ -25,15 +23,14 @@ func NewSubscribeCmd() *cobra.Command {
 			defer client.Close()
 
 			if client.Connect(topicName) != nil {
-				log.Fatal("Cannot connect to broker")
-				os.Exit(1)
+				log.Fatal("cannot connect to broker")
 			}
 
 			for response := range client.Subscribe(startOffset) {
 				if response.Error != nil {
 					log.Fatal(response.Error)
 				} else {
-					fmt.Println("Received topic data: ", response.Data)
+					log.Println("received topic data: ", response.Data)
 				}
 			}
 		},

@@ -3,7 +3,6 @@ package cli
 import (
 	"github.com/spf13/cobra"
 	"log"
-	"os"
 )
 
 var (
@@ -25,6 +24,5 @@ func Main() {
 
 	if err := paustQCmd.Execute(); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 }

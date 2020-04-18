@@ -2,11 +2,9 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"github.com/paust-team/paustq/client/producer"
 	"github.com/spf13/cobra"
 	"log"
-	"os"
 	"time"
 )
 
@@ -25,14 +23,13 @@ func NewPublishCmd() *cobra.Command {
 			defer client.Close()
 
 			if client.Connect(topicName) != nil {
-				log.Fatal("Cannot connect to broker")
-				os.Exit(1)
+				log.Fatal("cannot connect to broker")
 			}
 
 			client.Publish(data)
 			client.WaitAllPublishResponse()
 
-			fmt.Println("Publish done")
+			log.Println("published ok")
 		},
 	}
 

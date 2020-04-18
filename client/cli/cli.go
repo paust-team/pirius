@@ -26,6 +26,8 @@ func Main() {
 	paustQClientCmd.AddCommand(
 		NewCreateTopicCmd(),
 		NewListTopicCmd(),
+		NewDeleteTopicCmd(),
+		NewDescribeTopicCmd(),
 		NewPublishCmd(),
 		NewSubscribeCmd(),
 	)
