@@ -59,7 +59,7 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 	}
 
 	streamReaderWriter := common.NewStreamReaderWriter(stream)
-	reqMsg, err := message.NewQMessageWithConnectRequest(client.SessionType, topicName)
+	reqMsg, err := message.NewQMessageWithMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
 	if err != nil {
 		client.rpcClient.Close()
 		cancel()

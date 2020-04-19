@@ -113,7 +113,7 @@ func NewDescribeTopicCmd() *cobra.Command {
 			if topicRpcClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			resp, err := topicRpcClient.DescribeTopic(topicName);
+			resp, err := topicRpcClient.DescribeTopic(topicName)
 			if err != nil {
 				log.Fatal(err)
 			}

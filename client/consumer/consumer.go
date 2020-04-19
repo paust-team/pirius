@@ -66,7 +66,7 @@ func (c *Consumer) Subscribe(startOffset uint64) chan SinkData {
 		c.subscribing = true
 		go c.startSubscribe()
 
-		reqMsg, err := message.NewQMessageWithFetchRequest(startOffset)
+		reqMsg, err := message.NewQMessageWithMsg(message.NewFetchRequestMsg(startOffset))
 		if err != nil {
 			log.Fatal(err)
 		}

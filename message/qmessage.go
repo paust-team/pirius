@@ -5,7 +5,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	paustqproto "github.com/paust-team/paustq/proto"
 )
 
 type QMessage struct {
@@ -69,41 +68,4 @@ func (q *QMessage) PackFrom(msg proto.Message) error {
 	}
 	q.Data = data
 	return nil
-}
-
-func NewQMessageWithConnectRequest(sessionType paustqproto.SessionType, topicName string) (*QMessage, error) {
-
-	return NewQMessageWithMsg(&paustqproto.ConnectRequest{Magic: -1, SessionType: sessionType, TopicName: topicName})
-}
-
-func NewQMessageWithConnectResponse() (*QMessage, error) {
-
-	return NewQMessageWithMsg(&paustqproto.ConnectResponse{Magic: -1})
-}
-
-func NewQMessageWithPutRequest(data []byte) (*QMessage, error) {
-
-	return NewQMessageWithMsg(&paustqproto.PutRequest{Magic: -1, Data: data})
-}
-
-func NewQMessageWithPutResponse() (*QMessage, error) {
-
-	partition := &paustqproto.Partition{
-		PartitionId: 1, Offset: 0,
-	}
-
-	return NewQMessageWithMsg(&paustqproto.PutResponse{Magic: -1, Partition: partition})
-}
-
-func NewQMessageWithFetchRequest(startOffset uint64) (*QMessage, error) {
-
-	return NewQMessageWithMsg(&paustqproto.FetchRequest{Magic: -1, StartOffset: startOffset})
-}
-
-func NewQMessageWithFetchResponse(data []byte, lastOffset uint64) (*QMessage, error) {
-	partition := &paustqproto.Partition{
-		PartitionId: 1, Offset: 0,
-	}
-
-	return NewQMessageWithMsg(&paustqproto.FetchResponse{Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset})
 }

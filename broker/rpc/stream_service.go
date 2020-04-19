@@ -66,7 +66,7 @@ func (s *StreamServiceServer) HandleFlow(session *Session, receivedMsg *message.
 		session.SessionType = connectRequestMsg.SessionType
 		session.Connected = true
 
-		respMsg, err := message.NewQMessageWithConnectResponse()
+		respMsg, err := message.NewQMessageWithMsg(message.NewConnectResponseMsg())
 		if err != nil {
 			return false, err
 		}
@@ -95,7 +95,7 @@ func (s *StreamServiceServer) HandleFlow(session *Session, receivedMsg *message.
 		log.Printf("put record with offset %d", session.Offset)
 		session.Offset++
 
-		respMsg, err := message.NewQMessageWithPutResponse()
+		respMsg, err := message.NewQMessageWithMsg(message.NewPutResponseMsg())
 		if err != nil {
 			return false, err
 		}
@@ -142,7 +142,7 @@ func (s *StreamServiceServer) HandleFlow(session *Session, receivedMsg *message.
 			counter = 0
 			session.Offset++
 
-			respMsg, err := message.NewQMessageWithFetchResponse(result.Data(), session.Offset)
+			respMsg, err := message.NewQMessageWithMsg(message.NewFetchResponseMsg(result.Data(), session.Offset))
 			if err != nil {
 				return false, err
 			}
