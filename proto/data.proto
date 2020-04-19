@@ -2,8 +2,9 @@ syntax = "proto3";
 package paustq.proto;
 
 enum SessionType {
-    PUBLISHER = 0;
-    SUBSCRIBER = 1;
+    ADMIN = 0;
+    PUBLISHER = 1;
+    SUBSCRIBER = 2;
 }
 
 message Group {
@@ -18,14 +19,8 @@ message Partition {
 }
 
 message Topic {
-    uint64 topic_id = 1;
-    string topic_name = 2;
-    string topic_meta = 3;
-}
-
-message TopicInfo {
-    uint64 num_publishers = 1;
-    uint64 num_subscribers = 2;
-    uint64 last_offset = 3;
-    repeated Partition partition = 4;
+    string topic_name = 1;
+    string topic_meta = 2;
+    uint32 num_partitions = 3;
+    uint32 replication_factor = 4;
 }

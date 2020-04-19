@@ -24,6 +24,7 @@
 #   go-tests = true
 #   unused-packages = true
 
+ignored = ["github.com/paust-team/paustq/thirdparty*"]
 
 [prune]
   go-tests = true
@@ -32,3 +33,11 @@
 [[constraint]]
   name = "github.com/golang/protobuf"
   version = "1.3.5"
+
+[[constraint]]
+  name = "github.com/tecbot/gorocksdb"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  version = "1.0.0"

@@ -2,6 +2,40 @@ syntax = "proto3";
 package paustq.proto;
 import "data.proto";
 
+service TopicService {
+    rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
+    rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse) {}
+    rpc DescribeTopic(DescribeTopicRequest) returns (DescribeTopicResponse) {}
+    rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse) {}
+}
+
+service PartitionService {
+    rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionResponse) {}
+}
+
+service ConnectionService {
+    rpc SendHeartbeat(HeartBeatRequest) returns (HeartBeatResponse) {}
+    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
+}
+
+service ConfigService {
+    rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
+    rpc AlterConfig(AlterConfigRequest) returns (AlterConfigResponse) {}
+    rpc ShowConfig(ShowConfigRequest) returns (ShowConfigResponse) {}
+}
+
+service GroupService {
+    rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse) {}
+    rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {}
+    rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {}
+    rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {}
+    rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse) {}
+}
+
+service StreamService {
+    rpc FlowStream(stream StreamData) returns (stream StreamData) {}
+}
+
 // Config
 message SetConfigRequest {
     int32 magic = 1;
@@ -35,29 +69,22 @@ message ShowConfigResponse {
     int32 error_code = 3;
 }
 
-
-// topic
-
-message CreateTopicsRequest {
+message CreateTopicRequest {
     int32 magic = 1;
-    repeated Topic topics = 2;
+    Topic topic = 2;
 }
 
 message CreateTopicResponse {
     int32 magic = 1;
-    repeated Topic topics = 2;
-    int32 error_code = 3;
 }
 
 message DeleteTopicRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
 }
 
 message DeleteTopicResponse {
     int32 magic = 1;
-    Topic topic = 2;
-    int32 error_code = 3;
 }
 
 message ListTopicsRequest {
@@ -67,61 +94,31 @@ message ListTopicsRequest {
 message ListTopicsResponse {
     int32 magic = 1;
     repeated Topic topics = 2;
-    int32 error_code = 3;
 }
 
 message DescribeTopicRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
 }
 
 message DescribeTopicResponse {
     int32 magic = 1;
-    TopicInfo topic = 2;
-    int32 error_code = 3;
-}
-
-// pubsub
-
-message Ack {
-    int32 magic = 1;
-    TopicInfo info = 2;
-}
-
-message PutRequest {
-    int32 magic = 1;
-    bytes data = 2;
-}
-
-message PutResponse {
-    int32 magic = 1;
-    Partition partition = 2;
-    int32 error_code = 3;
-}
-
-message FetchRequest {
-    int32 magic = 1;
-    uint64 start_offset = 2;
-}
-
-message FetchResponse {
-    int32 magic = 1;
-    bytes data = 2;
-    Partition partition = 3;
-    int32 error_code = 4;
+    Topic topic = 2;
+    uint64 num_publishers = 3;
+    uint64 num_subscribers = 4;
+    repeated Partition partitions = 5;
 }
 
 // partition
 message CreatePartitionRequest {
     int32 magic = 1;
-    uint64 topic_id = 2;
+    string topic_name = 2;
     uint32 count = 3;
 }
 
 message CreatePartitionResponse {
     int32 magic = 1;
     Partition partition = 2;
-    int32 error_code = 3;
 }
 
 // group
@@ -134,7 +131,6 @@ message CreateGroupRequest {
 message CreateGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 message ListGroupsRequest {
@@ -156,7 +152,6 @@ message JoinGroupRequest {
 message JoinGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 message LeaveGroupRequest {
@@ -167,7 +162,6 @@ message LeaveGroupRequest {
 message LeaveGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 // Note:: Only group owner can delete group
@@ -179,7 +173,6 @@ message DeleteGroupRequest {
 message DeleteGroupResponse {
     int32 magic = 1;
     Group group = 2;
-    int32 error_code = 3;
 }
 
 // connection
@@ -192,7 +185,6 @@ message ConnectRequest {
 
 message ConnectResponse {
     int32 magic = 1;
-    int32 error_code = 2;
 }
 
 message HeartBeatRequest {
@@ -211,5 +203,46 @@ message ShutdownBrokerRequest {
 
 message ShutdownBrokerResponse {
     int32 magic = 1;
-    int32 error_code = 2;
+}
+
+// stream
+message StreamHeader {
+    uint32 total_chunk_count = 1;
+    uint32 current_chunk_idx = 2;
+}
+
+message StreamBody {
+    bytes data = 1;
+}
+
+message StreamData {
+    int32 magic = 1;
+    StreamHeader header = 2;
+    StreamBody body = 3;
+}
+
+message Ack {
+    int32 magic = 1;
+}
+
+message PutRequest {
+    int32 magic = 1;
+    bytes data = 2;
+}
+
+message PutResponse {
+    int32 magic = 1;
+    Partition partition = 2;
+}
+
+message FetchRequest {
+    int32 magic = 1;
+    uint64 start_offset = 2;
+}
+
+message FetchResponse {
+    int32 magic = 1;
+    bytes data = 2;
+    Partition partition = 3;
+    uint64 last_offset = 4;
 }
