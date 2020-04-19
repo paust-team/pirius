@@ -17,7 +17,8 @@ func NewStartCmd() *cobra.Command {
 		Use: "start",
 		Short: "start paustq broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			broker.StartBroker(port)
+			brokerInstance := broker.NewBroker(port)
+			brokerInstance.Start()
 		},
 	}
 

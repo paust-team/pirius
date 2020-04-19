@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/paust-team/paustq/client/producer"
@@ -15,11 +16,17 @@ import (
 func TestClient_Connect(t *testing.T) {
 
 	ip := "127.0.0.1"
-	port := ":9000"
-	host := fmt.Sprintf("%s%s", ip, port)
+	port := 9000
+	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx := context.Background()
 	topic := "test_topic1"
 
+	// Start broker
+	brokerInstance := broker.NewBroker(uint16(port))
+	go brokerInstance.Start()
+	defer brokerInstance.Stop()
+
+	// Start client
 	c := client.NewStreamClient(ctx, host, paustqproto.SessionType_ADMIN)
 
 	if err := c.ConnectWithTopic(topic); err != nil {
@@ -35,7 +42,7 @@ func TestClient_Connect(t *testing.T) {
 func TestPubSub(t *testing.T) {
 
 	ip := "127.0.0.1"
-	port := ":9000"
+	port := 9000
 	timeout := 5
 
 	testRecordMap := map[string][][]byte{
@@ -47,9 +54,14 @@ func TestPubSub(t *testing.T) {
 	topic := "topic1"
 	receivedRecordMap := make(map[string][][]byte)
 
-	host := fmt.Sprintf("%s%s", ip, port)
+	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
+
+	// Start broker
+	brokerInstance := broker.NewBroker(uint16(port))
+	go brokerInstance.Start()
+	defer brokerInstance.Stop()
 
 	// Start producer
 	producerClient := producer.NewProducer(ctx1, host, time.Duration(timeout))

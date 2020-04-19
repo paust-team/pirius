@@ -9,28 +9,42 @@ import (
 	"log"
 	"net"
 )
+type Broker struct {
+	Port 			uint16
+	grpcServer 		*grpc.Server
+	db 				*storage.QRocksDB
+}
 
-func StartBroker(port uint16) {
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
+func NewBroker(port uint16) *Broker {
 
 	db, err := storage.NewQRocksDB("qstore", ".")
-	defer db.Close()
 
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 
 	grpcServer := grpc.NewServer()
 	paustqproto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
 	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db))
 
-	log.Printf("Start broker with port: %d", port)
-	if err = grpcServer.Serve(lis); err != nil {
+	return &Broker{Port: port, db: db, grpcServer: grpcServer}
+}
+
+func (b *Broker) Start() {
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	log.Printf("start broker with port: %d", b.Port)
+	if err = b.grpcServer.Serve(lis); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (b *Broker) Stop() {
+	b.grpcServer.Stop()
+	b.db.Close()
+	log.Println("stop broker")
 }
