@@ -8,15 +8,22 @@ import (
 	paustqproto "github.com/paust-team/paustq/proto"
 )
 
-type TopicServiceServer struct {
+type TopicRPCService interface {
+	CreateTopic(context.Context, *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error)
+	DeleteTopic(context.Context, *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error)
+	DescribeTopic(context.Context, *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error)
+	ListTopics(context.Context, *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error)
+}
+
+type TopicRPCServiceServer struct {
 	DB  	*storage.QRocksDB
 }
 
-func NewTopicServiceServer(db *storage.QRocksDB) *TopicServiceServer {
-	return &TopicServiceServer{db}
+func NewTopicRPCServiceServer(db *storage.QRocksDB) *TopicRPCServiceServer{
+	return &TopicRPCServiceServer{db}
 }
 
-func (s *TopicServiceServer) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
+func (s *TopicRPCServiceServer) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
 
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
@@ -26,7 +33,7 @@ func (s *TopicServiceServer) CreateTopic(_ context.Context, request *paustqproto
 	return message.NewCreateTopicResponseMsg(), nil
 }
 
-func (s *TopicServiceServer) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
+func (s *TopicRPCServiceServer) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
 
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return nil, err
@@ -35,7 +42,7 @@ func (s *TopicServiceServer) DeleteTopic(_ context.Context, request *paustqproto
 	return message.NewDeleteTopicResponseMsg(), nil
 }
 
-func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error) {
+func (s *TopicRPCServiceServer) DescribeTopic(_ context.Context, request *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error) {
 
 	result, err := s.DB.GetTopic(request.TopicName)
 
@@ -52,7 +59,7 @@ func (s *TopicServiceServer) DescribeTopic(_ context.Context, request *paustqpro
 	return message.NewDescribeTopicResponseMsg(topic, 1,1), nil
 }
 
-func (s *TopicServiceServer) ListTopics(_ context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
+func (s *TopicRPCServiceServer) ListTopics(_ context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
 
 	var topics []*paustqproto.Topic
 	topicMap := s.DB.GetAllTopics()
@@ -63,4 +70,3 @@ func (s *TopicServiceServer) ListTopics(_ context.Context, _ *paustqproto.ListTo
 
 	return message.NewListTopicsResponseMsg(topics), nil
 }
-

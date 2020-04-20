@@ -19,17 +19,16 @@ func NewCreateTopicCmd() *cobra.Command {
 	var createTopicCmd = &cobra.Command{
 		Use: "create-topic",
 		Short: "Create topic",
-
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := topicRpcClient.CreateTopic(topicName, topicMeta, numPartition, replicationFactor); err != nil {
+			if err := apiClient.CreateTopic(topicName, topicMeta, numPartition, replicationFactor); err != nil {
 				log.Fatal(err)
 			}
 
@@ -53,13 +52,13 @@ func NewListTopicCmd() *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			topics, err := topicRpcClient.ListTopics()
+			topics, err := apiClient.ListTopics()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -82,14 +81,14 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := topicRpcClient.DeleteTopic(topicName); err != nil {
+			if err := apiClient.DeleteTopic(topicName); err != nil {
 				log.Fatal(err)
 			}
 
@@ -109,13 +108,13 @@ func NewDescribeTopicCmd() *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			resp, err := topicRpcClient.DescribeTopic(topicName)
+			resp, err := apiClient.DescribeTopic(topicName)
 			if err != nil {
 				log.Fatal(err)
 			}

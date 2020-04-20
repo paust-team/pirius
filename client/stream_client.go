@@ -6,6 +6,7 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"google.golang.org/grpc"
 )
 
 type ReceivedData struct {
@@ -15,15 +16,16 @@ type ReceivedData struct {
 
 type StreamClient struct {
 	context 			context.Context
-	rpcClient 			*RpcClient
-	stub 				paustqproto.StreamServiceClient
+	streamClient 		paustqproto.StreamService_FlowStreamClient
 	streamReaderWriter 	*common.StreamReaderWriter
-	clientStream 		paustqproto.StreamService_FlowStreamClient
 	SessionType 		paustqproto.SessionType
+	conn 				*grpc.ClientConn
+	ServerUrl			string
+	Connected 			bool
 }
 
 func NewStreamClient(context context.Context, serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{rpcClient: NewRpcClient(serverUrl), context: context, SessionType: sessionType}
+	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl}
 }
 
 func (client *StreamClient) ReceiveToChan(receiveCh chan <- ReceivedData) {
@@ -41,19 +43,23 @@ func (client *StreamClient) Send(msg *message.QMessage) error {
 }
 
 func (client *StreamClient) ConnectWithTopic(topicName string) error {
-	if client.rpcClient.Connected {
+
+	if client.Connected {
 		return errors.New("already connected")
 	}
 
-	if err := client.rpcClient.Connect(); err != nil {
+	conn, err := grpc.Dial(client.ServerUrl, grpc.WithInsecure())
+	if err != nil {
 		return err
 	}
+	client.conn = conn
+	client.Connected = true
 
 	ctx, cancel := context.WithCancel(client.context)
-	stub := paustqproto.NewStreamServiceClient(client.rpcClient.Conn)
+	stub := paustqproto.NewStreamServiceClient(conn)
 	stream, err := stub.FlowStream(ctx)
 	if err != nil {
-		client.rpcClient.Close()
+		conn.Close()
 		cancel()
 		return err
 	}
@@ -61,41 +67,42 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 	streamReaderWriter := common.NewStreamReaderWriter(stream)
 	reqMsg, err := message.NewQMessageWithMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
 	if err != nil {
-		client.rpcClient.Close()
+		conn.Close()
 		cancel()
 		return err
 	}
 
 	if err:= streamReaderWriter.SendMsg(reqMsg); err != nil {
-		client.rpcClient.Close()
+		conn.Close()
 		cancel()
 		return err
 	}
 
 	respMsg, err := streamReaderWriter.RecvMsg()
 	if err != nil {
-		client.rpcClient.Close()
+		conn.Close()
 		cancel()
 		return err
 	}
 
 	connectResponseMsg := &paustqproto.ConnectResponse{}
 	if err := respMsg.UnpackTo(connectResponseMsg); err != nil {
-		client.rpcClient.Close()
+		conn.Close()
 		cancel()
 		return err
 	}
 
-	client.clientStream = stream
+	client.conn = conn
+	client.Connected = true
+	client.streamClient = stream
 	client.streamReaderWriter = streamReaderWriter
-	client.stub = stub
 
 	return nil
 }
 
 func (client *StreamClient) Close() error {
-	client.clientStream.CloseSend()
+	client.streamClient.CloseSend()
 	_, cancel := context.WithCancel(client.context)
 	cancel()
-	return client.rpcClient.Close()
+	return client.conn.Close()
 }

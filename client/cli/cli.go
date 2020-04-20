@@ -24,6 +24,7 @@ func Main() {
 	paustQClientCmd.Flags().Uint8VarP(&timeout, "timeout", "t", 5, "set connection timeout(sec)")
 
 	paustQClientCmd.AddCommand(
+		NewHeartbeatCmd(),
 		NewCreateTopicCmd(),
 		NewListTopicCmd(),
 		NewDeleteTopicCmd(),

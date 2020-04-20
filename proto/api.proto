@@ -2,29 +2,26 @@ syntax = "proto3";
 package paustq.proto;
 import "data.proto";
 
-service TopicService {
+service APIService {
+
+    rpc Heartbeat(Ping) returns (Pong) {}
+    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
+
+    // Topic related RPCs
     rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
     rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse) {}
     rpc DescribeTopic(DescribeTopicRequest) returns (DescribeTopicResponse) {}
     rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse) {}
-}
 
-service PartitionService {
+    // Partition related RPCs
     rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionResponse) {}
-}
 
-service ConnectionService {
-    rpc SendHeartbeat(HeartBeatRequest) returns (HeartBeatResponse) {}
-    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
-}
-
-service ConfigService {
+    // Config related RPCs
     rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
     rpc AlterConfig(AlterConfigRequest) returns (AlterConfigResponse) {}
     rpc ShowConfig(ShowConfigRequest) returns (ShowConfigResponse) {}
-}
 
-service GroupService {
+    // Group related RPCs
     rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse) {}
     rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {}
     rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {}
@@ -187,13 +184,17 @@ message ConnectResponse {
     int32 magic = 1;
 }
 
-message HeartBeatRequest {
+message Ping {
     int32 magic = 1;
+    string echo = 2;
+    uint64 broker_id = 3;
 }
 
-message HeartBeatResponse {
+message Pong {
     int32 magic = 1;
-    int32 error_code = 2;
+    string echo = 2;
+    uint32 server_version = 3;
+    uint64 server_time = 4; //nanosec
 }
 
 message ShutdownBrokerRequest {

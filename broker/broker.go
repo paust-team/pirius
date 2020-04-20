@@ -24,7 +24,7 @@ func NewBroker(port uint16) *Broker {
 	}
 
 	grpcServer := grpc.NewServer()
-	paustqproto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
+	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
 	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db))
 
 	return &Broker{Port: port, db: db, grpcServer: grpcServer}

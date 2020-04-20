@@ -81,3 +81,19 @@ func NewFetchResponseMsg(data []byte, lastOffset uint64) *paustqproto.FetchRespo
 
 	return &paustqproto.FetchResponse{Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset}
 }
+
+func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {
+	return &paustqproto.Ping{Magic: -1, Echo: msg, BrokerId: brokerId}
+}
+
+func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong{
+	return &paustqproto.Pong{Magic: -1, Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
+}
+
+func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerRequest {
+	return &paustqproto.ShutdownBrokerRequest{Magic: -1, BrokerId: brokerId}
+}
+
+func NewShutdownBrokerResponseMsg() *paustqproto.ShutdownBrokerResponse {
+	return &paustqproto.ShutdownBrokerResponse{Magic: -1}
+}
