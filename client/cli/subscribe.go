@@ -37,6 +37,7 @@ func NewSubscribeCmd() *cobra.Command {
 	}
 
 	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to subscribe from")
+	subscribeCmd.MarkFlagRequired("topic")
 	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0,"start offset")
 
 	return subscribeCmd

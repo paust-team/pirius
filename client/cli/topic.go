@@ -19,6 +19,7 @@ func NewCreateTopicCmd() *cobra.Command {
 	var createTopicCmd = &cobra.Command{
 		Use: "create-topic",
 		Short: "Create topic",
+
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
@@ -37,6 +38,7 @@ func NewCreateTopicCmd() *cobra.Command {
 	}
 
 	createTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","new topic name to create")
+	createTopicCmd.MarkFlagRequired("topic")
 	createTopicCmd.Flags().StringVarP(&topicMeta, "topic-meta", "m", "","topic meta for topic")
 	createTopicCmd.Flags().Uint32VarP(&numPartition, "partitions", "p", 1, "num partition")
 	createTopicCmd.Flags().Uint32VarP(&replicationFactor, "replication-factor", "r", 1, "replication factor")
