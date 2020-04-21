@@ -39,6 +39,7 @@ func TestClient_Connect(t *testing.T) {
 	}
 }
 
+
 func TestPubSub(t *testing.T) {
 
 	ip := "127.0.0.1"

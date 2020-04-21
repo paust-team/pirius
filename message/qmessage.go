@@ -15,7 +15,7 @@ func NewQMessage(data []byte) *QMessage{
 	return &QMessage{Data: data}
 }
 
-func NewQMessageWithMsg(msg proto.Message) (*QMessage, error) {
+func NewQMessageFromMsg(msg proto.Message) (*QMessage, error) {
 	qMessage := &QMessage{}
 	if err := qMessage.PackFrom(msg); err != nil {
 		return nil, err

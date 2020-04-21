@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
@@ -37,8 +36,6 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, flowed
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
-	fmt.Println("put pipe ready")
-	fmt.Println(inStream)
 	wg.Add(1)
 	go func() {
 		wg.Done()

@@ -148,7 +148,6 @@ func TestPipeline_Add(t *testing.T) {
 
 	err = pipeline.Add(uuid.UUID{}, generator, nil)
 	if err != nil {
-		fmt.Println(err)
 		t.Error("Adding source pipe failed")
 	}
 
@@ -184,7 +183,6 @@ func TestPipeline_Flow(t *testing.T) {
 
 	err = pipeline.Add(uuid.UUID{}, generator, nil)
 	if err != nil {
-		fmt.Println(err)
 		t.Error("Adding source pipe failed")
 	}
 

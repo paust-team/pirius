@@ -17,8 +17,8 @@ type StreamClient struct {
 	context 			context.Context
 	rpcClient 			*RpcClient
 	stub 				paustqproto.StreamServiceClient
-	streamReaderWriter 	*common.StreamReaderWriter
-	clientStream 		paustqproto.StreamService_FlowStreamClient
+	sockContainer	 	*common.StreamSocketContainer
+	clientStream 		paustqproto.StreamService_FlowClient
 	SessionType 		paustqproto.SessionType
 }
 
@@ -33,11 +33,11 @@ func (client *StreamClient) ReceiveToChan(receiveCh chan <- ReceivedData) {
 }
 
 func (client *StreamClient) Receive() (*message.QMessage, error) {
-	return client.streamReaderWriter.RecvMsg()
+	return client.sockContainer.Read()
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
-	return client.streamReaderWriter.SendMsg(msg)
+	return client.sockContainer.Write(msg)
 }
 
 func (client *StreamClient) ConnectWithTopic(topicName string) error {
@@ -51,28 +51,28 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 
 	ctx, cancel := context.WithCancel(client.context)
 	stub := paustqproto.NewStreamServiceClient(client.rpcClient.Conn)
-	stream, err := stub.FlowStream(ctx)
+	stream, err := stub.Flow(ctx)
 	if err != nil {
 		client.rpcClient.Close()
 		cancel()
 		return err
 	}
 
-	streamReaderWriter := common.NewStreamReaderWriter(stream)
-	reqMsg, err := message.NewQMessageWithMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
+	sockContainer := common.NewSocketContainer(stream)
+	reqMsg, err := message.NewQMessageFromMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
 	if err != nil {
 		client.rpcClient.Close()
 		cancel()
 		return err
 	}
 
-	if err:= streamReaderWriter.SendMsg(reqMsg); err != nil {
+	if err:= sockContainer.Write(reqMsg); err != nil {
 		client.rpcClient.Close()
 		cancel()
 		return err
 	}
 
-	respMsg, err := streamReaderWriter.RecvMsg()
+	respMsg, err := sockContainer.Read()
 	if err != nil {
 		client.rpcClient.Close()
 		cancel()
@@ -87,7 +87,7 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 	}
 
 	client.clientStream = stream
-	client.streamReaderWriter = streamReaderWriter
+	client.sockContainer = sockContainer
 	client.stub = stub
 
 	return nil

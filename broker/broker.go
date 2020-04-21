@@ -2,6 +2,7 @@ package broker
 
 import (
 	"fmt"
+	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/rpc"
 	"github.com/paust-team/paustq/broker/storage"
 	paustqproto "github.com/paust-team/paustq/proto"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net"
 )
+
 type Broker struct {
 	Port 			uint16
 	grpcServer 		*grpc.Server
@@ -18,6 +20,7 @@ type Broker struct {
 func NewBroker(port uint16) *Broker {
 
 	db, err := storage.NewQRocksDB("qstore", ".")
+	topic := internals.NewTopic()
 
 	if err != nil {
 		log.Fatal(err)
@@ -25,13 +28,12 @@ func NewBroker(port uint16) *Broker {
 
 	grpcServer := grpc.NewServer()
 	paustqproto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
-	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db))
+	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, topic))
 
-	return &Broker{Port: port, db: db, grpcServer: grpcServer}
+	return &Broker{Port: port, db: db, grpcServer: grpcServer,}
 }
 
 func (b *Broker) Start() {
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
