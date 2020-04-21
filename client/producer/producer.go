@@ -63,7 +63,7 @@ func (p *Producer) startPublish() {
 		select {
 		case sourceData := <-p.sourceChannel:
 
-			reqMsg, err := message.NewQMessageWithMsg(message.NewPutRequestMsg(sourceData))
+			reqMsg, err := message.NewQMessageFromMsg(message.NewPutRequestMsg(sourceData))
 			if err != nil {
 				log.Fatal(err)
 			}

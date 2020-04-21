@@ -33,7 +33,7 @@ service GroupService {
 }
 
 service StreamService {
-    rpc FlowStream(stream StreamData) returns (stream StreamData) {}
+    rpc Flow(stream Data) returns (stream Data) {}
 }
 
 // Config
@@ -206,19 +206,19 @@ message ShutdownBrokerResponse {
 }
 
 // stream
-message StreamHeader {
+message Header {
     uint32 total_chunk_count = 1;
     uint32 current_chunk_idx = 2;
 }
 
-message StreamBody {
+message Body {
     bytes data = 1;
 }
 
-message StreamData {
+message Data {
     int32 magic = 1;
-    StreamHeader header = 2;
-    StreamBody body = 3;
+    Header header = 2;
+    Body body = 3;
 }
 
 message Ack {
@@ -245,4 +245,5 @@ message FetchResponse {
     bytes data = 2;
     Partition partition = 3;
     uint64 last_offset = 4;
+    uint64 offset = 5;
 }

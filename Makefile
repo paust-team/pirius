@@ -32,21 +32,20 @@ $(PROTOC_GEN_GO):
 
 PROTOFILE_DIR := $(abspath proto)
 
-$(PROTOFILE_DIR)/data.pb.go: $(PROTOFILE_DIR)/data.proto | $(PROTOC_GEN_GO) $(PROTOC)
-	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/data.proto
-$(PROTOFILE_DIR)/api.pb.go: $(PROTOFILE_DIR)/api.proto | $(PROTOC_GEN_GO) $(PROTOC)
-	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/api.proto
-
-compile-protobuf: $(PROTOFILE_DIR)/data.pb.go $(PROTOFILE_DIR)/api.pb.go
+compile-protobuf:
+	rm $(PROTOFILE_DIR)/*.go
+	protoc --proto_path=$(PROTOFILE_DIR) --go_out=plugins=grpc:$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
 
 .PHONY: rebuild-rocksdb build-rocksdb
 rebuild-rocksdb:
-	cd $(ROCKSDB_BUILD_DIR) && make clean
+	if [ -d $(ROCKSDB_BUILD_DIR) ]; then \
+		cd $(ROCKSDB_BUILD_DIR) && make clean; \
+	fi
 	rm -rf $(ROCKSDB_BUILD_DIR)
 	mkdir -p $(ROCKSDB_BUILD_DIR)
 ifdef mac-os-host
 	cd $(ROCKSDB_BUILD_DIR) && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPORTABLE=ON -DWITH_TESTS=OFF \
-	-DWITH_BENCHMARK_TOOLS=OFF -DWITH_SNAPPY=ON -DUSE_RTTI=ON -DWITH_GFLAGS=OFF -DCMAKE_INSTALL_PREFIX=$(THIRDPARTY_DIR)\
+	-DWITH_BENCHMARK_TOOLS=OFF -DWITH_SNAPPY=ON -DUSE_RTTI=ON -DWITH_GFLAGS=OFF \
 	&& make -j $(NPROC) install
 endif
 ifdef linux-os-host
@@ -64,15 +63,14 @@ endif
 
 .PHONY: build rebuild test
 build:
-
-	if test -n $(GIT_DIR); then \
+	if [ -d $(GIT_DIR) ]; then \
 		git submodule update --init --recursive; \
 	fi
 	make build-protobuf
 	make compile-protobuf
 	make build-rocksdb
 rebuild:
-	if test -n $(GIT_DIR); then \
+	if [ -d $(GIT_DIR) ]; then \
 		git submodule update --init --recursive; \
 	fi
 	make rebuild-protobuf
