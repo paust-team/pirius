@@ -140,6 +140,11 @@ func NewRecordKey(topic string, offset uint64) *RecordKey {
 	return &RecordKey{bytes: storage}
 }
 
+func (key *RecordKey) FromSlice(slice *gorocksdb.Slice) *RecordKey {
+	key.bytes = slice.Data()
+	return key
+}
+
 func (key RecordKey) Bytes() []byte {
 	return key.bytes
 }
