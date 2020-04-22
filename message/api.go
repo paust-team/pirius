@@ -74,12 +74,12 @@ func NewFetchRequestMsg(startOffset uint64) *paustqproto.FetchRequest {
 	return &paustqproto.FetchRequest{Magic: -1, StartOffset: startOffset}
 }
 
-func NewFetchResponseMsg(data []byte, lastOffset uint64) *paustqproto.FetchResponse {
+func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *paustqproto.FetchResponse {
 	partition := &paustqproto.Partition{
 		PartitionId: 1, Offset: 0,
 	}
 
-	return &paustqproto.FetchResponse{Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset}
+	return &paustqproto.FetchResponse{Magic: -1, Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
 }
 
 func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {

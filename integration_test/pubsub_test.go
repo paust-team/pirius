@@ -39,10 +39,11 @@ func TestClient_Connect(t *testing.T) {
 	}
 }
 
+
 func TestPubSub(t *testing.T) {
 
 	ip := "127.0.0.1"
-	port := 9000
+	port := 9001
 	timeout := 5
 
 	testRecordMap := map[string][][]byte{
