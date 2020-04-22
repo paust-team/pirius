@@ -22,10 +22,11 @@ type StreamClient struct {
 	conn 				*grpc.ClientConn
 	ServerUrl			string
 	Connected 			bool
+	MaxBufferSize 		uint32
 }
 
 func NewStreamClient(context context.Context, serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl}
+	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize:1024}
 }
 
 func (client *StreamClient) ReceiveToChan(receiveCh chan <- ReceivedData) {
@@ -39,7 +40,7 @@ func (client *StreamClient) Receive() (*message.QMessage, error) {
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
-	return client.sockContainer.Write(msg)
+	return client.sockContainer.Write(msg, client.MaxBufferSize)
 }
 
 func (client *StreamClient) ConnectWithTopic(topicName string) error {
@@ -72,7 +73,7 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 		return err
 	}
 
-	if err:= sockContainer.Write(reqMsg); err != nil {
+	if err:= sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
 		conn.Close()
 		cancel()
 		return err

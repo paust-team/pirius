@@ -92,10 +92,9 @@ func (s *Session) Read() (*message.QMessage, error) {
 	return s.sock.Read()
 }
 
-func (s *Session) Write(msg *message.QMessage) error {
-	return s.sock.Write(msg)
+func (s *Session) Write(msg *message.QMessage, maxBufferSize uint32) error {
+	return s.sock.Write(msg, maxBufferSize)
 }
-
 
 
 /*

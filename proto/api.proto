@@ -168,8 +168,9 @@ message ShutdownBrokerResponse {}
 
 // stream
 message Header {
-    uint32 total_chunk_count = 1;
-    uint32 current_chunk_idx = 2;
+    uint64 chunk_id = 1;
+    uint32 total_chunk_count = 2;
+    uint32 current_chunk_idx = 3;
 }
 
 message Body {

@@ -1,6 +1,7 @@
 package integration_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -9,6 +10,10 @@ import (
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/paust-team/paustq/client/producer"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -25,6 +30,7 @@ func TestClient_Connect(t *testing.T) {
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
 	defer brokerInstance.Stop()
+	time.Sleep(1 * time.Second)
 
 	// Start client
 	c := client.NewStreamClient(ctx, host, paustqproto.SessionType_ADMIN)
@@ -44,7 +50,6 @@ func TestPubSub(t *testing.T) {
 
 	ip := "127.0.0.1"
 	port := 9001
-	timeout := 5
 
 	testRecordMap := map[string][][]byte{
 		"topic1": {
@@ -63,9 +68,10 @@ func TestPubSub(t *testing.T) {
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
 	defer brokerInstance.Stop()
+	time.Sleep(1 * time.Second)
 
 	// Start producer
-	producerClient := producer.NewProducer(ctx1, host, time.Duration(timeout))
+	producerClient := producer.NewProducer(ctx1, host)
 	if producerClient.Connect(topic) != nil {
 		t.Error("Error on connect")
 	}
@@ -81,7 +87,7 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd(), time.Duration(timeout))
+	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
 	if consumerClient.Connect(topic) != nil {
 		t.Error("Error on connect")
 		return
@@ -112,3 +118,214 @@ func TestPubSub(t *testing.T) {
 	}
 }
 
+func TestPubsub_Chunk(t *testing.T) {
+
+	ip := "127.0.0.1"
+	port := 9002
+	var chunkSize uint32 = 1024
+
+	topic := "topic2"
+
+	host := fmt.Sprintf("%s:%d", ip, port)
+	ctx1 := context.Background()
+	ctx2 := context.Background()
+
+	// Start broker
+	brokerInstance := broker.NewBroker(uint16(port))
+	go brokerInstance.Start()
+	defer brokerInstance.Stop()
+	time.Sleep(1 * time.Second)
+
+	// Start producer
+	producerClient := producer.NewProducer(ctx1, host).WithChunkSize(chunkSize)
+	if producerClient.Connect(topic) != nil {
+		t.Error("Error on connect")
+	}
+
+	data, err := ioutil.ReadFile("sample.txt")
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	producerClient.Publish(data)
+	producerClient.WaitAllPublishResponse()
+
+	if err := producerClient.Close(); err != nil {
+		t.Error(err)
+	}
+
+	expectedLen := len(data)
+	// Start consumer
+
+	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
+	if consumerClient.Connect(topic) != nil {
+		t.Error("Error on connect")
+		return
+	}
+
+	receivedLen := 0
+	for response := range consumerClient.Subscribe(0) {
+		if response.Error != nil {
+			t.Error(response.Error)
+		} else {
+			receivedLen = len(response.Data)
+		}
+	}
+
+	if err := consumerClient.Close(); err != nil {
+		t.Error(err)
+	}
+
+	if expectedLen != receivedLen {
+		t.Error("Length Mismatch - Expected record length: ", expectedLen, ", Received record length: ", receivedLen)
+	}
+}
+
+func readFromFileLineBy(fileName string) (int, [][]byte) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	var records [][]byte
+	count := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		data := []byte(scanner.Text())
+		records = append(records, data)
+		count++
+	}
+	return count, records
+}
+
+func TestMultiClient(t *testing.T) {
+
+	ip := "127.0.0.1"
+	port := 9002
+	var chunkSize uint32 = 1024
+
+	topic := "topic3"
+
+	host := fmt.Sprintf("%s:%d", ip, port)
+
+	// Start broker
+	brokerInstance := broker.NewBroker(uint16(port))
+	go brokerInstance.Start()
+	defer brokerInstance.Stop()
+	time.Sleep(1 * time.Second)
+
+	ctxP1 := context.Background()
+	ctxP2 := context.Background()
+	ctxP3 := context.Background()
+
+	ctxC1 := context.Background()
+	ctxC2 := context.Background()
+
+	mu := sync.Mutex{}
+	wg := sync.WaitGroup{}
+
+	// Start producer
+	var expectedSentCount int
+	var sentRecords [][]byte
+	runProducer := func(ctx context.Context, fileName string) {
+		wg.Add(1)
+		count, sendingRecords := readFromFileLineBy(fileName)
+		expectedSentCount += count
+		go func() {
+			defer wg.Done()
+
+			producerClient := producer.NewProducer(ctx, host).WithChunkSize(chunkSize)
+			if producerClient.Connect(topic) != nil {
+				t.Error("Error on connect")
+			}
+
+			for _, record := range sendingRecords {
+				producerClient.Publish(record)
+			}
+
+			mu.Lock()
+			sentRecords = append(sentRecords, sendingRecords...)
+			mu.Unlock()
+
+			producerClient.WaitAllPublishResponse()
+
+			if err := producerClient.Close(); err != nil {
+				t.Error(err)
+			}
+			fmt.Println("publish done with file :", fileName)
+		}()
+	}
+
+	runProducer(ctxP1, "data1.txt")
+	runProducer(ctxP2, "data2.txt")
+	runProducer(ctxP3, "data3.txt")
+
+	// Start consumer
+	var receivedRecords1 [][]byte
+	var receivedRecords2 [][]byte
+
+	runConsumer := func(ctx context.Context, receivedRecords *[][]byte) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			consumerClient := consumer.NewConsumer(ctx, host, consumer.NewEndSubscriptionCondition().Eternal())
+			if consumerClient.Connect(topic) != nil {
+				t.Error("Error on connect")
+				return
+			}
+
+			receiveCount := 0
+			for response := range consumerClient.Subscribe(0) {
+				if response.Error != nil {
+					t.Error(response.Error)
+				} else {
+
+					*receivedRecords = append(*receivedRecords, response.Data)
+					receiveCount++
+					if expectedSentCount == receiveCount {
+						break
+					}
+					fmt.Println("sent count:", expectedSentCount,", received count:", receiveCount)
+				}
+			}
+
+			if err := consumerClient.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+	}
+
+	go runConsumer(ctxC1, &receivedRecords1)
+	go runConsumer(ctxC2, &receivedRecords2)
+
+	wg.Wait()
+
+	checkConsumerResults := func(receivedRecords [][]byte) {
+		if len(sentRecords) != len(receivedRecords) {
+			t.Error("Length Mismatch - Expected records: ", len(sentRecords), ", Received records: ", len(receivedRecords))
+		}
+
+		for _, record := range receivedRecords {
+			if !contains(sentRecords, record) {
+				t.Error("Record is not exists: ", record)
+			}
+		}
+	}
+
+	checkConsumerResults(receivedRecords1)
+	checkConsumerResults(receivedRecords2)
+}
+
+func contains(s [][]byte, e []byte) bool {
+	for _, a := range s {
+		if bytes.Compare(a,e) ==0 {
+			return true
+		}
+	}
+	return false
+}

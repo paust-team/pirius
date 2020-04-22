@@ -15,6 +15,7 @@ type Consumer struct {
 	sinkChannel 	chan SinkData
 	subscribing 	bool
 	endCondition	Condition
+	timeout 		time.Duration
 }
 
 type SinkData struct {
@@ -22,9 +23,14 @@ type SinkData struct {
 	Data  []byte
 }
 
-func NewConsumer(ctx context.Context, serverUrl string, endCondition Condition, timeout time.Duration) *Consumer {
+func NewConsumer(ctx context.Context, serverUrl string, endCondition Condition) *Consumer {
 	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_SUBSCRIBER)
 	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false, endCondition: endCondition}
+}
+
+func (c *Consumer) WithTimeout(timeout time.Duration) *Consumer {
+	c.timeout = timeout
+	return c
 }
 
 func (c *Consumer) startSubscribe() {

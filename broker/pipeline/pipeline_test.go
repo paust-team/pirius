@@ -3,8 +3,8 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"fmt"
 	uuid "github.com/satori/go.uuid"
+	"log"
 	"sync"
 	"testing"
 	"time"
@@ -119,7 +119,7 @@ func (p *Printer) Ready(ctx context.Context, inStream <-chan interface{}, flowed
 			case <- ctx.Done():
 				return
 			default:
-				fmt.Println(in.(int))
+				log.Println(in.(int))
 			}
 		}
 	}()

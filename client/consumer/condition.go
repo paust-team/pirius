@@ -21,6 +21,14 @@ func (cond EndSubscriptionCondition) OnReachEnd() *EndSubscriptionConditionOnRea
 	return &EndSubscriptionConditionOnReachEnd{}
 }
 
+func (cond EndSubscriptionCondition) OnReachEndNotPublishing() *EndSubscriptionConditionOnReachEndNotPublishing {
+	return &EndSubscriptionConditionOnReachEndNotPublishing{}
+}
+
+func (cond EndSubscriptionCondition) OnConditionFn(fn func(response *paustqproto.FetchResponse)bool) *EndSubscriptionConditionOnFn {
+	return &EndSubscriptionConditionOnFn{fn}
+}
+
 type EndSubscriptionConditionEternal struct{}
 func (cond EndSubscriptionConditionEternal) Check(_ interface{}) bool {
 	return false
@@ -34,4 +42,22 @@ func (cond EndSubscriptionConditionOnReachEnd) Check(data interface{}) bool {
 		return true
 	}
 	return false
+}
+
+type EndSubscriptionConditionOnReachEndNotPublishing struct{}
+func (cond EndSubscriptionConditionOnReachEndNotPublishing) Check(data interface{}) bool {
+	fetchResponse := data.(*paustqproto.FetchResponse)
+
+	if fetchResponse.LastOffset == fetchResponse.Offset && !fetchResponse.Publishing{
+		return true
+	}
+	return false
+}
+
+type EndSubscriptionConditionOnFn struct{
+	fn 		func(response *paustqproto.FetchResponse)bool
+}
+func (cond EndSubscriptionConditionOnFn) Check(data interface{}) bool {
+	fetchResponse := data.(*paustqproto.FetchResponse)
+	return cond.fn(fetchResponse)
 }

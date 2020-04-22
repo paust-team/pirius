@@ -36,7 +36,7 @@ func (s *SendPipe) Ready(ctx context.Context, inStream <-chan interface{}, flowe
 
 		for in := range inStream {
 			res := in.(*message.QMessage)
-			err := s.session.Write(res)
+			err := s.session.Write(res, 1024)
 			if err != nil {
 				errCh <- err
 				return

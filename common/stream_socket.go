@@ -1,9 +1,12 @@
 package common
 
 import (
+	"errors"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"io"
+	"math"
+	"math/rand"
 	"sync"
 )
 
@@ -33,17 +36,38 @@ func (sc *StreamSocketContainer) Open() {
 }
 
 // TODO:: need to chunk large marshaled proto message
-func (sc *StreamSocketContainer) Write(msg *message.QMessage) error {
 
-	header := &paustqproto.Header{TotalChunkCount: 1, CurrentChunkIdx: 0}
-	body := &paustqproto.Body{Data: msg.Data}
+func (sc *StreamSocketContainer) Write(msg *message.QMessage, maxBufferSize uint32) error {
 
-	return sc.socket.Send(&paustqproto.Data{Header: header, Body: body})
+	totalChunkCount := uint32(math.Ceil(float64(len(msg.Data)) / float64(maxBufferSize)))
+	chunkId := rand.Uint64()
+	var currentChunkIdx uint32 = 0
+
+	for ;currentChunkIdx < totalChunkCount; currentChunkIdx++ {
+		start := currentChunkIdx * maxBufferSize
+		end := (currentChunkIdx + 1) * maxBufferSize
+		var data []byte
+		if currentChunkIdx + 1 < totalChunkCount {
+			data = msg.Data[start:end]
+		} else {
+			data = msg.Data[start:]
+		}
+
+		header := &paustqproto.Header{ChunkId: chunkId, TotalChunkCount: totalChunkCount, CurrentChunkIdx: currentChunkIdx}
+		body := &paustqproto.Body{Data: data}
+		if err := sc.socket.Send(&paustqproto.Data{Header: header, Body: body}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // This method is for reading chunked proto message from stream
 func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 	var totalData []byte
+	var chunkId uint64 = 0
+	var prevChunkIdx uint32 = 0
+
 	for {
 		receivedData, err := sc.socket.Recv()
 		if err == io.EOF { // end stream
@@ -53,6 +77,16 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 			return nil, err
 		}
 
+		if chunkId == 0 {
+			chunkId = receivedData.Header.ChunkId
+		} else if chunkId != receivedData.Header.ChunkId {
+			return nil, errors.New("cannot complete chunk: got different chunk id")
+		}
+
+		if receivedData.Header.CurrentChunkIdx != 0 && receivedData.Header.CurrentChunkIdx - 1 != prevChunkIdx {
+			return nil, errors.New("cannot complete chunk: got different chunk id")
+		}
+		prevChunkIdx = receivedData.Header.CurrentChunkIdx
 		totalData = append(totalData, receivedData.Body.Data...)
 		if receivedData.Header.CurrentChunkIdx >= receivedData.Header.TotalChunkCount - 1 {
 			break
