@@ -17,10 +17,10 @@ type APIServiceServer struct {
 
 func NewAPIServiceServer(db *storage.QRocksDB) *APIServiceServer {
 	return &APIServiceServer{
-		NewTopicRPCServiceServer(db),
-		NewPartitionRPCServiceServer(db),
-		NewConfigRPCServiceServer(),
-		NewGroupRPCServiceServer(),
+		NewTopicRPCService(db),
+		NewPartitionRPCService(db),
+		NewConfigRPCService(),
+		NewGroupRPCService(),
 	}
 }
 

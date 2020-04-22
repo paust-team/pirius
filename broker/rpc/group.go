@@ -14,29 +14,29 @@ type GroupRPCService interface {
 	DeleteGroup(context.Context, *paustqproto.DeleteGroupRequest) (*paustqproto.DeleteGroupResponse, error)
 }
 
-type GroupRPCServiceServer struct {}
+type groupRPCService struct {}
 
-func NewGroupRPCServiceServer() *GroupRPCServiceServer {
-	return &GroupRPCServiceServer{}
+func NewGroupRPCService() *groupRPCService {
+	return &groupRPCService{}
 }
 
-func (s *GroupRPCServiceServer) JoinGroup(_ context.Context, request *paustqproto.JoinGroupRequest) (*paustqproto.JoinGroupResponse, error) {
+func (s *groupRPCService) JoinGroup(_ context.Context, request *paustqproto.JoinGroupRequest) (*paustqproto.JoinGroupResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *GroupRPCServiceServer) LeaveGroup(_ context.Context, request *paustqproto.LeaveGroupRequest) (*paustqproto.LeaveGroupResponse, error) {
+func (s *groupRPCService) LeaveGroup(_ context.Context, request *paustqproto.LeaveGroupRequest) (*paustqproto.LeaveGroupResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *GroupRPCServiceServer) CreateGroup(_ context.Context, request *paustqproto.CreateGroupRequest) (*paustqproto.CreateGroupResponse, error) {
+func (s *groupRPCService) CreateGroup(_ context.Context, request *paustqproto.CreateGroupRequest) (*paustqproto.CreateGroupResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *GroupRPCServiceServer) ListGroups(_ context.Context, request *paustqproto.ListGroupsRequest) (*paustqproto.ListGroupsResponse, error) {
+func (s *groupRPCService) ListGroups(_ context.Context, request *paustqproto.ListGroupsRequest) (*paustqproto.ListGroupsResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *GroupRPCServiceServer) DeleteGroup(_ context.Context, request *paustqproto.DeleteGroupRequest) (*paustqproto.DeleteGroupResponse, error) {
+func (s *groupRPCService) DeleteGroup(_ context.Context, request *paustqproto.DeleteGroupRequest) (*paustqproto.DeleteGroupResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
