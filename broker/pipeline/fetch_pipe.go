@@ -76,7 +76,6 @@ func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, flo
 
 					fetchRes.Reset()
 					fetchRes = paustq_proto.FetchResponse{
-						Magic:                -1,
 						Data:                 it.Value().Data(),
 						LastOffset:           topic.Size - 1,
 						Offset:               key.Offset(),

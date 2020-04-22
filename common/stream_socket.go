@@ -38,7 +38,7 @@ func (sc *StreamSocketContainer) Write(msg *message.QMessage) error {
 	header := &paustqproto.Header{TotalChunkCount: 1, CurrentChunkIdx: 0}
 	body := &paustqproto.Body{Data: msg.Data}
 
-	return sc.socket.Send(&paustqproto.Data{Magic: -1, Header: header, Body: body})
+	return sc.socket.Send(&paustqproto.Data{Header: header, Body: body})
 }
 
 // This method is for reading chunked proto message from stream
