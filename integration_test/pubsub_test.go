@@ -81,7 +81,7 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(ctx2, host, time.Duration(timeout))
+	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd(), time.Duration(timeout))
 	if consumerClient.Connect(topic) != nil {
 		t.Error("Error on connect")
 		return

@@ -10,10 +10,11 @@ import (
 )
 
 type Consumer struct {
-	ctx         context.Context
-	client        *client.StreamClient
-	sinkChannel chan SinkData
-	subscribing bool
+	ctx         	context.Context
+	client        	*client.StreamClient
+	sinkChannel 	chan SinkData
+	subscribing 	bool
+	endCondition	Condition
 }
 
 type SinkData struct {
@@ -21,9 +22,9 @@ type SinkData struct {
 	Data  []byte
 }
 
-func NewConsumer(ctx context.Context, serverUrl string, timeout time.Duration) *Consumer {
+func NewConsumer(ctx context.Context, serverUrl string, endCondition Condition, timeout time.Duration) *Consumer {
 	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_SUBSCRIBER)
-	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false}
+	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false, endCondition: endCondition}
 }
 
 func (c *Consumer) startSubscribe() {
@@ -53,6 +54,10 @@ func (c *Consumer) startSubscribe() {
 				}
 
 				c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
+				if c.endCondition.Check(fetchRespMsg) {
+					close(c.sinkChannel)
+					return
+				}
 			}
 		case <-c.ctx.Done():
 			return
