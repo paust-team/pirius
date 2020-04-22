@@ -10,7 +10,7 @@ func TestRecordKey(t *testing.T) {
 	topic := "test_topic"
 	var offset uint64 = 1
 
-	key := NewRecordKey(topic, offset)
+	key := NewRecordKeyFromData(topic, offset)
 
 	if key.Topic() != topic {
 		t.Error("Unknown topic")
@@ -26,7 +26,7 @@ func TestTopicValue(t *testing.T) {
 	var numPartitions uint32 = 2
 	var replicationFactor uint32 = 3
 
-	key := NewTopicValue(topicMeta, numPartitions, replicationFactor)
+	key := NewTopicValueFromData(topicMeta, numPartitions, replicationFactor)
 
 	if key.TopicMeta() != topicMeta {
 		t.Error("Unknown topicMeta")
@@ -57,7 +57,7 @@ func TestQRocksDBTopic(t *testing.T) {
 	var numPartitions uint32 = 2
 	var replicationFactor uint32 = 3
 
-	expected := NewTopicValue(topicMeta, numPartitions, replicationFactor)
+	expected := NewTopicValueFromData(topicMeta, numPartitions, replicationFactor)
 
 	if db.PutTopic(topic, topicMeta, numPartitions, replicationFactor) != nil {
 		t.Error(err)
@@ -80,9 +80,9 @@ func TestQRocksDBTopic(t *testing.T) {
 		return
 	}
 
-	topicValue := NewTopicValueWithBytes(result.Data())
+	topicValue := NewTopicValue(result)
 
-	if bytes.Compare(expected.Bytes(), topicValue.Bytes()) != 0 {
+	if bytes.Compare(expected.Data(), topicValue.Data()) != 0 {
 		t.Error("topic value not equal ")
 	}
 

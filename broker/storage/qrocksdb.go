@@ -52,18 +52,18 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 }
 
 func (db QRocksDB) GetRecord(topic string, offset uint64) (*gorocksdb.Slice, error) {
-	key := NewRecordKey(topic, offset)
-	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Bytes())
+	key := NewRecordKeyFromData(topic, offset)
+	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
 func (db QRocksDB) PutRecord(topic string, offset uint64, data []byte) error {
-	key := NewRecordKey(topic, offset)
-	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes(), data)
+	key := NewRecordKeyFromData(topic, offset)
+	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data(), data)
 }
 
 func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
-	key := NewRecordKey(topic, offset)
-	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Bytes())
+	key := NewRecordKeyFromData(topic, offset)
+	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
 func (db QRocksDB) PutTopicIfNotExists(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
@@ -85,8 +85,8 @@ func (db QRocksDB) PutTopicIfNotExists(topic string, topicMeta string, numPartit
 }
 
 func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
-	value := NewTopicValue(topicMeta, numPartitions, replicationFactor)
-	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Bytes())
+	value := NewTopicValueFromData(topicMeta, numPartitions, replicationFactor)
+	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Data())
 }
 
 func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
@@ -103,7 +103,7 @@ func (db QRocksDB) GetAllTopics() map[string]TopicValue {
 	topics := make(map[string]TopicValue)
 	for iter.Valid() {
 		topicName := string(iter.Key().Data())
-		topicValue := NewTopicValueWithBytes(iter.Value().Data())
+		topicValue := NewTopicValue(iter.Value())
 		topics[topicName] = *topicValue
 		iter.Next()
 	}
@@ -130,65 +130,88 @@ func (db QRocksDB) Scan(cfIndex CFIndex) *gorocksdb.Iterator {
 }
 
 type RecordKey struct {
-	bytes []byte
+	*gorocksdb.Slice
+	data []byte
+	isSlice bool
 }
 
-func NewRecordKey(topic string, offset uint64) *RecordKey {
-	storage := make([]byte, len(topic)+1+int(unsafe.Sizeof(offset)))
-	copy(storage, topic+"@")
-	binary.BigEndian.PutUint64(storage[len(topic)+1:], offset)
-	return &RecordKey{bytes: storage}
+func NewRecordKeyFromData(topic string, offset uint64) *RecordKey {
+	data := make([]byte, len(topic)+1+int(unsafe.Sizeof(offset)))
+	copy(data, topic+"@")
+	binary.BigEndian.PutUint64(data[len(topic)+1:], offset)
+	return &RecordKey{data: data, isSlice: false}
 }
 
-func (key *RecordKey) FromSlice(slice *gorocksdb.Slice) *RecordKey {
-	key.bytes = slice.Data()
-	return key
+func NewRecordKey(slice *gorocksdb.Slice) *RecordKey {
+	return &RecordKey{Slice: slice, isSlice: true}
 }
 
-func (key RecordKey) Bytes() []byte {
-	return key.bytes
+func (key RecordKey) Data() []byte {
+	if key.isSlice {
+		return key.Slice.Data()
+	}
+	return key.data
+}
+
+func (key RecordKey) Size() int {
+	if key.isSlice {
+		return key.Slice.Size()
+	}
+	return len(key.data)
 }
 
 func (key RecordKey) Topic() string {
-	return string(key.bytes[:len(key.bytes)-int(unsafe.Sizeof(uint64(0)))-1])
+	return string(key.Data()[:key.Size()-int(unsafe.Sizeof(uint64(0)))-1])
 }
 
 func (key RecordKey) Offset() uint64 {
-	return binary.BigEndian.Uint64(key.bytes[len(key.bytes)-int(unsafe.Sizeof(uint64(0))):])
+	return binary.BigEndian.Uint64(key.Data()[key.Size()-int(unsafe.Sizeof(uint64(0))):])
 }
 
 type TopicValue struct {
-	bytes []byte
+	*gorocksdb.Slice
+	data []byte
+	isSlice bool
 }
 
-func NewTopicValue(topicMeta string, numPartitions uint32, replicationFactor uint32) *TopicValue {
-	storage := make([]byte, len(topicMeta)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
-	copy(storage, topicMeta)
-	binary.BigEndian.PutUint32(storage[len(topicMeta):], numPartitions)
-	binary.BigEndian.PutUint32(storage[len(topicMeta)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
+func NewTopicValueFromData(topicMeta string, numPartitions uint32, replicationFactor uint32) *TopicValue {
+	data := make([]byte, len(topicMeta)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
+	copy(data, topicMeta)
+	binary.BigEndian.PutUint32(data[len(topicMeta):], numPartitions)
+	binary.BigEndian.PutUint32(data[len(topicMeta)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
 
-	return &TopicValue{bytes: storage}
+	return &TopicValue{data: data, isSlice: false}
 }
 
-func NewTopicValueWithBytes(bytes []byte) *TopicValue {
-	return &TopicValue{bytes: bytes}
+func NewTopicValue(slice *gorocksdb.Slice) *TopicValue {
+	return &TopicValue{Slice: slice, isSlice: true}
 }
 
-func (key TopicValue) Bytes() []byte {
-	return key.bytes
+func (key TopicValue) Data() []byte {
+	if key.isSlice {
+		return key.Slice.Data()
+	}
+	return key.data
+}
+
+func (key TopicValue) Size() int {
+	if key.isSlice {
+		return key.Slice.Size()
+	}
+	return len(key.data)
 }
 
 func (key TopicValue) TopicMeta() string {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return string(key.bytes[:len(key.bytes)-uint32Len*2])
+	return string(key.Data()[:key.Size()-uint32Len*2])
 }
 
 func (key TopicValue) NumPartitions() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.bytes[len(key.bytes)-uint32Len*2 : len(key.bytes)-uint32Len])
+	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len*2 : key.Size()-uint32Len])
 }
 
 func (key TopicValue) ReplicationFactor() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.bytes[len(key.bytes)-uint32Len:])
+	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len:])
 }

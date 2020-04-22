@@ -61,19 +61,18 @@ func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, flo
 
 			first := true
 			topic := f.session.Topic()
-			prevKey := storage.NewRecordKey(topic.Name(), req.StartOffset)
+			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
 			var fetchRes paustq_proto.FetchResponse
 			for !f.session.IsClosed() {
 				it := f.db.Scan(storage.RecordCF)
-				it.Seek(prevKey.Bytes())
+				it.Seek(prevKey.Data())
 				if !first {
 					it.Next()
 				}
 
 				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name() + "@")); it.Next() {
-					key := &storage.RecordKey{}
-					key.FromSlice(it.Key())
+					key := storage.NewRecordKey(it.Key())
 
 					fetchRes.Reset()
 					fetchRes = paustq_proto.FetchResponse{
