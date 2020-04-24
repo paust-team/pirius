@@ -12,10 +12,10 @@ type PartitionRPCService interface {
 }
 
 type partitionRPCService struct {
-	DB  	*storage.QRocksDB
+	DB *storage.QRocksDB
 }
 
-func NewPartitionRPCService(db *storage.QRocksDB) *partitionRPCService{
+func NewPartitionRPCService(db *storage.QRocksDB) *partitionRPCService {
 	return &partitionRPCService{db}
 }
 

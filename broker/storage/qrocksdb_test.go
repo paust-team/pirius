@@ -106,7 +106,7 @@ func TestQRocksDBTopic(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	
+
 	result, err = db.GetTopic(topic)
 	if err != nil {
 		t.Error(err)

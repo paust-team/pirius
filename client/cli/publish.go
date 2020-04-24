@@ -9,17 +9,17 @@ import (
 )
 
 var (
-	data 				[]byte
+	data []byte
 )
 
 func NewPublishCmd() *cobra.Command {
 
 	var publishCmd = &cobra.Command{
-		Use: "publish",
+		Use:   "publish",
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := producer.NewProducer(ctx, bootstrapServer, time.Duration(timeout))
+			client := producer.NewProducer(ctx, bootstrapServer).WithTimeout(time.Duration(timeout))
 			defer client.Close()
 
 			if client.Connect(topicName) != nil {
@@ -33,7 +33,7 @@ func NewPublishCmd() *cobra.Command {
 		},
 	}
 
-	publishCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to publish to")
+	publishCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to publish to")
 	publishCmd.MarkFlagRequired("topic")
 	publishCmd.Flags().BytesBase64VarP(&data, "data", "d", nil, "base64 data")
 

@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
+	"sync/atomic"
 )
 
 type ConnectPipe struct {
@@ -22,25 +23,16 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup)(
+func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
-
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
-
-		if c.session.State() != network.NONE {
-			errCh <- errors.New("invalid state to connect")
-			return
-		}
 
 		for in := range inStream {
 			req := in.(*paustq_proto.ConnectRequest)
@@ -56,9 +48,9 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, fl
 			c.session.SetType(req.SessionType)
 			switch req.SessionType {
 			case paustq_proto.SessionType_PUBLISHER:
-				c.session.Topic().NumPubs++
+				atomic.AddUint64(&c.session.Topic().NumPubs, 1)
 			case paustq_proto.SessionType_SUBSCRIBER:
-				c.session.Topic().NumSubs++
+				atomic.AddUint64(&c.session.Topic().NumSubs, 1)
 			default:
 			}
 

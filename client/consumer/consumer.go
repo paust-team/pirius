@@ -10,12 +10,12 @@ import (
 )
 
 type Consumer struct {
-	ctx         	context.Context
-	client        	*client.StreamClient
-	sinkChannel 	chan SinkData
-	subscribing 	bool
-	endCondition	Condition
-	timeout 		time.Duration
+	ctx          context.Context
+	client       *client.StreamClient
+	sinkChannel  chan SinkData
+	subscribing  bool
+	endCondition Condition
+	timeout      time.Duration
 }
 
 type SinkData struct {
@@ -58,7 +58,6 @@ func (c *Consumer) startSubscribe() {
 					c.sinkChannel <- SinkData{err, nil}
 					return
 				}
-
 				c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
 				if c.endCondition.Check(fetchRespMsg) {
 					close(c.sinkChannel)

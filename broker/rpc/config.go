@@ -12,7 +12,7 @@ type ConfigRPCService interface {
 	ShowConfig(context.Context, *paustqproto.ShowConfigRequest) (*paustqproto.ShowConfigResponse, error)
 }
 
-type configRPCService struct {}
+type configRPCService struct{}
 
 func NewConfigRPCService() *configRPCService {
 	return &configRPCService{}
@@ -29,5 +29,3 @@ func (s *configRPCService) AlterConfig(_ context.Context, request *paustqproto.A
 func (s *configRPCService) ShowConfig(_ context.Context, request *paustqproto.ShowConfigRequest) (*paustqproto.ShowConfigResponse, error) {
 	return nil, errors.New("not implemented")
 }
-
-

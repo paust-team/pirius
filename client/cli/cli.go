@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	bootstrapServer 	string
-	logLevel 			string
-	timeout 			uint8
+	bootstrapServer string
+	logLevel        string
+	timeout         uint8
 )
 
 var paustQClientCmd = &cobra.Command{
-	Use: "paustq-client [command] (flags)",
+	Use:   "paustq-client [command] (flags)",
 	Short: "Command line interface for PaustQ client",
 }
 
@@ -38,4 +38,3 @@ func Main() {
 		os.Exit(1)
 	}
 }
-

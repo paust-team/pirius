@@ -11,25 +11,25 @@ import (
 
 type ReceivedData struct {
 	Error error
-	Msg  *message.QMessage
+	Msg   *message.QMessage
 }
 
 type StreamClient struct {
-	context 			context.Context
-	streamClient 		paustqproto.StreamService_FlowClient
-	sockContainer	 	*common.StreamSocketContainer
-	SessionType 		paustqproto.SessionType
-	conn 				*grpc.ClientConn
-	ServerUrl			string
-	Connected 			bool
-	MaxBufferSize 		uint32
+	context       context.Context
+	streamClient  paustqproto.StreamService_FlowClient
+	sockContainer *common.StreamSocketContainer
+	SessionType   paustqproto.SessionType
+	conn          *grpc.ClientConn
+	ServerUrl     string
+	Connected     bool
+	MaxBufferSize uint32
 }
 
 func NewStreamClient(context context.Context, serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize:1024}
+	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
 }
 
-func (client *StreamClient) ReceiveToChan(receiveCh chan <- ReceivedData) {
+func (client *StreamClient) ReceiveToChan(receiveCh chan<- ReceivedData) {
 
 	msg, err := client.Receive()
 	receiveCh <- ReceivedData{err, msg}
@@ -73,7 +73,7 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 		return err
 	}
 
-	if err:= sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
+	if err := sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
 		conn.Close()
 		cancel()
 		return err

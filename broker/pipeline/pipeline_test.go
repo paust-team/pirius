@@ -3,61 +3,122 @@ package pipeline
 import (
 	"context"
 	"errors"
-	uuid "github.com/satori/go.uuid"
-	"log"
 	"sync"
 	"testing"
 	"time"
 )
 
-// Source Pipe
-type Generator struct{
-	integers []int
+// Selector Pipe
+type EvenOrOddPipe struct {
+	caseCount int
+	cases     []func(interface{}) (interface{}, bool)
 }
 
-func (g *Generator) Build(in ...interface{}) error {
-	var ok bool
-	g.integers, ok = in[0].([]int)
+func isEven(input interface{}) (interface{}, bool) {
+	integer, ok := input.(int)
 	if !ok {
-		return errors.New("type casting failed")
+		return nil, false
+	}
+
+	if integer%2 == 0 {
+		return integer, true
+	} else {
+		return nil, false
+	}
+}
+
+func isOdd(input interface{}) (interface{}, bool) {
+	integer, ok := input.(int)
+	if !ok {
+		return nil, false
+	}
+	if integer%2 == 1 {
+		return integer, true
+	} else {
+		return nil, false
+	}
+}
+
+func (e *EvenOrOddPipe) Build(caseFns ...interface{}) error {
+	e.caseCount = 0
+	for _, caseFn := range caseFns {
+		fn, ok := caseFn.(func(input interface{}) (output interface{}, ok bool))
+		if !ok {
+			return errors.New("invalid case function to append")
+		}
+		e.caseCount++
+		e.AddCase(fn)
 	}
 	return nil
 }
 
-func (g *Generator) Ready(ctx context.Context, flowed *sync.Cond, wg *sync.WaitGroup) (
-	<-chan interface{}, <-chan error, error) {
-	outStream := make(chan interface{})
+func (e *EvenOrOddPipe) AddCase(caseFn func(input interface{}) (output interface{}, ok bool)) {
+	e.cases = append(e.cases, caseFn)
+}
+
+func (e *EvenOrOddPipe) Ready(ctx context.Context,
+	inStream <-chan interface{}, wg *sync.WaitGroup) (
+	[]<-chan interface{}, <-chan error, error) {
+
+	if len(e.cases) != e.caseCount {
+		return nil, nil, errors.New("not enough cases to prepare pipe")
+	}
+
+	outStreams := make([]chan interface{}, e.caseCount)
 	errCh := make(chan error)
+
+	for i := 0; i < e.caseCount; i++ {
+		outStreams[i] = make(chan interface{})
+	}
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
-		defer close(outStream)
+		defer wg.Done()
 		defer close(errCh)
+		defer func() {
+			for _, outStream := range outStreams {
+				close(outStream)
+			}
+		}()
 
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
+		for in := range inStream {
+			done := false
+			for i, caseFn := range e.cases {
+				out, ok := caseFn(in)
+				if ok {
+					outStreams[i] <- out
+					done = true
+					break
+				}
+			}
 
-
-		for _, i := range g.integers {
-			select {
-			case <- ctx.Done():
+			if !done {
+				errCh <- errors.New("input does not match with any cases")
 				return
-			case outStream <- i:
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 		}
 	}()
 
-	return outStream, errCh, nil
+	tempStreams := make([]<-chan interface{}, e.caseCount)
+	for i := 0; i < e.caseCount; i++ {
+		tempStreams[i] = outStreams[i]
+	}
+
+	return tempStreams, errCh, nil
 }
 
-// Stream Pipe
-type Adder struct{
+// Versatile Pipe
+type AddPipe struct {
 	additive int
 }
 
-func (a *Adder) Build(in ...interface{}) error {
+func (a *AddPipe) Build(in ...interface{}) error {
 	var ok bool
 	a.additive, ok = in[0].(int)
 	if !ok {
@@ -66,150 +127,108 @@ func (a *Adder) Build(in ...interface{}) error {
 	return nil
 }
 
-func (a *Adder) Ready(ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup) (
+func (a *AddPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
 
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
-
 		for in := range inStream {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			case outStream <- in.(int) + a.additive:
 			}
 		}
 	}()
 
-
 	return outStream, errCh, nil
 }
 
-// Sink Pipe
-type Printer struct{
-}
+func TestPipeline_Flow(t *testing.T) {
+	inlet := make(chan interface{})
+	defer close(inlet)
+	pipeline := NewPipeline(inlet)
 
-func (p *Printer) Build(in ...interface{}) error {
-	return nil
-}
+	var add1, add2, evenOrOdd, zip Pipe
+	var err error
 
-func (p *Printer) Ready(ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup) (
-	<-chan error, error) {
-	errCh := make(chan error)
+	evenOrOdd = &EvenOrOddPipe{}
+	err = evenOrOdd.Build(isEven, isOdd)
+	if err != nil {
+		t.Error("Building even or odd pipe failed")
+	}
 
-	wg.Add(1)
+	add1 = &AddPipe{}
+	additive := 1
+	err = add1.Build(additive)
+	if err != nil {
+		t.Error("Building add 1 pipe failed")
+	}
+
+	add2 = &AddPipe{}
+	additive = 2
+	err = add2.Build(additive)
+	if err != nil {
+		t.Error("Building add 2 pipe failed")
+	}
+
+	zip = &ZipPipe{}
+	zip.Build()
+
+	//ctx, _ := context.WithTimeout(context.Background(), time.Second * 3)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFunc()
+
+	evenOrOddPipe := NewPipe("even or odd", &evenOrOdd)
+	err = pipeline.Add(ctx, evenOrOddPipe, inlet)
+	if err != nil {
+		t.Error(err)
+	}
+
+	addPipe1 := NewPipe("add", &add1)
+	err = pipeline.Add(ctx, addPipe1, evenOrOddPipe.Outlets[0])
+	if err != nil {
+		t.Error("Adding add pipe failed")
+	}
+
+	addPipe2 := NewPipe("add", &add2)
+	err = pipeline.Add(ctx, addPipe2, evenOrOddPipe.Outlets[1])
+	if err != nil {
+		t.Error("Adding add pipe failed")
+	}
+
+	zipPipe := NewPipe("zip", &zip)
+	err = pipeline.Add(ctx, zipPipe, addPipe1.Outlets[0], addPipe2.Outlets[0])
+	if err != nil {
+		t.Error("Adding even zip pipe failed")
+	}
+
+	integers := []interface{}{1, 2, 3, 4}
+	pipeline.Flow(ctx, 0, integers...)
+
 	go func() {
-		wg.Done()
-		defer close(errCh)
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
+		for out := range pipeline.Take(ctx, 0, 2) {
+			if out.(int) != 3 {
+				t.Error("does not match expected value")
+			}
+		}
 
-		for in := range inStream {
-			select {
-			case <- ctx.Done():
-				return
-			default:
-				log.Println(in.(int))
+		for out := range pipeline.Take(ctx, 0, 2) {
+			if out.(int) != 5 {
+				t.Error("does not match expected value")
 			}
 		}
 	}()
 
-	return errCh, nil
-}
-
-
-func TestPipeline_Add(t *testing.T) {
-	pipeline := NewPipeline()
-
-	var genPipe, addPipe, printPipe Pipe
-
-	integers := []int{1, 2, 3, 4}
-	genPipe = &Generator{}
-	err := genPipe.Build(integers)
-	generator := NewPipeNode("generator", &genPipe)
-
-	additive := 3
-	addPipe = &Adder{}
-	err = addPipe.Build(additive)
-	adder := NewPipeNode("adder", &addPipe)
-
-	printPipe = &Printer{}
-	printer := NewPipeNode("printer", &printPipe)
-
-	err = pipeline.Add(uuid.UUID{}, generator, nil)
+	err = pipeline.Wait(ctx)
 	if err != nil {
-		t.Error("Adding source pipe failed")
+		cancelFunc()
+		t.Error("Error occurred during flow")
 	}
-
-	err = pipeline.Add(generator.ID(), adder, nil)
-	if err != nil {
-		t.Error("Adding stream pipe failed")
-	}
-
-	err = pipeline.Add(adder.ID(), printer, nil)
-	if err != nil {
-		t.Error("Adding stream pipe failed")
-	}
-}
-
-
-func TestPipeline_Flow(t *testing.T) {
-	pipeline := NewPipeline()
-
-	var genPipe, addPipe, printPipe Pipe
-
-	integers := []int{1, 2, 3, 4}
-	genPipe = &Generator{}
-	err := genPipe.Build(integers)
-	generator := NewPipeNode("generator",&genPipe)
-
-	additive := 3
-	addPipe = &Adder{}
-	err = addPipe.Build(additive)
-	adder := NewPipeNode("adder", &addPipe)
-
-	printPipe = &Printer{}
-	printer := NewPipeNode("printer", &printPipe)
-
-	err = pipeline.Add(uuid.UUID{}, generator, nil)
-	if err != nil {
-		t.Error("Adding source pipe failed")
-	}
-
-	err = pipeline.Add(generator.ID(), adder, nil)
-	if err != nil {
-		t.Error("Adding stream pipe failed")
-	}
-
-	err = pipeline.Add(adder.ID(), printer, nil)
-	if err != nil {
-		t.Error("Adding stream pipe failed")
-	}
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-
-	errCh, err := pipeline.Ready(ctx)
-	if err != nil {
-		t.Error("Pipeline ready failed")
-	}
-
-	err = WaitForPipeline(errCh...)
-	if err != nil {
-		t.Error("Pipeline ready failed")
-	}
-
-	pipeline.Flow()
-
-	time.Sleep(time.Second * 2)
 }

@@ -8,14 +8,14 @@ import (
 )
 
 var (
-	echoMsg		string
-	brokerId	uint64
+	echoMsg  string
+	brokerId uint64
 )
 
 func NewHeartbeatCmd() *cobra.Command {
 
-	var heartbeatCmd = &cobra.Command {
-		Use: "heartbeat",
+	var heartbeatCmd = &cobra.Command{
+		Use:   "heartbeat",
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
@@ -25,7 +25,7 @@ func NewHeartbeatCmd() *cobra.Command {
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			pongMsg, err := apiClient.Heartbeat(echoMsg, brokerId);
+			pongMsg, err := apiClient.Heartbeat(echoMsg, brokerId)
 			if err != nil {
 				log.Fatal(err)
 			}

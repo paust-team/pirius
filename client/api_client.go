@@ -8,11 +8,11 @@ import (
 )
 
 type APIClient struct {
-	context 			context.Context
-	rpcClient			paustqproto.APIServiceClient
-	conn 				*grpc.ClientConn
-	ServerUrl			string
-	Connected 			bool
+	context   context.Context
+	rpcClient paustqproto.APIServiceClient
+	conn      *grpc.ClientConn
+	ServerUrl string
+	Connected bool
 }
 
 func NewAPIClient(context context.Context, serverUrl string) *APIClient {

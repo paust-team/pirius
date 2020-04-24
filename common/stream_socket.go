@@ -43,11 +43,11 @@ func (sc *StreamSocketContainer) Write(msg *message.QMessage, maxBufferSize uint
 	chunkId := rand.Uint64()
 	var currentChunkIdx uint32 = 0
 
-	for ;currentChunkIdx < totalChunkCount; currentChunkIdx++ {
+	for ; currentChunkIdx < totalChunkCount; currentChunkIdx++ {
 		start := currentChunkIdx * maxBufferSize
 		end := (currentChunkIdx + 1) * maxBufferSize
 		var data []byte
-		if currentChunkIdx + 1 < totalChunkCount {
+		if currentChunkIdx+1 < totalChunkCount {
 			data = msg.Data[start:end]
 		} else {
 			data = msg.Data[start:]
@@ -83,12 +83,12 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 			return nil, errors.New("cannot complete chunk: got different chunk id")
 		}
 
-		if receivedData.Header.CurrentChunkIdx != 0 && receivedData.Header.CurrentChunkIdx - 1 != prevChunkIdx {
+		if receivedData.Header.CurrentChunkIdx != 0 && receivedData.Header.CurrentChunkIdx-1 != prevChunkIdx {
 			return nil, errors.New("cannot complete chunk: got different chunk id")
 		}
 		prevChunkIdx = receivedData.Header.CurrentChunkIdx
 		totalData = append(totalData, receivedData.Body.Data...)
-		if receivedData.Header.CurrentChunkIdx >= receivedData.Header.TotalChunkCount - 1 {
+		if receivedData.Header.CurrentChunkIdx >= receivedData.Header.TotalChunkCount-1 {
 			break
 		}
 	}

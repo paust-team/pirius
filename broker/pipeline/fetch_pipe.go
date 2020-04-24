@@ -9,11 +9,12 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
+	"sync/atomic"
 )
 
 type FetchPipe struct {
 	session *network.Session
-	db *storage.QRocksDB
+	db      *storage.QRocksDB
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -33,20 +34,16 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup) (
+func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
-
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
 
 		for in := range inStream {
 			if f.session.State() != network.ON_SUBSCRIBE {
@@ -59,37 +56,56 @@ func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, flo
 
 			req := in.(*paustq_proto.FetchRequest)
 
-			first := true
 			topic := f.session.Topic()
-			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
 			var fetchRes paustq_proto.FetchResponse
-			for !f.session.IsClosed() {
-				it := f.db.Scan(storage.RecordCF)
-				it.Seek(prevKey.Data())
-				if !first {
-					it.Next()
-				}
+			var lastReadOffset *uint64 = nil
+			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
-				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name() + "@")); it.Next() {
+			for !f.session.IsClosed() {
+
+				it := f.db.Scan(storage.RecordCF)
+				expectedLastOffset := atomic.LoadUint64(&topic.Size) - 1
+
+				for it.Seek(prevKey.Data()); it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
 					key := storage.NewRecordKey(it.Key())
+					keyOffset := key.Offset()
+
+					if lastReadOffset != nil {
+						if *lastReadOffset == keyOffset {
+							continue
+						} else if keyOffset-*lastReadOffset != 1 {
+							break
+						}
+					} else if keyOffset != req.StartOffset {
+						break
+					}
 
 					fetchRes.Reset()
 					fetchRes = paustq_proto.FetchResponse{
-						Data:                 it.Value().Data(),
-						LastOffset:           topic.Size - 1,
-						Offset:               key.Offset(),
+						Data:       it.Value().Data(),
+						LastOffset: expectedLastOffset,
+						Offset:     keyOffset,
 					}
 
 					out, err := message.NewQMessageFromMsg(&fetchRes)
-					if err != nil  {
+					if err != nil {
 						errCh <- err
 						return
 					}
 					outStream <- out
-					prevKey = key
-					first = false
+
+					lastReadOffset = &keyOffset
 				}
+
+				if lastReadOffset != nil {
+					prevKey = storage.NewRecordKeyFromData(topic.Name(), *lastReadOffset)
+				}
+
+				if expectedLastOffset < atomic.LoadUint64(&topic.Size)-1 {
+					continue
+				}
+
 				topic.WaitPublish()
 			}
 

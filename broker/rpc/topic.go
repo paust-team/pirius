@@ -16,10 +16,10 @@ type TopicRPCService interface {
 }
 
 type topicRPCService struct {
-	DB  	*storage.QRocksDB
+	DB *storage.QRocksDB
 }
 
-func NewTopicRPCService(db *storage.QRocksDB) *topicRPCService{
+func NewTopicRPCService(db *storage.QRocksDB) *topicRPCService {
 	return &topicRPCService{db}
 }
 
@@ -55,7 +55,7 @@ func (s topicRPCService) DescribeTopic(_ context.Context, request *paustqproto.D
 	topicValue := storage.NewTopicValue(result)
 	topic := message.NewTopicMsg(request.TopicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor())
 
-	return message.NewDescribeTopicResponseMsg(topic, 1,1), nil
+	return message.NewDescribeTopicResponseMsg(topic, 1, 1), nil
 }
 
 func (s topicRPCService) ListTopics(_ context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
@@ -63,7 +63,7 @@ func (s topicRPCService) ListTopics(_ context.Context, _ *paustqproto.ListTopics
 	var topics []*paustqproto.Topic
 	topicMap := s.DB.GetAllTopics()
 	for topicName, topicValue := range topicMap {
-		topic := message.NewTopicMsg(topicName, topicValue.TopicMeta(),topicValue.NumPartitions(),topicValue.ReplicationFactor())
+		topic := message.NewTopicMsg(topicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor())
 		topics = append(topics, topic)
 	}
 

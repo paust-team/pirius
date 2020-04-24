@@ -8,8 +8,8 @@ type Topic struct {
 	published              *sync.Cond
 }
 
-func NewTopic() *Topic{
-	return &Topic{"paustq", 0, 0,0, sync.NewCond(&sync.Mutex{})}
+func NewTopic() *Topic {
+	return &Topic{"paustq", 0, 0, 0, sync.NewCond(&sync.Mutex{})}
 }
 
 func (t Topic) Name() string {
@@ -25,4 +25,3 @@ func (t *Topic) WaitPublish() {
 func (t *Topic) NotifyPublished() {
 	t.published.Broadcast()
 }
-

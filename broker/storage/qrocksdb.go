@@ -19,7 +19,7 @@ const (
 
 // QRocksDB is helper for gorocksdb
 type QRocksDB struct {
-	dbPath				string
+	dbPath              string
 	db                  *gorocksdb.DB
 	ro                  *gorocksdb.ReadOptions
 	wo                  *gorocksdb.WriteOptions
@@ -49,6 +49,10 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	wo := gorocksdb.NewDefaultWriteOptions()
 	rocksdb := &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}
 	return rocksdb, nil
+}
+
+func (db QRocksDB) Flush() error {
+	return db.db.Flush(&gorocksdb.FlushOptions{})
 }
 
 func (db QRocksDB) GetRecord(topic string, offset uint64) (*gorocksdb.Slice, error) {
@@ -131,7 +135,7 @@ func (db QRocksDB) Scan(cfIndex CFIndex) *gorocksdb.Iterator {
 
 type RecordKey struct {
 	*gorocksdb.Slice
-	data []byte
+	data    []byte
 	isSlice bool
 }
 
@@ -170,7 +174,7 @@ func (key RecordKey) Offset() uint64 {
 
 type TopicValue struct {
 	*gorocksdb.Slice
-	data []byte
+	data    []byte
 	isSlice bool
 }
 

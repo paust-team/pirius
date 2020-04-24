@@ -11,18 +11,18 @@ import (
 )
 
 type Producer struct {
-	ctx           	context.Context
-	client        	*client.StreamClient
-	sourceChannel 	chan []byte
-	publishing    	bool
-	waitGroup     	sync.WaitGroup
-	timeout 		time.Duration
-	chunkSize 		uint32
+	ctx           context.Context
+	client        *client.StreamClient
+	sourceChannel chan []byte
+	publishing    bool
+	waitGroup     sync.WaitGroup
+	timeout       time.Duration
+	chunkSize     uint32
 }
 
 func NewProducer(ctx context.Context, serverUrl string) *Producer {
 	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_PUBLISHER)
-	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan []byte), publishing: false, chunkSize:1024}
+	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan []byte), publishing: false, chunkSize: 1024}
 	return producer
 }
 
@@ -31,7 +31,7 @@ func (p *Producer) WithTimeout(timeout time.Duration) *Producer {
 	return p
 }
 
-func (p *Producer) WithChunkSize(size uint32) *Producer{
+func (p *Producer) WithChunkSize(size uint32) *Producer {
 	p.chunkSize = size
 	return p
 }

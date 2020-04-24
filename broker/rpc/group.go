@@ -14,7 +14,7 @@ type GroupRPCService interface {
 	DeleteGroup(context.Context, *paustqproto.DeleteGroupRequest) (*paustqproto.DeleteGroupResponse, error)
 }
 
-type groupRPCService struct {}
+type groupRPCService struct{}
 
 func NewGroupRPCService() *groupRPCService {
 	return &groupRPCService{}
@@ -39,5 +39,3 @@ func (s *groupRPCService) ListGroups(_ context.Context, request *paustqproto.Lis
 func (s *groupRPCService) DeleteGroup(_ context.Context, request *paustqproto.DeleteGroupRequest) (*paustqproto.DeleteGroupResponse, error) {
 	return nil, errors.New("not implemented")
 }
-
-

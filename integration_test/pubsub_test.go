@@ -29,7 +29,9 @@ func TestClient_Connect(t *testing.T) {
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
+	defer brokerInstance.Clean()
 	defer brokerInstance.Stop()
+
 	time.Sleep(1 * time.Second)
 
 	// Start client
@@ -44,7 +46,6 @@ func TestClient_Connect(t *testing.T) {
 		t.Error(err)
 	}
 }
-
 
 func TestPubSub(t *testing.T) {
 
@@ -67,8 +68,8 @@ func TestPubSub(t *testing.T) {
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
-	defer brokerInstance.Stop()
 	defer brokerInstance.Clean()
+	defer brokerInstance.Stop()
 
 	time.Sleep(1 * time.Second)
 
@@ -135,8 +136,8 @@ func TestPubsub_Chunk(t *testing.T) {
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
-	defer brokerInstance.Stop()
 	defer brokerInstance.Clean()
+	defer brokerInstance.Stop()
 
 	time.Sleep(1 * time.Second)
 
@@ -208,7 +209,7 @@ func readFromFileLineBy(fileName string) (int, [][]byte) {
 func TestMultiClient(t *testing.T) {
 
 	ip := "127.0.0.1"
-	port := 9002
+	port := 9003
 	var chunkSize uint32 = 1024
 
 	topic := "topic3"
@@ -218,8 +219,8 @@ func TestMultiClient(t *testing.T) {
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
-	defer brokerInstance.Stop()
 	defer brokerInstance.Clean()
+	defer brokerInstance.Stop()
 
 	time.Sleep(1 * time.Second)
 
@@ -237,7 +238,6 @@ func TestMultiClient(t *testing.T) {
 	var expectedSentCount int
 	var sentRecords [][]byte
 	runProducer := func(ctx context.Context, fileName string) {
-		wg.Add(1)
 		count, sendingRecords := readFromFileLineBy(fileName)
 		expectedSentCount += count
 		go func() {
@@ -261,10 +261,11 @@ func TestMultiClient(t *testing.T) {
 			if err := producerClient.Close(); err != nil {
 				t.Error(err)
 			}
-			fmt.Println("publish done with file :", fileName)
+			fmt.Println("publish done with file :", fileName, "sent total:", len(sendingRecords))
 		}()
 	}
 
+	wg.Add(3)
 	runProducer(ctxP1, "data1.txt")
 	runProducer(ctxP2, "data2.txt")
 	runProducer(ctxP3, "data3.txt")
@@ -274,7 +275,6 @@ func TestMultiClient(t *testing.T) {
 	var receivedRecords2 [][]byte
 
 	runConsumer := func(ctx context.Context, receivedRecords *[][]byte) {
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
@@ -293,9 +293,9 @@ func TestMultiClient(t *testing.T) {
 					*receivedRecords = append(*receivedRecords, response.Data)
 					receiveCount++
 					if expectedSentCount == receiveCount {
+						fmt.Println("complete consumer. received :", receiveCount)
 						break
 					}
-					fmt.Println("sent count:", expectedSentCount,", received count:", receiveCount)
 				}
 			}
 
@@ -306,6 +306,7 @@ func TestMultiClient(t *testing.T) {
 
 	}
 
+	wg.Add(2)
 	go runConsumer(ctxC1, &receivedRecords1)
 	go runConsumer(ctxC2, &receivedRecords2)
 
@@ -329,7 +330,7 @@ func TestMultiClient(t *testing.T) {
 
 func contains(s [][]byte, e []byte) bool {
 	for _, a := range s {
-		if bytes.Compare(a,e) ==0 {
+		if bytes.Compare(a, e) == 0 {
 			return true
 		}
 	}

@@ -21,7 +21,7 @@ func NewTopicMsg(topicName string, topicMeta string, numPartition uint32, replic
 		NumPartitions: numPartition, ReplicationFactor: replicationFactor}
 }
 
-func NewDeleteTopicRequestMsg(topicName string) *paustqproto.DeleteTopicRequest{
+func NewDeleteTopicRequestMsg(topicName string) *paustqproto.DeleteTopicRequest {
 	return &paustqproto.DeleteTopicRequest{TopicName: topicName}
 }
 
@@ -86,7 +86,7 @@ func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {
 	return &paustqproto.Ping{Echo: msg, BrokerId: brokerId}
 }
 
-func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong{
+func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong {
 	return &paustqproto.Pong{Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
 }
 
