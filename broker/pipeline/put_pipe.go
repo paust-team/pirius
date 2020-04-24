@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
+	"sync/atomic"
 )
 
 type PutPipe struct {
@@ -31,20 +32,16 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup)(
+func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup)(
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
-
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
 
 		for in := range inStream {
 			if p.session.State() != network.ON_PUBLISH {
@@ -58,7 +55,7 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, flowed
 			req := in.(*paustq_proto.PutRequest)
 			topic := p.session.Topic()
 			err := p.db.PutRecord(topic.Name(), topic.Size, req.Data)
-			topic.Size++
+			atomic.AddUint64(&topic.Size, 1)
 
 			if err != nil {
 				errCh <- err
