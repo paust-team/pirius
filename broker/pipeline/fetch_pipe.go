@@ -33,20 +33,16 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, flowed *sync.Cond, wg *sync.WaitGroup) (
+func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
-
-		flowed.L.Lock()
-		flowed.Wait()
-		flowed.L.Unlock()
 
 		for in := range inStream {
 			if f.session.State() != network.ON_SUBSCRIBE {
