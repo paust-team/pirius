@@ -68,6 +68,8 @@ func TestPubSub(t *testing.T) {
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
 	defer brokerInstance.Stop()
+	defer brokerInstance.Clean()
+
 	time.Sleep(1 * time.Second)
 
 	// Start producer
@@ -134,6 +136,8 @@ func TestPubsub_Chunk(t *testing.T) {
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
 	defer brokerInstance.Stop()
+	defer brokerInstance.Clean()
+
 	time.Sleep(1 * time.Second)
 
 	// Start producer
@@ -215,6 +219,8 @@ func TestMultiClient(t *testing.T) {
 	brokerInstance := broker.NewBroker(uint16(port))
 	go brokerInstance.Start()
 	defer brokerInstance.Stop()
+	defer brokerInstance.Clean()
+
 	time.Sleep(1 * time.Second)
 
 	ctxP1 := context.Background()

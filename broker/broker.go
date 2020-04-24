@@ -50,3 +50,7 @@ func (b *Broker) Stop() {
 	b.db.Close()
 	log.Println("stop broker")
 }
+
+func (b *Broker) Clean() {
+	_ = b.db.Destroy()
+}
