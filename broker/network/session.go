@@ -3,8 +3,6 @@ package network
 import (
 	"errors"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/common"
-	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
 	"time"
@@ -32,7 +30,6 @@ var stateTransition = map[SessionStateType][]SessionStateType {
 }
 
 type Session struct {
-	sock *common.StreamSocketContainer
 	state SessionState
 	sessType  paustq_proto.SessionType
 	topic     *internals.Topic
@@ -40,9 +37,8 @@ type Session struct {
 	wTimeout  time.Duration
 }
 
-func NewSession(socket *common.StreamSocketContainer) *Session{
+func NewSession() *Session{
 	return &Session{
-		sock: socket,
 		state: SessionState{
 			sync.Mutex{}, NONE,
 		},
@@ -75,82 +71,9 @@ func (s Session) Topic() *internals.Topic {
 	return s.topic
 }
 
-func (s *Session) Open() {
-	s.sock.Open()
-}
-
-func (s *Session) Close() {
-	_ = s.SetState(NONE)
-	s.sock.Close()
-}
-
 func (s Session) IsClosed() bool {
 	return s.State() == NONE
 }
-
-func (s *Session) Read() (*message.QMessage, error) {
-	return s.sock.Read()
-}
-
-func (s *Session) Write(msg *message.QMessage) error {
-	return s.sock.Write(msg)
-}
-
-
-
-/*
-func (s *Session) Read(ctx context.Context) (<-chan any.Any, <-chan error){
-	anyStream := make(chan any.Any)
-	errCh := make(chan error)
-	var data []byte
-	recvBuf := make([]byte, 4 * 1024)
-	processed := 0
-
-	func() {
-		defer close(anyStream)
-		defer close(errCh)
-		for {
-			err := s.conn.SetReadDeadline(time.Now().Add(s.rTimeout))
-			if err != nil {
-				errCh <- err
-				return
-			}
-			n, err := s.conn.Read(recvBuf)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			// To Do: handle checksum error
-			if msg, err := message.Deserialize(data[:processed]); err != nil {
-				pb := any.Any{}
-				err = proto.Unmarshal(msg, &pb)
-				if err != nil {
-					errCh <- err
-					return
-				}
-				anyStream <- pb
-				processed = int(unsafe.Sizeof(&Header{})) + len(msg)
-				data = data[processed:]
-				processed = 0
-			}
-
-			select {
-			case <- ctx.Done():
-				return
-			default:
-				data = append(data, recvBuf[:n]...)
-				processed += n
-				recvBuf = recvBuf[:0]
-			}
-		}
-	}()
-
-	return anyStream, errCh
-}
-func (s Session) Write(ctx context.Context, data []byte) error {
-	return nil
-}
-*/
 
 func (s *Session) SetState(nextState SessionStateType) error {
 	contains := func(states []SessionStateType, state SessionStateType) bool {
@@ -177,11 +100,3 @@ func (s *Session) State() SessionStateType {
 	defer s.state.Unlock()
 	return s.state.stType
 }
-
-
-
-
-
-
-
-
