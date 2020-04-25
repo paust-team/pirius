@@ -221,19 +221,13 @@ func TestMultiClient(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	ctxP1 := context.Background()
-	ctxP2 := context.Background()
-	ctxP3 := context.Background()
-
-	ctxC1 := context.Background()
-	//ctxC2 := context.Background()
-
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
 	// Start producer
 	var expectedSentCount int
 	var sentRecords [][]byte
+
 	runProducer := func(ctx context.Context, fileName string) {
 		count, sendingRecords := readFromFileLineBy(fileName)
 		expectedSentCount += count
@@ -263,15 +257,21 @@ func TestMultiClient(t *testing.T) {
 	}
 
 	wg.Add(3)
+	ctxP1 := context.Background()
+	ctxP2 := context.Background()
+	ctxP3 := context.Background()
 	runProducer(ctxP1, "data1.txt")
 	runProducer(ctxP2, "data2.txt")
 	runProducer(ctxP3, "data3.txt")
 
 	// Start consumer
-	var receivedRecords1 [][]byte
-	//var receivedRecords2 [][]byte
+	type ReceivedRecords [][]byte
+	var totalReceivedRecords []ReceivedRecords
 
-	runConsumer := func(ctx context.Context, receivedRecords *[][]byte) {
+	runConsumer := func(ctx context.Context) {
+		var receivedRecords ReceivedRecords
+
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
@@ -287,9 +287,9 @@ func TestMultiClient(t *testing.T) {
 					t.Error(response.Error)
 				} else {
 
-					*receivedRecords = append(*receivedRecords, response.Data)
+					receivedRecords = append(receivedRecords, response.Data)
 					receiveCount++
-					fmt.Println("receiveCount", receiveCount)
+					//fmt.Println("receiveCount", receiveCount)
 					if expectedSentCount == receiveCount {
 						fmt.Println("complete consumer. received :", receiveCount)
 						break
@@ -297,20 +297,22 @@ func TestMultiClient(t *testing.T) {
 				}
 			}
 
+			totalReceivedRecords = append(totalReceivedRecords, receivedRecords)
+
 			if err := consumerClient.Close(); err != nil {
 				t.Error(err)
 			}
 		}()
-
 	}
 
-	wg.Add(1)
-	go runConsumer(ctxC1, &receivedRecords1)
-	//go runConsumer(ctxC2, &receivedRecords2)
+	ctxC1 := context.Background()
+	ctxC2 := context.Background()
+	runConsumer(ctxC1)
+	runConsumer(ctxC2)
 
 	wg.Wait()
 
-	checkConsumerResults := func(receivedRecords [][]byte) {
+	for _, receivedRecords := range totalReceivedRecords {
 		if len(sentRecords) != len(receivedRecords) {
 			t.Error("Length Mismatch - Expected records: ", len(sentRecords), ", Received records: ", len(receivedRecords))
 		}
@@ -321,11 +323,6 @@ func TestMultiClient(t *testing.T) {
 			}
 		}
 	}
-
-	checkConsumerResults(receivedRecords1)
-	//checkConsumerResults(receivedRecords2)
-
-	time.Sleep(5 * time.Second)
 }
 
 func contains(s [][]byte, e []byte) bool {
