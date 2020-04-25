@@ -21,7 +21,7 @@ type Broker struct {
 func NewBroker(port uint16) *Broker {
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
-	topic := internals.NewTopic()
+	topic := internals.NewTopic("paustq")
 
 	if err != nil {
 		log.Fatal(err)
