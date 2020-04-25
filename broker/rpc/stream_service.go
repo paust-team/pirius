@@ -26,7 +26,6 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	sock := common.NewSocketContainer(stream)
 	sock.Open()
 	defer sock.Close()
-
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
@@ -97,6 +96,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 				return
 			}
 			if msg == nil {
+				cancelFunc() // <- context 를 끝내줘야함
 				return
 			}
 			pl.Flow(ctx, 0, msg)
