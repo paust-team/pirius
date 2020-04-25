@@ -8,15 +8,14 @@ import (
 )
 
 type APIClient struct {
-	context   context.Context
 	rpcClient paustqproto.APIServiceClient
 	conn      *grpc.ClientConn
 	ServerUrl string
 	Connected bool
 }
 
-func NewAPIClient(context context.Context, serverUrl string) *APIClient {
-	return &APIClient{ServerUrl: serverUrl, context: context, Connected: false}
+func NewAPIClient(serverUrl string) *APIClient {
+	return &APIClient{ServerUrl: serverUrl, Connected: false}
 }
 
 func (client *APIClient) Connect() error {
@@ -36,30 +35,30 @@ func (client *APIClient) Close() error {
 	return client.conn.Close()
 }
 
-func (client *APIClient) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
-	_, err := client.rpcClient.CreateTopic(client.context, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
+func (client *APIClient) CreateTopic(ctx context.Context, topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+	_, err := client.rpcClient.CreateTopic(ctx, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (client *APIClient) DeleteTopic(topicName string) error {
-	_, err := client.rpcClient.DeleteTopic(client.context, message.NewDeleteTopicRequestMsg(topicName))
+func (client *APIClient) DeleteTopic(ctx context.Context, topicName string) error {
+	_, err := client.rpcClient.DeleteTopic(ctx, message.NewDeleteTopicRequestMsg(topicName))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (client *APIClient) DescribeTopic(topicName string) (*paustqproto.DescribeTopicResponse, error) {
-	return client.rpcClient.DescribeTopic(client.context, message.NewDescribeTopicRequestMsg(topicName))
+func (client *APIClient) DescribeTopic(ctx context.Context, topicName string) (*paustqproto.DescribeTopicResponse, error) {
+	return client.rpcClient.DescribeTopic(ctx, message.NewDescribeTopicRequestMsg(topicName))
 }
 
-func (client *APIClient) ListTopics() (*paustqproto.ListTopicsResponse, error) {
-	return client.rpcClient.ListTopics(client.context, message.NewListTopicsRequestMsg())
+func (client *APIClient) ListTopics(ctx context.Context) (*paustqproto.ListTopicsResponse, error) {
+	return client.rpcClient.ListTopics(ctx, message.NewListTopicsRequestMsg())
 }
 
-func (client *APIClient) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
-	return client.rpcClient.Heartbeat(client.context, message.NewPingMsg(msg, brokerId))
+func (client *APIClient) Heartbeat(ctx context.Context, msg string, brokerId uint64) (*paustqproto.Pong, error) {
+	return client.rpcClient.Heartbeat(ctx, message.NewPingMsg(msg, brokerId))
 }

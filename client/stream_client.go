@@ -15,18 +15,17 @@ type ReceivedData struct {
 }
 
 type StreamClient struct {
-	context       context.Context
-	streamClient  paustqproto.StreamService_FlowClient
-	sockContainer *common.StreamSocketContainer
-	SessionType   paustqproto.SessionType
-	conn          *grpc.ClientConn
-	ServerUrl     string
-	Connected     bool
-	MaxBufferSize uint32
+	streamClient  	paustqproto.StreamService_FlowClient
+	sockContainer 	*common.StreamSocketContainer
+	SessionType   	paustqproto.SessionType
+	conn          	*grpc.ClientConn
+	ServerUrl     	string
+	Connected     	bool
+	MaxBufferSize 	uint32
 }
 
-func NewStreamClient(context context.Context, serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{context: context, SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
+func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
+	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
 }
 
 func (client *StreamClient) ReceiveToChan(receiveCh chan<- ReceivedData) {
@@ -43,53 +42,54 @@ func (client *StreamClient) Send(msg *message.QMessage) error {
 	return client.sockContainer.Write(msg, client.MaxBufferSize)
 }
 
-func (client *StreamClient) ConnectWithTopic(topicName string) error {
+func (client *StreamClient) ConnectWithTopic(ctx context.Context, topicName string) error {
 
 	if client.Connected {
 		return errors.New("already connected")
 	}
 
 	conn, err := grpc.Dial(client.ServerUrl, grpc.WithInsecure())
+	clientCtx, cancel := context.WithCancel(ctx)
+
+	cancelAndClose := func() {
+		conn.Close()
+		cancel()
+	}
+
 	if err != nil {
 		return err
 	}
 	client.conn = conn
 	client.Connected = true
 
-	ctx, cancel := context.WithCancel(client.context)
 	stub := paustqproto.NewStreamServiceClient(conn)
-	stream, err := stub.Flow(ctx)
+	stream, err := stub.Flow(clientCtx)
 	if err != nil {
-		conn.Close()
-		cancel()
+		cancelAndClose()
 		return err
 	}
 
 	sockContainer := common.NewSocketContainer(stream)
 	reqMsg, err := message.NewQMessageFromMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
 	if err != nil {
-		conn.Close()
-		cancel()
+		cancelAndClose()
 		return err
 	}
 
 	if err := sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
-		conn.Close()
-		cancel()
+		cancelAndClose()
 		return err
 	}
 
 	respMsg, err := sockContainer.Read()
 	if err != nil {
-		conn.Close()
-		cancel()
+		cancelAndClose()
 		return err
 	}
 
 	connectResponseMsg := &paustqproto.ConnectResponse{}
 	if err := respMsg.UnpackTo(connectResponseMsg); err != nil {
-		conn.Close()
-		cancel()
+		cancelAndClose()
 		return err
 	}
 
@@ -103,7 +103,5 @@ func (client *StreamClient) ConnectWithTopic(topicName string) error {
 
 func (client *StreamClient) Close() error {
 	client.streamClient.CloseSend()
-	_, cancel := context.WithCancel(client.context)
-	cancel()
 	return client.conn.Close()
 }
