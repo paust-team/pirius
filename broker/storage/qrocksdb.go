@@ -157,6 +157,10 @@ func (key RecordKey) Data() []byte {
 	return key.data
 }
 
+func (key *RecordKey) SetData(data []byte) {
+	copy(key.data, data)
+}
+
 func (key RecordKey) Size() int {
 	if key.isSlice {
 		return key.Slice.Size()

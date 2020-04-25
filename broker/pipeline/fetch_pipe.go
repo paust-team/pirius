@@ -45,6 +45,8 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 		defer close(outStream)
 		defer close(errCh)
 
+		topic := f.session.Topic()
+
 		for in := range inStream {
 			if f.session.State() != network.ON_SUBSCRIBE {
 				err := f.session.SetState(network.ON_SUBSCRIBE)
@@ -55,36 +57,43 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 			}
 
 			req := in.(*paustq_proto.FetchRequest)
-
-			topic := f.session.Topic()
-
 			var fetchRes paustq_proto.FetchResponse
-			var lastReadOffset *uint64 = nil
+
+			first := true
 			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
+			if req.StartOffset > atomic.LoadUint64(&topic.Size) {
+				errCh <- errors.New("invalid start offset")
+				return
+			}
+
 			for !f.session.IsClosed() {
-
 				it := f.db.Scan(storage.RecordCF)
-				expectedLastOffset := atomic.LoadUint64(&topic.Size) - 1
+				currentLastOffset := atomic.LoadUint64(&topic.Size) - 1
 
-				for it.Seek(prevKey.Data()); it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
+				it.Seek(prevKey.Data())
+				if !first && it.Valid() {
+					it.Next()
+				}
+
+				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
 					key := storage.NewRecordKey(it.Key())
 					keyOffset := key.Offset()
 
-					if lastReadOffset != nil {
-						if *lastReadOffset == keyOffset {
-							continue
-						} else if keyOffset-*lastReadOffset != 1 {
+					if first {
+						if keyOffset != req.StartOffset {
 							break
 						}
-					} else if keyOffset != req.StartOffset {
-						break
+					} else {
+						if keyOffset != prevKey.Offset() && keyOffset - prevKey.Offset() != 1 {
+							break
+						}
 					}
 
 					fetchRes.Reset()
 					fetchRes = paustq_proto.FetchResponse{
 						Data:       it.Value().Data(),
-						LastOffset: expectedLastOffset,
+						LastOffset: currentLastOffset,
 						Offset:     keyOffset,
 					}
 
@@ -94,19 +103,16 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 						return
 					}
 					outStream <- out
-
-					lastReadOffset = &keyOffset
+					prevKey.SetData(key.Data())
+					first = false
 				}
 
-				if lastReadOffset != nil {
-					prevKey = storage.NewRecordKeyFromData(topic.Name(), *lastReadOffset)
-				}
-
-				if expectedLastOffset < atomic.LoadUint64(&topic.Size)-1 {
+				if currentLastOffset < atomic.LoadUint64(&topic.Size)-1 {
 					continue
 				}
 
 				topic.WaitPublish()
+
 			}
 
 			select {
