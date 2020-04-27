@@ -1,6 +1,9 @@
 package internals
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 type Topic struct {
 	name                   string
@@ -16,12 +19,10 @@ func (t Topic) Name() string {
 	return t.name
 }
 
-func (t *Topic) WaitPublish() {
-	t.published.L.Lock()
-	defer t.published.L.Unlock()
-	t.published.Wait()
-}
-
-func (t *Topic) NotifyPublished() {
-	t.published.Broadcast()
+func (t *Topic) LastOffset() uint64 {
+	size := atomic.LoadUint64(&t.Size)
+	if size == 0 {
+		return 0
+	}
+	return size - 1
 }

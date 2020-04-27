@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
@@ -11,15 +12,25 @@ import (
 )
 
 type ConnectPipe struct {
-	session *network.Session
+	session 	*network.Session
+	notifier 	*internals.Notifier
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
-	var ok bool
-	c.session, ok = in[0].(*network.Session)
-	if !ok {
+	casted := true
+	session, ok := in[0].(*network.Session)
+	casted = casted && ok
+
+	notifier, ok := in[1].(*internals.Notifier)
+	casted = casted && ok
+
+	if !casted {
 		return errors.New("failed to build connect pipe")
 	}
+
+	c.session = session
+	c.notifier = notifier
+
 	return nil
 }
 
@@ -46,6 +57,14 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 			}
 
 			c.session.SetType(req.SessionType)
+			topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
+
+			if err != nil {
+				errCh <- err
+				return
+			}
+			c.session.SetTopic(topic)
+
 			switch req.SessionType {
 			case paustq_proto.SessionType_PUBLISHER:
 				atomic.AddUint64(&c.session.Topic().NumPubs, 1)

@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
-	"sync/atomic"
 )
 
 type FetchPipe struct {
-	session *network.Session
-	db      *storage.QRocksDB
+	session 	*network.Session
+	db      	*storage.QRocksDB
+	notifier	*internals.Notifier
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -25,6 +26,9 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
+	casted = casted && ok
+
+	f.notifier, ok = in[2].(*internals.Notifier)
 	casted = casted && ok
 
 	if !casted {
@@ -45,9 +49,11 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 		defer close(outStream)
 		defer close(errCh)
 
-		topic := f.session.Topic()
 
 		for in := range inStream {
+
+			topic := f.session.Topic()
+
 			if f.session.State() != network.ON_SUBSCRIBE {
 				err := f.session.SetState(network.ON_SUBSCRIBE)
 				if err != nil {
@@ -62,15 +68,14 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 			first := true
 			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
-			if req.StartOffset > atomic.LoadUint64(&topic.Size) {
+			if req.StartOffset > topic.LastOffset() {
 				errCh <- errors.New("invalid start offset")
 				return
 			}
 
 			for !f.session.IsClosed() {
+				currentLastOffset := topic.LastOffset()
 				it := f.db.Scan(storage.RecordCF)
-				currentLastOffset := atomic.LoadUint64(&topic.Size) - 1
-
 				it.Seek(prevKey.Data())
 				if !first && it.Valid() {
 					it.Next()
@@ -102,17 +107,20 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 						errCh <- err
 						return
 					}
-					outStream <- out
-					prevKey.SetData(key.Data())
-					first = false
+
+					select {
+					case <-ctx.Done():
+						return
+					case outStream <- out:
+						prevKey.SetData(key.Data())
+						first = false
+					}
 				}
 
-				if currentLastOffset < atomic.LoadUint64(&topic.Size)-1 {
+				if prevKey.Offset() < topic.LastOffset() {
 					continue
 				}
-
-				topic.WaitPublish()
-
+				f.waitForNews(topic.Name(), prevKey.Offset())
 			}
 
 			select {
@@ -124,4 +132,12 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 	}()
 
 	return outStream, errCh, nil
+}
+
+func (f FetchPipe) waitForNews(topicName string, currentLastOffset uint64) {
+	subscribeChan := make(chan bool)
+	defer close(subscribeChan)
+	subscription := &internals.Subscription{TopicName: topicName, LastFetchedOffset: currentLastOffset, SubscribeChan: subscribeChan}
+	f.notifier.RegisterSubscription(subscription)
+	<-subscribeChan
 }
