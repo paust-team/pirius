@@ -114,23 +114,6 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan int
 
 func (p *Pipeline) Wait(ctx context.Context) error {
 	errCh := MergeErrors(p.errChannels...)
-
-	// Before
-	//for err := range errCh {
-	//	if err != nil {
-	//		// guarantee all pipes are done if an error occurred
-	//		p.wg.Wait()
-	//		return err
-	//	}
-	//
-	//	select {
-	//	case <-ctx.Done():
-	//		return nil
-	//	default:
-	//	}
-	//}
-
-	// After
 	for {
 		select {
 		case <-ctx.Done():
@@ -143,9 +126,6 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 			}
 		}
 	}
-
-
-	return nil
 }
 
 func (p *Pipeline) Take(ctx context.Context, outletIndex int, num int) <-chan interface{} {

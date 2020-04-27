@@ -13,7 +13,6 @@ import (
 
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
-	pipeLine *pipeline.Pipeline
 	Topic    *internals.Topic
 }
 
@@ -32,19 +31,19 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 
 	inlet := make(chan interface{})
 	defer close(inlet)
-	err, pl := NewStreamPipeline(ctx, sess, s.DB, inlet)
+	err, pl := NewPipelineBase(ctx, sess, s.DB, inlet)
 	if err != nil {
 		return err
 	}
 
 	var msg *message.QMessage
 	go func() {
+		defer cancelFunc()
 		for {
 			if msg, err = sock.Read(); err != nil {
 				return
 			}
 			if msg == nil {
-				cancelFunc()
 				return
 			}
 			pl.Flow(ctx, 0, msg)
@@ -52,6 +51,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	}()
 
 	go func() {
+		defer cancelFunc()
 		for outMsg := range pl.Take(ctx, 0, 0) {
 			err = sock.Write(outMsg.(*message.QMessage), 1024)
 			if err != nil {
@@ -68,7 +68,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	return nil
 }
 
-func NewStreamPipeline(ctx context.Context, sess *network.Session, db *storage.QRocksDB, inlet chan interface{}) (error, *pipeline.Pipeline) {
+func NewPipelineBase(ctx context.Context, sess *network.Session, db *storage.QRocksDB, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
