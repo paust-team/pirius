@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 )
 
@@ -115,20 +114,18 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<- chan in
 
 func (p *Pipeline) Wait(ctx context.Context) error {
 	errCh := MergeErrors(p.errChannels...)
-	for err := range errCh {
-		if err != nil {
-			// guarantee all pipes are done if an error occurred
-			p.wg.Wait()
-			return err
-		}
-
+	for {
 		select {
 		case <- ctx.Done():
 			return nil
-		default:
+		case err := <- errCh:
+			if err != nil {
+				// guarantee all pipes are done if an error occurred
+				p.wg.Wait()
+				return err
+			}
 		}
 	}
-	return nil
 }
 
 func (p *Pipeline) Take(ctx context.Context, outletIndex int, num int) <-chan interface{} {

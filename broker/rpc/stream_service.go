@@ -106,6 +106,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 		for outMsg := range pl.Take(ctx, 0, 0) {
 			err = sock.Write(outMsg.(*message.QMessage))
 			if err != nil {
+				cancelFunc()
 				return
 			}
 		}
