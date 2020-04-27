@@ -8,27 +8,27 @@ import (
 )
 
 var (
-	topicName 			string
-	topicMeta 			string
-	numPartition 		uint32
-	replicationFactor	uint32
+	topicName         string
+	topicMeta         string
+	numPartition      uint32
+	replicationFactor uint32
 )
 
 func NewCreateTopicCmd() *cobra.Command {
 
 	var createTopicCmd = &cobra.Command{
-		Use: "create-topic",
+		Use:   "create-topic",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := topicRpcClient.CreateTopic(topicName, topicMeta, numPartition, replicationFactor); err != nil {
+			if err := apiClient.CreateTopic(topicName, topicMeta, numPartition, replicationFactor); err != nil {
 				log.Fatal(err)
 			}
 
@@ -36,8 +36,9 @@ func NewCreateTopicCmd() *cobra.Command {
 		},
 	}
 
-	createTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","new topic name to create")
-	createTopicCmd.Flags().StringVarP(&topicMeta, "topic-meta", "m", "","topic meta for topic")
+	createTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "new topic name to create")
+	createTopicCmd.MarkFlagRequired("topic")
+	createTopicCmd.Flags().StringVarP(&topicMeta, "topic-meta", "m", "", "topic meta for topic")
 	createTopicCmd.Flags().Uint32VarP(&numPartition, "partitions", "p", 1, "num partition")
 	createTopicCmd.Flags().Uint32VarP(&replicationFactor, "replication-factor", "r", 1, "replication factor")
 
@@ -47,17 +48,17 @@ func NewCreateTopicCmd() *cobra.Command {
 func NewListTopicCmd() *cobra.Command {
 
 	var listTopicCmd = &cobra.Command{
-		Use: "list-topic",
+		Use:   "list-topic",
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			topics, err := topicRpcClient.ListTopics()
+			topics, err := apiClient.ListTopics()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -68,7 +69,7 @@ func NewListTopicCmd() *cobra.Command {
 		},
 	}
 
-	listTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to listing")
+	listTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to listing")
 
 	return listTopicCmd
 }
@@ -76,18 +77,18 @@ func NewListTopicCmd() *cobra.Command {
 func NewDeleteTopicCmd() *cobra.Command {
 
 	var deleteTopicCmd = &cobra.Command{
-		Use: "delete-topic",
+		Use:   "delete-topic",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := topicRpcClient.DeleteTopic(topicName); err != nil {
+			if err := apiClient.DeleteTopic(topicName); err != nil {
 				log.Fatal(err)
 			}
 
@@ -95,7 +96,7 @@ func NewDeleteTopicCmd() *cobra.Command {
 		},
 	}
 
-	deleteTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to delete")
+	deleteTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to delete")
 
 	return deleteTopicCmd
 }
@@ -103,17 +104,17 @@ func NewDeleteTopicCmd() *cobra.Command {
 func NewDescribeTopicCmd() *cobra.Command {
 
 	var describeTopicCmd = &cobra.Command{
-		Use: "describe-topic",
+		Use:   "describe-topic",
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			topicRpcClient := client.NewTopicServiceRpcClient(ctx, bootstrapServer)
-			defer topicRpcClient.Close()
+			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			defer apiClient.Close()
 
-			if topicRpcClient.Connect() != nil {
+			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			resp, err := topicRpcClient.DescribeTopic(topicName)
+			resp, err := apiClient.DescribeTopic(topicName)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -122,7 +123,7 @@ func NewDescribeTopicCmd() *cobra.Command {
 		},
 	}
 
-	describeTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to describe")
+	describeTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to describe")
 
 	return describeTopicCmd
 }

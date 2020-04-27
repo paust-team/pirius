@@ -23,7 +23,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup)(
+func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)

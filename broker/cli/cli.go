@@ -6,11 +6,11 @@ import (
 )
 
 var (
-	logLevel 	string
+	logLevel string
 )
 
 var paustQCmd = &cobra.Command{
-	Use: "paustq [command] (flags)",
+	Use:   "paustq [command] (flags)",
 	Short: "PaustQ cli",
 }
 
@@ -20,7 +20,7 @@ func Main() {
 
 	paustQCmd.AddCommand(
 		NewStartCmd(),
-		)
+	)
 
 	if err := paustQCmd.Execute(); err != nil {
 		log.Fatal(err)

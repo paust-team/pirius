@@ -9,11 +9,12 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
+	"sync/atomic"
 )
 
 type FetchPipe struct {
 	session *network.Session
-	db *storage.QRocksDB
+	db      *storage.QRocksDB
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -33,7 +34,7 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
+func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
@@ -43,6 +44,8 @@ func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, wg 
 		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
+
+		topic := f.session.Topic()
 
 		for in := range inStream {
 			if f.session.State() != network.ON_SUBSCRIBE {
@@ -54,41 +57,62 @@ func (f *FetchPipe) Ready (ctx context.Context, inStream <-chan interface{}, wg 
 			}
 
 			req := in.(*paustq_proto.FetchRequest)
+			var fetchRes paustq_proto.FetchResponse
 
 			first := true
-			topic := f.session.Topic()
-			prevKey := storage.NewRecordKey(topic.Name(), req.StartOffset)
+			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
-			var fetchRes paustq_proto.FetchResponse
+			if req.StartOffset > atomic.LoadUint64(&topic.Size) {
+				errCh <- errors.New("invalid start offset")
+				return
+			}
+
 			for !f.session.IsClosed() {
 				it := f.db.Scan(storage.RecordCF)
-				it.Seek(prevKey.Bytes())
-				if !first {
+				currentLastOffset := atomic.LoadUint64(&topic.Size) - 1
+
+				it.Seek(prevKey.Data())
+				if !first && it.Valid() {
 					it.Next()
 				}
 
-				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name() + "@")); it.Next() {
-					key := &storage.RecordKey{}
-					key.FromSlice(it.Key())
+				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
+					key := storage.NewRecordKey(it.Key())
+					keyOffset := key.Offset()
+
+					if first {
+						if keyOffset != req.StartOffset {
+							break
+						}
+					} else {
+						if keyOffset != prevKey.Offset() && keyOffset - prevKey.Offset() != 1 {
+							break
+						}
+					}
 
 					fetchRes.Reset()
 					fetchRes = paustq_proto.FetchResponse{
-						Magic:                -1,
-						Data:                 it.Value().Data(),
-						LastOffset:           topic.Size - 1,
-						Offset:               key.Offset(),
+						Data:       it.Value().Data(),
+						LastOffset: currentLastOffset,
+						Offset:     keyOffset,
 					}
 
 					out, err := message.NewQMessageFromMsg(&fetchRes)
-					if err != nil  {
+					if err != nil {
 						errCh <- err
 						return
 					}
 					outStream <- out
-					prevKey = key
+					prevKey.SetData(key.Data())
 					first = false
 				}
+
+				if currentLastOffset < atomic.LoadUint64(&topic.Size)-1 {
+					continue
+				}
+
 				topic.WaitPublish()
+
 			}
 
 			select {

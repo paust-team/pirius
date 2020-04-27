@@ -8,10 +8,10 @@ import (
 )
 
 type QMessage struct {
-	Data 		[]byte
+	Data []byte
 }
 
-func NewQMessage(data []byte) *QMessage{
+func NewQMessage(data []byte) *QMessage {
 	return &QMessage{Data: data}
 }
 

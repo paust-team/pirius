@@ -22,22 +22,22 @@ const (
 	ON_SUBSCRIBE
 )
 
-var stateTransition = map[SessionStateType][]SessionStateType {
-	NONE: {NONE, READY},
-	READY: {NONE, READY, ON_PUBLISH, ON_SUBSCRIBE},
-	ON_PUBLISH: {NONE, READY},
+var stateTransition = map[SessionStateType][]SessionStateType{
+	NONE:         {NONE, READY},
+	READY:        {NONE, READY, ON_PUBLISH, ON_SUBSCRIBE},
+	ON_PUBLISH:   {NONE, READY},
 	ON_SUBSCRIBE: {NONE, READY},
 }
 
 type Session struct {
-	state SessionState
-	sessType  paustq_proto.SessionType
-	topic     *internals.Topic
-	rTimeout  time.Duration
-	wTimeout  time.Duration
+	state    SessionState
+	sessType paustq_proto.SessionType
+	topic    *internals.Topic
+	rTimeout time.Duration
+	wTimeout time.Duration
 }
 
-func NewSession() *Session{
+func NewSession() *Session {
 	return &Session{
 		state: SessionState{
 			sync.Mutex{}, NONE,

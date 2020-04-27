@@ -49,7 +49,7 @@ func IsPutRequest(data interface{}) (interface{}, bool) {
 
 type DispatchPipe struct {
 	caseCount int
-	cases []func(interface{}) (interface{}, bool)
+	cases     []func(interface{}) (interface{}, bool)
 }
 
 func (d *DispatchPipe) Build(caseFns ...interface{}) error {
@@ -111,7 +111,7 @@ func (d *DispatchPipe) Ready(ctx context.Context,
 			}
 
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			default:
 			}

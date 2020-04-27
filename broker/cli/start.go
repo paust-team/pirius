@@ -7,17 +7,17 @@ import (
 )
 
 var (
-	dir 		string
-	port 		uint16
+	dir  string
+	port uint16
 )
 
 func NewStartCmd() *cobra.Command {
 
 	var startCmd = &cobra.Command{
-		Use: "start",
+		Use:   "start",
 		Short: "start paustq broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			brokerInstance := broker.NewBroker(port)
+			brokerInstance := broker.NewBroker(port, "qstore")
 			brokerInstance.Start()
 		},
 	}

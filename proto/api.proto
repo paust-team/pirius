@@ -2,29 +2,26 @@ syntax = "proto3";
 package paustq.proto;
 import "data.proto";
 
-service TopicService {
+service APIService {
+
+    rpc Heartbeat(Ping) returns (Pong) {}
+    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
+
+    // Topic related RPCs
     rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
     rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse) {}
     rpc DescribeTopic(DescribeTopicRequest) returns (DescribeTopicResponse) {}
     rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse) {}
-}
 
-service PartitionService {
+    // Partition related RPCs
     rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionResponse) {}
-}
 
-service ConnectionService {
-    rpc SendHeartbeat(HeartBeatRequest) returns (HeartBeatResponse) {}
-    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
-}
-
-service ConfigService {
+    // Config related RPCs
     rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
     rpc AlterConfig(AlterConfigRequest) returns (AlterConfigResponse) {}
     rpc ShowConfig(ShowConfigRequest) returns (ShowConfigResponse) {}
-}
 
-service GroupService {
+    // Group related RPCs
     rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse) {}
     rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {}
     rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {}
@@ -38,162 +35,128 @@ service StreamService {
 
 // Config
 message SetConfigRequest {
-    int32 magic = 1;
-    bytes config = 2;
+    bytes config = 1;
 }
 
 message SetConfigResponse {
-    int32 magic = 1;
-    bytes config = 2;
-    int32 error_code = 3;
+    bytes config = 1;
+    int32 error_code = 2;
 }
 
 message AlterConfigRequest {
-    int32 magic = 1;
-    bytes config = 2;
+    bytes config = 1;
 }
 
 message AlterConfigResponse {
-    int32 magic = 1;
-    bytes config = 2;
-    int32 error_code = 3;
+    bytes config = 1;
 }
 
-message ShowConfigRequest {
-    int32 magic = 1;
-}
+message ShowConfigRequest {}
 
 message ShowConfigResponse {
-    int32 magic = 1;
-    bytes config = 2;
-    int32 error_code = 3;
+    bytes config = 1;
+    int32 error_code = 2;
 }
 
 message CreateTopicRequest {
-    int32 magic = 1;
-    Topic topic = 2;
+    Topic topic = 1;
 }
 
-message CreateTopicResponse {
-    int32 magic = 1;
-}
+message CreateTopicResponse {}
 
 message DeleteTopicRequest {
-    int32 magic = 1;
-    string topic_name = 2;
+    string topic_name = 1;
 }
 
-message DeleteTopicResponse {
-    int32 magic = 1;
-}
+message DeleteTopicResponse {}
 
-message ListTopicsRequest {
-    int32 magic = 1;
-}
+message ListTopicsRequest {}
 
 message ListTopicsResponse {
-    int32 magic = 1;
-    repeated Topic topics = 2;
+    repeated Topic topics = 1;
 }
 
 message DescribeTopicRequest {
-    int32 magic = 1;
-    string topic_name = 2;
+    string topic_name = 1;
 }
 
 message DescribeTopicResponse {
-    int32 magic = 1;
-    Topic topic = 2;
-    uint64 num_publishers = 3;
-    uint64 num_subscribers = 4;
-    repeated Partition partitions = 5;
+    Topic topic = 1;
+    uint64 num_publishers = 2;
+    uint64 num_subscribers = 3;
+    repeated Partition partitions = 4;
 }
 
 // partition
 message CreatePartitionRequest {
-    int32 magic = 1;
-    string topic_name = 2;
-    uint32 count = 3;
+    string topic_name = 1;
+    uint32 count = 2;
 }
 
 message CreatePartitionResponse {
-    int32 magic = 1;
-    Partition partition = 2;
+    Partition partition = 1;
 }
 
 // group
 message CreateGroupRequest {
-    int32 magic = 1;
-    string group_name = 2;
-    string description = 3;
+    string group_name = 1;
+    string description = 2;
 }
 
 message CreateGroupResponse {
-    int32 magic = 1;
-    Group group = 2;
+    Group group = 1;
 }
 
-message ListGroupsRequest {
-    int32 magic = 1;
-}
+message ListGroupsRequest {}
 
 message ListGroupsResponse {
-    int32 magic = 1;
-    repeated Group group = 2;
-    int32 error_code = 3;
+    repeated Group group = 1;
 }
 
 // Consumer can join only one group
 message JoinGroupRequest {
-    int32 magic = 1;
-    uint64 group_id = 2;
+    uint64 group_id = 1;
 }
 
 message JoinGroupResponse {
-    int32 magic = 1;
-    Group group = 2;
+    Group group = 1;
 }
 
 message LeaveGroupRequest {
-    int32 magic = 1;
-    uint64 group_id = 2;
+    uint64 group_id = 1;
 }
 
 message LeaveGroupResponse {
-    int32 magic = 1;
-    Group group = 2;
+    Group group = 1;
 }
 
 // Note:: Only group owner can delete group
 message DeleteGroupRequest {
-    int32 magic = 1;
-    uint64 group_id = 2;
+    uint64 group_id = 1;
 }
 
 message DeleteGroupResponse {
-    int32 magic = 1;
-    Group group = 2;
+    Group group = 1;
 }
 
 // connection
 
 message ConnectRequest {
-    int32 magic = 1;
-    SessionType session_type = 2;
-    string topic_name = 3;
+    SessionType session_type = 1;
+    string topic_name = 2;
 }
 
-message ConnectResponse {
-    int32 magic = 1;
+message ConnectResponse {}
+
+message Ping {
+    string echo = 1;
+    uint64 broker_id = 2;
 }
 
-message HeartBeatRequest {
-    int32 magic = 1;
-}
-
-message HeartBeatResponse {
-    int32 magic = 1;
-    int32 error_code = 2;
+message Pong {
+    string echo = 1;
+    uint32 server_version = 2;
+    uint64 server_time = 3; //nanosec
 }
 
 message ShutdownBrokerRequest {
@@ -201,14 +164,13 @@ message ShutdownBrokerRequest {
     uint64 broker_id = 2;
 }
 
-message ShutdownBrokerResponse {
-    int32 magic = 1;
-}
+message ShutdownBrokerResponse {}
 
 // stream
 message Header {
-    uint32 total_chunk_count = 1;
-    uint32 current_chunk_idx = 2;
+    uint64 chunk_id = 1;
+    uint32 total_chunk_count = 2;
+    uint32 current_chunk_idx = 3;
 }
 
 message Body {
@@ -216,34 +178,26 @@ message Body {
 }
 
 message Data {
-    int32 magic = 1;
-    Header header = 2;
-    Body body = 3;
-}
-
-message Ack {
-    int32 magic = 1;
+    Header header = 1;
+    Body body = 2;
 }
 
 message PutRequest {
-    int32 magic = 1;
-    bytes data = 2;
+    bytes data = 1;
 }
 
 message PutResponse {
-    int32 magic = 1;
-    Partition partition = 2;
+    Partition partition = 1;
 }
 
 message FetchRequest {
-    int32 magic = 1;
-    uint64 start_offset = 2;
+    uint64 start_offset = 1;
 }
 
 message FetchResponse {
-    int32 magic = 1;
-    bytes data = 2;
-    Partition partition = 3;
-    uint64 last_offset = 4;
-    uint64 offset = 5;
+    bytes data = 1;
+    Partition partition = 2;
+    uint64 last_offset = 3;
+    uint64 offset = 4;
+    bool publishing = 5;
 }
