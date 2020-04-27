@@ -9,28 +9,29 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"time"
 )
 
 type Broker struct {
-	Port 			uint16
-	grpcServer 		*grpc.Server
-	db 				*storage.QRocksDB
+	Port       uint16
+	grpcServer *grpc.Server
+	db         *storage.QRocksDB
 }
 
 func NewBroker(port uint16) *Broker {
 
-	db, err := storage.NewQRocksDB("qstore", ".")
-	topic := internals.NewTopic()
+	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
+	topic := internals.NewTopic("paustq")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	grpcServer := grpc.NewServer()
-	paustqproto.RegisterTopicServiceServer(grpcServer, rpc.NewTopicServiceServer(db))
+	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
 	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, topic))
 
-	return &Broker{Port: port, db: db, grpcServer: grpcServer,}
+	return &Broker{Port: port, db: db, grpcServer: grpcServer}
 }
 
 func (b *Broker) Start() {
@@ -49,4 +50,8 @@ func (b *Broker) Stop() {
 	b.grpcServer.Stop()
 	b.db.Close()
 	log.Println("stop broker")
+}
+
+func (b *Broker) Clean() {
+	_ = b.db.Destroy()
 }

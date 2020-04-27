@@ -12,9 +12,8 @@ import (
 )
 
 type StreamServiceServer struct {
-	DB  		*storage.QRocksDB
-	pipeLine	*pipeline.Pipeline
-	Topic 		*internals.Topic
+	DB       *storage.QRocksDB
+	Topic    *internals.Topic
 }
 
 func NewStreamServiceServer(db *storage.QRocksDB, topic *internals.Topic) *StreamServiceServer {
@@ -27,70 +26,19 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	sock.Open()
 	defer sock.Close()
 
-	// build pipeline
-	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
-	var err error
-
-	dispatcher = &pipeline.DispatchPipe{}
-	err = dispatcher.Build(pipeline.IsConnectRequest, pipeline.IsFetchRequest, pipeline.IsPutRequest)
-	if err != nil {
-		return err
-	}
-	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
-
-	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess)
-	if err != nil {
-		return err
-	}
-	connectPipe := pipeline.NewPipe("connect", &connector)
-
-	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB)
-	if err != nil {
-		return err
-	}
-	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
-
-	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB)
-	if err != nil {
-		return err
-	}
-	putPipe := pipeline.NewPipe("put", &putter)
-
-	zipper = &pipeline.ZipPipe{}
-	err = zipper.Build()
-	if err != nil {
-		return err
-	}
-	zipPipe := pipeline.NewPipe("zip", &zipper)
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
 	inlet := make(chan interface{})
 	defer close(inlet)
-	pl := pipeline.NewPipeline(inlet)
-
-	if err = pl.Add(ctx, dispatchPipe, inlet); err != nil {
-		return err
-	}
-	if err = pl.Add(ctx, connectPipe, dispatchPipe.Outlets[0]); err != nil {
-		return err
-	}
-	if err = pl.Add(ctx, fetchPipe, dispatchPipe.Outlets[1]); err != nil {
-		return err
-	}
-	if err = pl.Add(ctx, putPipe, dispatchPipe.Outlets[2]); err != nil {
-		return err
-	}
-	if err = pl.Add(ctx, zipPipe, connectPipe.Outlets[0], fetchPipe.Outlets[0], putPipe.Outlets[0]); err != nil {
+	err, pl := NewPipelineBase(ctx, sess, s.DB, inlet)
+	if err != nil {
 		return err
 	}
 
 	var msg *message.QMessage
 	go func() {
+		defer cancelFunc()
 		for {
 			if msg, err = sock.Read(); err != nil {
 				return
@@ -103,10 +51,10 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	}()
 
 	go func() {
+		defer cancelFunc()
 		for outMsg := range pl.Take(ctx, 0, 0) {
-			err = sock.Write(outMsg.(*message.QMessage))
+			err = sock.Write(outMsg.(*message.QMessage), 1024)
 			if err != nil {
-				cancelFunc()
 				return
 			}
 		}
@@ -118,4 +66,66 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	}
 
 	return nil
+}
+
+func NewPipelineBase(ctx context.Context, sess *network.Session, db *storage.QRocksDB, inlet chan interface{}) (error, *pipeline.Pipeline) {
+	// build pipeline
+	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
+	var err error
+
+	dispatcher = &pipeline.DispatchPipe{}
+	err = dispatcher.Build(pipeline.IsConnectRequest, pipeline.IsFetchRequest, pipeline.IsPutRequest)
+	if err != nil {
+		return err, nil
+	}
+	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
+
+	connector = &pipeline.ConnectPipe{}
+	err = connector.Build(sess)
+	if err != nil {
+		return err, nil
+	}
+	connectPipe := pipeline.NewPipe("connect", &connector)
+
+	fetcher = &pipeline.FetchPipe{}
+	err = fetcher.Build(sess, db)
+	if err != nil {
+		return err, nil
+	}
+	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
+
+	putter = &pipeline.PutPipe{}
+	err = putter.Build(sess, db)
+	if err != nil {
+		return err, nil
+	}
+	putPipe := pipeline.NewPipe("put", &putter)
+
+	zipper = &pipeline.ZipPipe{}
+	err = zipper.Build()
+	if err != nil {
+		return err, nil
+	}
+	zipPipe := pipeline.NewPipe("zip", &zipper)
+
+	pl := pipeline.NewPipeline(inlet)
+
+	if err = pl.Add(ctx, dispatchPipe, inlet); err != nil {
+		return err, nil
+	}
+	if err = pl.Add(ctx, connectPipe, dispatchPipe.Outlets[0]); err != nil {
+		return err, nil
+	}
+
+	if err = pl.Add(ctx, fetchPipe, dispatchPipe.Outlets[1]); err != nil {
+		return err, nil
+	}
+	if err = pl.Add(ctx, putPipe, dispatchPipe.Outlets[2]); err != nil {
+		return err, nil
+	}
+	if err = pl.Add(ctx, zipPipe, connectPipe.Outlets[0], fetchPipe.Outlets[0], putPipe.Outlets[0]); err != nil {
+		return err, nil
+	}
+
+	return nil, pl
 }

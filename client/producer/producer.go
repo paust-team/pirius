@@ -10,25 +10,33 @@ import (
 	"time"
 )
 
-type ResendableResponseData struct {
-	requestData []byte
-	responseCh  chan client.ReceivedData
-}
-
 type Producer struct {
 	ctx           context.Context
+	ctxCancel	  context.CancelFunc
 	client        *client.StreamClient
 	sourceChannel chan []byte
 	publishing    bool
 	waitGroup     sync.WaitGroup
+	timeout       time.Duration
+	chunkSize     uint32
 }
 
-func NewProducer(ctx context.Context, serverUrl string, timeout time.Duration) *Producer {
-	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_PUBLISHER)
-	producer := &Producer{ctx: ctx, client: c, sourceChannel: make(chan []byte), publishing: false}
+func NewProducer(parentCtx context.Context, serverUrl string) *Producer {
+	ctx, cancel := context.WithCancel(parentCtx)
+	c := client.NewStreamClient(serverUrl, paustqproto.SessionType_PUBLISHER)
+	producer := &Producer{ctx: ctx, ctxCancel: cancel, client: c, sourceChannel: make(chan []byte), publishing: false, chunkSize: 1024}
 	return producer
 }
 
+func (p *Producer) WithTimeout(timeout time.Duration) *Producer {
+	p.timeout = timeout
+	return p
+}
+
+func (p *Producer) WithChunkSize(size uint32) *Producer {
+	p.chunkSize = size
+	return p
+}
 func (p *Producer) waitResponse() {
 
 	receiveChan := make(chan client.ReceivedData)
@@ -78,12 +86,14 @@ func (p *Producer) startPublish() {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
-
-func (p *Producer) Publish(data []byte) {
+func (p *Producer) initPublish() {
 	if p.publishing == false {
 		p.publishing = true
 		go p.startPublish()
 	}
+}
+func (p *Producer) Publish(data []byte) {
+	p.initPublish()
 	p.waitGroup.Add(1)
 	p.sourceChannel <- data
 }
@@ -95,12 +105,11 @@ func (p *Producer) WaitAllPublishResponse() {
 }
 
 func (p *Producer) Connect(topic string) error {
-	return p.client.ConnectWithTopic(topic)
+	return p.client.ConnectWithTopic(p.ctx, topic)
 }
 
 func (p *Producer) Close() error {
 	p.publishing = false
-	_, cancel := context.WithCancel(p.ctx)
-	cancel()
+	p.ctxCancel()
 	return p.client.Close()
 }

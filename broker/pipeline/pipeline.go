@@ -7,16 +7,16 @@ import (
 )
 
 type Pipeline struct {
-	wg *sync.WaitGroup
-	inlets []chan interface{}
-	outlets []<-chan interface{}
+	wg          *sync.WaitGroup
+	inlets      []chan interface{}
+	outlets     []<-chan interface{}
 	errChannels []<-chan error
 }
 
 type pipe struct {
-	name 	string
+	name     string
 	internal *Pipe
-	Outlets [] <- chan interface{}
+	Outlets  []<-chan interface{}
 }
 
 type Pipe interface {
@@ -25,18 +25,18 @@ type Pipe interface {
 
 type SelectorPipe interface {
 	AddCase(caseFn func(input interface{}) (output interface{}, ok bool))
-	Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup)(
-		outStreams[]<-chan interface{}, errCh <-chan error, err error)
+	Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
+		outStreams []<-chan interface{}, errCh <-chan error, err error)
 }
 
 type VersatilePipe interface {
 	Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
-		outStream<-chan interface{}, errCh <-chan error, err error)
+		outStream <-chan interface{}, errCh <-chan error, err error)
 }
 
 type MergePipe interface {
-	Ready(ctx context.Context, inStreams[] <-chan interface{}, wg *sync.WaitGroup) (
-		outStream <- chan interface{}, errCh <- chan error, err error)
+	Ready(ctx context.Context, inStreams []<-chan interface{}, wg *sync.WaitGroup) (
+		outStream <-chan interface{}, errCh <-chan error, err error)
 }
 
 func NewPipe(name string, internal *Pipe) *pipe {
@@ -59,10 +59,10 @@ func NewPipeline(inlets ...chan interface{}) *Pipeline {
 	}
 }
 
-func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<- chan interface{}) error {
+func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan interface{}) error {
 	var errCh <-chan error
 	var err error
-	var outlet <- chan interface{}
+	var outlet <-chan interface{}
 
 	removeIfExists := func(chs *[]<-chan interface{}, ch <-chan interface{}) {
 		for i, c := range *chs {
@@ -116,7 +116,7 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 	errCh := MergeErrors(p.errChannels...)
 	for {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return nil
 		case err := <- errCh:
 			if err != nil {
@@ -136,7 +136,7 @@ func (p *Pipeline) Take(ctx context.Context, outletIndex int, num int) <-chan in
 		if num == 0 {
 			for out := range p.outlets[outletIndex] {
 				select {
-				case <- ctx.Done():
+				case <-ctx.Done():
 					return
 				case takeStream <- out:
 				}
@@ -144,7 +144,7 @@ func (p *Pipeline) Take(ctx context.Context, outletIndex int, num int) <-chan in
 		} else {
 			for i := 0; i < num; i++ {
 				select {
-				case <- ctx.Done():
+				case <-ctx.Done():
 					return
 				case takeStream <- <-p.outlets[outletIndex]:
 				}
@@ -158,7 +158,7 @@ func (p *Pipeline) Flow(ctx context.Context, inletIndex int, data ...interface{}
 	go func() {
 		for _, datum := range data {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			case p.inlets[inletIndex] <- datum:
 			}

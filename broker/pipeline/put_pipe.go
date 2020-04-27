@@ -13,7 +13,7 @@ import (
 
 type PutPipe struct {
 	session *network.Session
-	db *storage.QRocksDB
+	db      *storage.QRocksDB
 }
 
 func (p *PutPipe) Build(in ...interface{}) error {
@@ -32,7 +32,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup)(
+func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
@@ -54,8 +54,8 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 			req := in.(*paustq_proto.PutRequest)
 			topic := p.session.Topic()
-			err := p.db.PutRecord(topic.Name(), topic.Size, req.Data)
-			atomic.AddUint64(&topic.Size, 1)
+			savedOffset := atomic.AddUint64(&topic.Size, 1) - 1
+			err := p.db.PutRecord(topic.Name(), savedOffset, req.Data)
 
 			if err != nil {
 				errCh <- err

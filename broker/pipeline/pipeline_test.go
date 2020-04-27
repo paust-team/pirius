@@ -3,37 +3,36 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 )
 
 // Selector Pipe
-type EvenOrOddPipe struct{
+type EvenOrOddPipe struct {
 	caseCount int
-	cases []func(interface{}) (interface{}, bool)
+	cases     []func(interface{}) (interface{}, bool)
 }
 
-func isEven(input interface{}) (interface{}, bool){
+func isEven(input interface{}) (interface{}, bool) {
 	integer, ok := input.(int)
 	if !ok {
 		return nil, false
 	}
 
-	if integer % 2 == 0 {
+	if integer%2 == 0 {
 		return integer, true
 	} else {
 		return nil, false
 	}
 }
 
-func isOdd(input interface{}) (interface{}, bool){
+func isOdd(input interface{}) (interface{}, bool) {
 	integer, ok := input.(int)
 	if !ok {
 		return nil, false
 	}
-	if integer % 2 == 1 {
+	if integer%2 == 1 {
 		return integer, true
 	} else {
 		return nil, false
@@ -99,7 +98,7 @@ func (e *EvenOrOddPipe) Ready(ctx context.Context,
 			}
 
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -115,7 +114,7 @@ func (e *EvenOrOddPipe) Ready(ctx context.Context,
 }
 
 // Versatile Pipe
-type AddPipe struct{
+type AddPipe struct {
 	additive int
 }
 
@@ -141,7 +140,7 @@ func (a *AddPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 		for in := range inStream {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			case outStream <- in.(int) + a.additive:
 			}
@@ -151,7 +150,6 @@ func (a *AddPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 	return outStream, errCh, nil
 }
 
-
 func TestPipeline_Flow(t *testing.T) {
 	inlet := make(chan interface{})
 	defer close(inlet)
@@ -159,7 +157,7 @@ func TestPipeline_Flow(t *testing.T) {
 
 	var add1, add2, evenOrOdd, zip Pipe
 	var err error
-	
+
 	evenOrOdd = &EvenOrOddPipe{}
 	err = evenOrOdd.Build(isEven, isOdd)
 	if err != nil {
@@ -184,7 +182,7 @@ func TestPipeline_Flow(t *testing.T) {
 	zip.Build()
 
 	//ctx, _ := context.WithTimeout(context.Background(), time.Second * 3)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second * 5)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancelFunc()
 
 	evenOrOddPipe := NewPipe("even or odd", &evenOrOdd)
@@ -211,13 +209,10 @@ func TestPipeline_Flow(t *testing.T) {
 		t.Error("Adding even zip pipe failed")
 	}
 
-	fmt.Println(zipPipe.Outlets[0])
-	fmt.Println(pipeline.outlets[0])
-
 	integers := []interface{}{1, 2, 3, 4}
 	pipeline.Flow(ctx, 0, integers...)
 
-	go func () {
+	go func() {
 		for out := range pipeline.Take(ctx, 0, 2) {
 			if out.(int) != 3 {
 				t.Error("does not match expected value")

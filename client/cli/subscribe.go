@@ -5,21 +5,20 @@ import (
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/spf13/cobra"
 	"log"
-	"time"
 )
 
 var (
-	startOffset 				uint64
+	startOffset uint64
 )
 
 func NewSubscribeCmd() *cobra.Command {
 
 	var subscribeCmd = &cobra.Command{
-		Use: "subscribe",
+		Use:   "subscribe",
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := consumer.NewConsumer(ctx, bootstrapServer, time.Duration(timeout))
+			client := consumer.NewConsumer(ctx, bootstrapServer, consumer.NewEndSubscriptionCondition().Eternal())
 			defer client.Close()
 
 			if client.Connect(topicName) != nil {
@@ -36,8 +35,9 @@ func NewSubscribeCmd() *cobra.Command {
 		},
 	}
 
-	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "","topic name to subscribe from")
-	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0,"start offset")
+	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to subscribe from")
+	subscribeCmd.MarkFlagRequired("topic")
+	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
 
 	return subscribeCmd
 }

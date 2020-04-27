@@ -10,10 +10,13 @@ import (
 )
 
 type Consumer struct {
-	ctx         context.Context
-	client        *client.StreamClient
-	sinkChannel chan SinkData
-	subscribing bool
+	ctx          context.Context
+	ctxCancel 	 context.CancelFunc
+	client       *client.StreamClient
+	sinkChannel  chan SinkData
+	subscribing  bool
+	endCondition Condition
+	timeout      time.Duration
 }
 
 type SinkData struct {
@@ -21,9 +24,15 @@ type SinkData struct {
 	Data  []byte
 }
 
-func NewConsumer(ctx context.Context, serverUrl string, timeout time.Duration) *Consumer {
-	c := client.NewStreamClient(ctx, serverUrl, paustqproto.SessionType_SUBSCRIBER)
-	return &Consumer{ctx: ctx, client: c, sinkChannel: make(chan SinkData), subscribing: false}
+func NewConsumer(parentCtx context.Context, serverUrl string, endCondition Condition) *Consumer {
+	ctx, cancel := context.WithCancel(parentCtx)
+	c := client.NewStreamClient(serverUrl, paustqproto.SessionType_SUBSCRIBER)
+	return &Consumer{ctx: ctx, ctxCancel: cancel, client: c, sinkChannel: make(chan SinkData), subscribing: false, endCondition: endCondition}
+}
+
+func (c *Consumer) WithTimeout(timeout time.Duration) *Consumer {
+	c.timeout = timeout
+	return c
 }
 
 func (c *Consumer) startSubscribe() {
@@ -51,8 +60,11 @@ func (c *Consumer) startSubscribe() {
 					c.sinkChannel <- SinkData{err, nil}
 					return
 				}
-
 				c.sinkChannel <- SinkData{nil, fetchRespMsg.Data}
+				if c.endCondition.Check(fetchRespMsg) {
+					close(c.sinkChannel)
+					return
+				}
 			}
 		case <-c.ctx.Done():
 			return
@@ -79,12 +91,11 @@ func (c *Consumer) Subscribe(startOffset uint64) chan SinkData {
 }
 
 func (c *Consumer) Connect(topic string) error {
-	return c.client.ConnectWithTopic(topic)
+	return c.client.ConnectWithTopic(c.ctx, topic)
 }
 
 func (c *Consumer) Close() error {
 	c.subscribing = false
-	_, cancel := context.WithCancel(c.ctx)
-	cancel()
+	c.ctxCancel()
 	return c.client.Close()
 }
