@@ -73,9 +73,9 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 				return
 			}
 
+			it := f.db.Scan(storage.RecordCF)
 			for !f.session.IsClosed() {
 				currentLastOffset := topic.LastOffset()
-				it := f.db.Scan(storage.RecordCF)
 				it.Seek(prevKey.Data())
 				if !first && it.Valid() {
 					it.Next()
