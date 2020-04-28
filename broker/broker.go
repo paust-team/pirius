@@ -49,7 +49,7 @@ func (b *Broker) Start(ctx context.Context) error {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
 	if err != nil {
-		log.Println("failed to listen: %v", err)
+		log.Printf("failed to listen: %v", err)
 		return err
 	}
 
