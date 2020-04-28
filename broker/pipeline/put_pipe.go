@@ -44,6 +44,9 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 		defer close(errCh)
 
 		for in := range inStream {
+
+			topic := p.session.Topic()
+
 			if p.session.State() != network.ON_PUBLISH {
 				err := p.session.SetState(network.ON_PUBLISH)
 				if err != nil {
@@ -53,7 +56,7 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 			}
 
 			req := in.(*paustq_proto.PutRequest)
-			topic := p.session.Topic()
+
 			savedOffset := atomic.AddUint64(&topic.Size, 1) - 1
 			err := p.db.PutRecord(topic.Name(), savedOffset, req.Data)
 
@@ -61,7 +64,6 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 				errCh <- err
 				return
 			}
-			topic.NotifyPublished()
 
 			out, err := message.NewQMessageFromMsg(message.NewPutResponseMsg())
 			if err != nil {

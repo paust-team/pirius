@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"context"
 	"fmt"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/rpc"
@@ -21,7 +22,8 @@ type Broker struct {
 func NewBroker(port uint16) *Broker {
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
-	topic := internals.NewTopic("paustq")
+	notifier := internals.NewNotifier()
+	notifier.NotifyNews(context.Background())
 
 	if err != nil {
 		log.Fatal(err)
@@ -29,7 +31,7 @@ func NewBroker(port uint16) *Broker {
 
 	grpcServer := grpc.NewServer()
 	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
-	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, topic))
+	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, notifier))
 
 	return &Broker{Port: port, db: db, grpcServer: grpcServer}
 }

@@ -42,16 +42,12 @@ func NewSession() *Session {
 		state: SessionState{
 			sync.Mutex{}, NONE,
 		},
+		topic: nil,
 	}
 }
 
 func (s *Session) WithType(sessType paustq_proto.SessionType) *Session {
 	s.sessType = sessType
-	return s
-}
-
-func (s *Session) WithTopic(topic *internals.Topic) *Session {
-	s.topic = topic
 	return s
 }
 

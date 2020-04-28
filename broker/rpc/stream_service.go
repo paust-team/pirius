@@ -13,15 +13,16 @@ import (
 
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
-	Topic    *internals.Topic
+	Notifier *internals.Notifier
 }
 
-func NewStreamServiceServer(db *storage.QRocksDB, topic *internals.Topic) *StreamServiceServer {
-	return &StreamServiceServer{DB: db, Topic: topic}
+func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) *StreamServiceServer {
+	return &StreamServiceServer{DB: db, Notifier: notifier}
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
-	sess := network.NewSession().WithTopic(s.Topic)
+
+	sess := network.NewSession()
 	sock := common.NewSocketContainer(stream)
 	sock.Open()
 	defer sock.Close()
@@ -31,7 +32,8 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 
 	inlet := make(chan interface{})
 	defer close(inlet)
-	err, pl := NewPipelineBase(ctx, sess, s.DB, inlet)
+
+	err, pl := s.NewPipelineBase(ctx, sess, inlet)
 	if err != nil {
 		return err
 	}
@@ -68,7 +70,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	return nil
 }
 
-func NewPipelineBase(ctx context.Context, sess *network.Session, db *storage.QRocksDB, inlet chan interface{}) (error, *pipeline.Pipeline) {
+func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
@@ -81,21 +83,21 @@ func NewPipelineBase(ctx context.Context, sess *network.Session, db *storage.QRo
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess)
+	err = connector.Build(sess, s.Notifier)
 	if err != nil {
 		return err, nil
 	}
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, db)
+	err = fetcher.Build(sess, s.DB, s.Notifier)
 	if err != nil {
 		return err, nil
 	}
 	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, db)
+	err = putter.Build(sess, s.DB)
 	if err != nil {
 		return err, nil
 	}
