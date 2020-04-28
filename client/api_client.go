@@ -5,6 +5,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc"
+	"time"
 )
 
 type APIClient struct {
@@ -12,10 +13,11 @@ type APIClient struct {
 	conn      *grpc.ClientConn
 	ServerUrl string
 	Connected bool
+	timeout   time.Duration
 }
 
-func NewAPIClient(serverUrl string) *APIClient {
-	return &APIClient{ServerUrl: serverUrl, Connected: false}
+func NewAPIClient(serverUrl string, timeout time.Duration) *APIClient {
+	return &APIClient{ServerUrl: serverUrl, Connected: false, timeout: timeout}
 }
 
 func (client *APIClient) Connect() error {
@@ -36,7 +38,9 @@ func (client *APIClient) Close() error {
 }
 
 func (client *APIClient) CreateTopic(ctx context.Context, topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
-	_, err := client.rpcClient.CreateTopic(ctx, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
+	c, cancel := context.WithTimeout(ctx, client.timeout)
+	defer cancel()
+	_, err := client.rpcClient.CreateTopic(c, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
 	if err != nil {
 		return err
 	}
@@ -44,7 +48,9 @@ func (client *APIClient) CreateTopic(ctx context.Context, topicName string, topi
 }
 
 func (client *APIClient) DeleteTopic(ctx context.Context, topicName string) error {
-	_, err := client.rpcClient.DeleteTopic(ctx, message.NewDeleteTopicRequestMsg(topicName))
+	c, cancel := context.WithTimeout(ctx, client.timeout)
+	defer cancel()
+	_, err := client.rpcClient.DeleteTopic(c, message.NewDeleteTopicRequestMsg(topicName))
 	if err != nil {
 		return err
 	}
@@ -52,13 +58,19 @@ func (client *APIClient) DeleteTopic(ctx context.Context, topicName string) erro
 }
 
 func (client *APIClient) DescribeTopic(ctx context.Context, topicName string) (*paustqproto.DescribeTopicResponse, error) {
-	return client.rpcClient.DescribeTopic(ctx, message.NewDescribeTopicRequestMsg(topicName))
+	c, cancel := context.WithTimeout(ctx, client.timeout)
+	defer cancel()
+	return client.rpcClient.DescribeTopic(c, message.NewDescribeTopicRequestMsg(topicName))
 }
 
 func (client *APIClient) ListTopics(ctx context.Context) (*paustqproto.ListTopicsResponse, error) {
-	return client.rpcClient.ListTopics(ctx, message.NewListTopicsRequestMsg())
+	c, cancel := context.WithTimeout(ctx, client.timeout)
+	defer cancel()
+	return client.rpcClient.ListTopics(c, message.NewListTopicsRequestMsg())
 }
 
 func (client *APIClient) Heartbeat(ctx context.Context, msg string, brokerId uint64) (*paustqproto.Pong, error) {
-	return client.rpcClient.Heartbeat(ctx, message.NewPingMsg(msg, brokerId))
+	c, cancel := context.WithTimeout(ctx, client.timeout)
+	defer cancel()
+	return client.rpcClient.Heartbeat(c, message.NewPingMsg(msg, brokerId))
 }

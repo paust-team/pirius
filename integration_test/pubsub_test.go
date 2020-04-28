@@ -37,7 +37,7 @@ func TestClient_Connect(t *testing.T) {
 	// Start client
 	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
 
-	if err := c.ConnectWithTopic(ctx, topic); err != nil {
+	if err := c.Connect(ctx, topic); err != nil {
 		t.Error("Error on connect. ", err)
 		return
 	}
@@ -74,13 +74,13 @@ func TestPubSub(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Start producer
-	producerClient := producer.NewProducer(ctx1, host)
-	if producerClient.Connect(topic) != nil {
+	producerClient := producer.NewProducer(host)
+	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
 	}
 
 	for _, record := range testRecordMap[topic] {
-		producerClient.Publish(record)
+		producerClient.Publish(ctx1, record)
 	}
 
 	producerClient.WaitAllPublishResponse()
@@ -90,17 +90,26 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
-	if consumerClient.Connect(topic) != nil {
+	consumerClient := consumer.NewConsumer(host)
+	if consumerClient.Connect(ctx2, topic) != nil {
 		t.Error("Error on connect")
 		return
 	}
-
-	for response := range consumerClient.Subscribe(0) {
+	subscribeCh, err := consumerClient.Subscribe(ctx1, 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for response := range subscribeCh {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {
 			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
+		}
+
+		// break on reach end
+		if response.LastOffset == response.Offset {
+			break
 		}
 	}
 
@@ -142,8 +151,8 @@ func TestPubsub_Chunk(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Start producer
-	producerClient := producer.NewProducer(ctx1, host).WithChunkSize(chunkSize)
-	if producerClient.Connect(topic) != nil {
+	producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
+	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
 	}
 
@@ -154,7 +163,7 @@ func TestPubsub_Chunk(t *testing.T) {
 		return
 	}
 
-	producerClient.Publish(data)
+	producerClient.Publish(ctx1, data)
 	producerClient.WaitAllPublishResponse()
 
 	if err := producerClient.Close(); err != nil {
@@ -164,18 +173,28 @@ func TestPubsub_Chunk(t *testing.T) {
 	expectedLen := len(data)
 	// Start consumer
 
-	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
-	if consumerClient.Connect(topic) != nil {
+	consumerClient := consumer.NewConsumer(host)
+	if consumerClient.Connect(ctx2, topic) != nil {
 		t.Error("Error on connect")
 		return
 	}
 
 	receivedLen := 0
-	for response := range consumerClient.Subscribe(0) {
+	subscribeCh, err := consumerClient.Subscribe(ctx2, 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for response := range subscribeCh {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {
 			receivedLen = len(response.Data)
+		}
+
+		// break on reach end
+		if response.LastOffset == response.Offset {
+			break
 		}
 	}
 
@@ -237,13 +256,13 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(ctx, host).WithChunkSize(chunkSize)
-			if producerClient.Connect(topic) != nil {
+			producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
+			if producerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
 			}
 
 			for _, record := range sendingRecords {
-				producerClient.Publish(record)
+				producerClient.Publish(ctx, record)
 			}
 
 			mu.Lock()
@@ -276,14 +295,19 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			consumerClient := consumer.NewConsumer(ctx, host, consumer.NewEndSubscriptionCondition().Eternal())
-			if consumerClient.Connect(topic) != nil {
+			consumerClient := consumer.NewConsumer(host)
+			if consumerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
 				return
 			}
 
 			receiveCount := 0
-			for response := range consumerClient.Subscribe(0) {
+			subscribeCh, err := consumerClient.Subscribe(ctx, 0)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			for response := range subscribeCh {
 				if response.Error != nil {
 					t.Error(response.Error)
 				} else {

@@ -28,68 +28,57 @@ func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *Str
 	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
 }
 
-func (client *StreamClient) ReceiveToChan(receiveCh chan<- ReceivedData) {
-
-	msg, err := client.Receive()
+func (client *StreamClient) Receive(receiveCh chan<- ReceivedData) {
+	msg, err := client.sockContainer.Read()
 	receiveCh <- ReceivedData{err, msg}
-}
-
-func (client *StreamClient) Receive() (*message.QMessage, error) {
-	return client.sockContainer.Read()
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
 	return client.sockContainer.Write(msg, client.MaxBufferSize)
 }
 
-func (client *StreamClient) ConnectWithTopic(ctx context.Context, topicName string) error {
+func (client *StreamClient) Connect(ctx context.Context, topicName string) error {
 
 	if client.Connected {
 		return errors.New("already connected")
 	}
 
 	conn, err := grpc.Dial(client.ServerUrl, grpc.WithInsecure())
-	clientCtx, cancel := context.WithCancel(ctx)
-
-	cancelAndClose := func() {
-		conn.Close()
-		cancel()
-	}
-
 	if err != nil {
 		return err
 	}
+
 	client.conn = conn
 	client.Connected = true
 
 	stub := paustqproto.NewStreamServiceClient(conn)
-	stream, err := stub.Flow(clientCtx)
+	stream, err := stub.Flow(ctx)
 	if err != nil {
-		cancelAndClose()
+		conn.Close()
 		return err
 	}
 
 	sockContainer := common.NewSocketContainer(stream)
 	reqMsg, err := message.NewQMessageFromMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
 	if err != nil {
-		cancelAndClose()
+		conn.Close()
 		return err
 	}
 
 	if err := sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
-		cancelAndClose()
+		conn.Close()
 		return err
 	}
 
 	respMsg, err := sockContainer.Read()
 	if err != nil {
-		cancelAndClose()
+		conn.Close()
 		return err
 	}
 
 	connectResponseMsg := &paustqproto.ConnectResponse{}
 	if err := respMsg.UnpackTo(connectResponseMsg); err != nil {
-		cancelAndClose()
+		conn.Close()
 		return err
 	}
 
