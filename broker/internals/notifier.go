@@ -45,7 +45,7 @@ func (s *Notifier) RegisterSubscription(trigger *Subscription) {
 }
 
 func (s *Notifier) NotifyNews(ctx context.Context) {
-	s.subscriptionChan = make(chan *Subscription)
+	s.subscriptionChan = make(chan *Subscription, 2)
 	go func() {
 		defer close(s.subscriptionChan)
 		for {
@@ -59,13 +59,7 @@ func (s *Notifier) NotifyNews(ctx context.Context) {
 						if subscription.LastFetchedOffset < topicData.LastOffset() {
 							subscription.SubscribeChan <- true
 						} else {
-							go func() {
-								select {
-								case <- ctx.Done():
-									return
-								case s.subscriptionChan <- subscription:
-								}
-							}()
+							s.subscriptionChan <- subscription
 						}
 					} else {
 						log.Fatalf("Topic(%s) not exists", subscription.TopicName)
