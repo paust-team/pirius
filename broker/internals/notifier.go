@@ -9,14 +9,14 @@ import (
 )
 
 type Subscription struct {
-	TopicName 			string
-	LastFetchedOffset 	uint64
-	SubscribeChan		chan bool
+	TopicName         string
+	LastFetchedOffset uint64
+	SubscribeChan     chan bool
 }
 
 type Notifier struct {
-	topicMap 				sync.Map
-	subscriptionChan 		chan *Subscription
+	topicMap         sync.Map
+	subscriptionChan chan *Subscription
 }
 
 func NewNotifier() *Notifier {
@@ -50,22 +50,22 @@ func (s *Notifier) NotifyNews(ctx context.Context) {
 		defer close(s.subscriptionChan)
 		for {
 			select {
-				case subscription := <- s.subscriptionChan:
-					if value, ok := s.topicMap.Load(subscription.TopicName); ok {
-						topicData, ok := value.(*Topic)
-						if !ok {
-							log.Fatalf("Topic(%s) not exists", subscription.TopicName)
-						}
-						if subscription.LastFetchedOffset < topicData.LastOffset() {
-							subscription.SubscribeChan <- true
-						} else {
-							s.subscriptionChan <- subscription
-						}
-					} else {
+			case subscription := <-s.subscriptionChan:
+				if value, ok := s.topicMap.Load(subscription.TopicName); ok {
+					topicData, ok := value.(*Topic)
+					if !ok {
 						log.Fatalf("Topic(%s) not exists", subscription.TopicName)
 					}
-				case <-ctx.Done():
-					return
+					if subscription.LastFetchedOffset < topicData.LastOffset() {
+						subscription.SubscribeChan <- true
+					} else {
+						s.subscriptionChan <- subscription
+					}
+				} else {
+					log.Fatalf("Topic(%s) not exists", subscription.TopicName)
+				}
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()

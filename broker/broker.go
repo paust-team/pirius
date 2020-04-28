@@ -33,13 +33,13 @@ func NewBroker(port uint16) (*Broker, error) {
 	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
 	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, notifier))
 
-	return &Broker{Port: port, db: db, grpcServer: grpcServer, notifier:notifier}, nil
+	return &Broker{Port: port, db: db, grpcServer: grpcServer, notifier: notifier}, nil
 }
 
 func (b *Broker) Start(ctx context.Context) error {
 	go func() {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			b.Stop()
 			return
 		}

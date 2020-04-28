@@ -16,7 +16,7 @@ import (
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
-	once 	 sync.Once
+	once     sync.Once
 }
 
 func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) *StreamServiceServer {
@@ -133,7 +133,6 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 
 	return nil, pl
 }
-
 
 func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketContainer) {
 	switch sess.Type() {

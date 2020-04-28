@@ -284,7 +284,7 @@ func TestMultiClient(t *testing.T) {
 
 	host := fmt.Sprintf("%s:%d", ip, port)
 
-	brokerInstance,err := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
 	if err != nil {
 		t.Error(err)
 		return

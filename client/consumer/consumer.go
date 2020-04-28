@@ -10,16 +10,16 @@ import (
 )
 
 type Consumer struct {
-	done 			chan bool
-	client       	*client.StreamClient
-	subscribing  	bool
-	timeout      	time.Duration
+	done        chan bool
+	client      *client.StreamClient
+	subscribing bool
+	timeout     time.Duration
 }
 
 type SinkData struct {
-	Error 				error
-	Data  				[]byte
-	Offset, LastOffset 	uint64
+	Error              error
+	Data               []byte
+	Offset, LastOffset uint64
 }
 
 func NewConsumer(serverUrl string) *Consumer {

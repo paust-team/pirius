@@ -12,8 +12,8 @@ import (
 )
 
 type ConnectPipe struct {
-	session 	*network.Session
-	notifier 	*internals.Notifier
+	session  *network.Session
+	notifier *internals.Notifier
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {

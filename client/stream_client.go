@@ -15,13 +15,13 @@ type ReceivedData struct {
 }
 
 type StreamClient struct {
-	streamClient  	paustqproto.StreamService_FlowClient
-	sockContainer 	*common.StreamSocketContainer
-	SessionType   	paustqproto.SessionType
-	conn          	*grpc.ClientConn
-	ServerUrl     	string
-	Connected     	bool
-	MaxBufferSize 	uint32
+	streamClient  paustqproto.StreamService_FlowClient
+	sockContainer *common.StreamSocketContainer
+	SessionType   paustqproto.SessionType
+	conn          *grpc.ClientConn
+	ServerUrl     string
+	Connected     bool
+	MaxBufferSize uint32
 }
 
 func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *StreamClient {

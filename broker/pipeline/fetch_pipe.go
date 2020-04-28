@@ -13,9 +13,9 @@ import (
 )
 
 type FetchPipe struct {
-	session 	*network.Session
-	db      	*storage.QRocksDB
-	notifier	*internals.Notifier
+	session  *network.Session
+	db       *storage.QRocksDB
+	notifier *internals.Notifier
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -49,7 +49,6 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 		defer close(outStream)
 		defer close(errCh)
 
-
 		for in := range inStream {
 
 			topic := f.session.Topic()
@@ -81,7 +80,7 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 					it.Next()
 				}
 
-				for ;it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
+				for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
 					key := storage.NewRecordKey(it.Key())
 					keyOffset := key.Offset()
 
@@ -90,7 +89,7 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 							break
 						}
 					} else {
-						if keyOffset != prevKey.Offset() && keyOffset - prevKey.Offset() != 1 {
+						if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
 							break
 						}
 					}

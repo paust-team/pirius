@@ -118,7 +118,7 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case err := <- errCh:
+		case err := <-errCh:
 			if err != nil {
 				// guarantee all pipes are done if an error occurred
 				p.wg.Wait()
