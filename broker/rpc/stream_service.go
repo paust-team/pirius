@@ -9,11 +9,14 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"sync"
+	"sync/atomic"
 )
 
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
+	once 	 sync.Once
 }
 
 func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) *StreamServiceServer {
@@ -21,11 +24,10 @@ func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) 
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
-
 	sess := network.NewSession()
 	sock := common.NewSocketContainer(stream)
 	sock.Open()
-	defer sock.Close()
+	defer HandleConnectionClose(sess, sock)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -130,4 +132,21 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	}
 
 	return nil, pl
+}
+
+
+func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketContainer) {
+	switch sess.Type() {
+	case paustqproto.SessionType_PUBLISHER:
+		if atomic.LoadInt64(&sess.Topic().NumPubs) > 0 {
+			atomic.AddInt64(&sess.Topic().NumPubs, -1)
+		}
+	case paustqproto.SessionType_SUBSCRIBER:
+		if atomic.LoadInt64(&sess.Topic().NumSubs) > 0 {
+			atomic.AddInt64(&sess.Topic().NumSubs, -1)
+		}
+	}
+
+	sock.Close()
+	sess.SetState(network.NONE)
 }

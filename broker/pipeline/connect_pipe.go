@@ -67,9 +67,9 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 
 			switch req.SessionType {
 			case paustq_proto.SessionType_PUBLISHER:
-				atomic.AddUint64(&c.session.Topic().NumPubs, 1)
+				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
 			case paustq_proto.SessionType_SUBSCRIBER:
-				atomic.AddUint64(&c.session.Topic().NumSubs, 1)
+				atomic.AddInt64(&c.session.Topic().NumSubs, 1)
 			default:
 			}
 

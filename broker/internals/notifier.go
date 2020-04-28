@@ -60,7 +60,11 @@ func (s *Notifier) NotifyNews(ctx context.Context) {
 							subscription.SubscribeChan <- true
 						} else {
 							go func() {
-								s.subscriptionChan <- subscription
+								select {
+								case <- ctx.Done():
+									return
+								case s.subscriptionChan <- subscription:
+								}
 							}()
 						}
 					} else {
