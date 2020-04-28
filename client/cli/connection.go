@@ -19,13 +19,13 @@ func NewHeartbeatCmd() *cobra.Command {
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			pongMsg, err := apiClient.Heartbeat(echoMsg, brokerId)
+			pongMsg, err := apiClient.Heartbeat(ctx, echoMsg, brokerId)
 			if err != nil {
 				log.Fatal(err)
 			}

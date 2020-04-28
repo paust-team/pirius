@@ -17,39 +17,53 @@ type Broker struct {
 	Port       uint16
 	grpcServer *grpc.Server
 	db         *storage.QRocksDB
+	notifier   *internals.Notifier
 }
 
-func NewBroker(port uint16) *Broker {
+func NewBroker(port uint16) (*Broker, error) {
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
-	notifier := internals.NewNotifier()
-	notifier.NotifyNews(context.Background())
-
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+
+	notifier := internals.NewNotifier()
 
 	grpcServer := grpc.NewServer()
 	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
 	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, notifier))
 
-	return &Broker{Port: port, db: db, grpcServer: grpcServer}
+	return &Broker{Port: port, db: db, grpcServer: grpcServer, notifier:notifier}, nil
 }
 
-func (b *Broker) Start() {
+func (b *Broker) Start(ctx context.Context) error {
+	go func() {
+		select {
+		case <- ctx.Done():
+			b.Stop()
+			return
+		}
+	}()
+
+	b.notifier.NotifyNews(ctx)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Println("failed to listen: %v", err)
+		return err
 	}
 
 	log.Printf("start broker with port: %d", b.Port)
 	if err = b.grpcServer.Serve(lis); err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return err
 	}
+
+	return nil
 }
 
 func (b *Broker) Stop() {
-	b.grpcServer.Stop()
+	b.grpcServer.GracefulStop()
 	b.db.Close()
 	log.Println("stop broker")
 }
