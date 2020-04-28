@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+func SleepForBroker() {
+	time.Sleep(500 * time.Microsecond)
+}
+
 func TestClient_Connect(t *testing.T) {
 
 	ip := "127.0.0.1"
@@ -27,8 +31,14 @@ func TestClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -41,7 +51,7 @@ func TestClient_Connect(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start client
 	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
@@ -75,8 +85,14 @@ func TestPubSub(t *testing.T) {
 	ctx2 := context.Background()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -89,7 +105,7 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start producer
 	producerClient := producer.NewProducer(host)
@@ -159,12 +175,19 @@ func TestPubsub_Chunk(t *testing.T) {
 	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
+
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
@@ -174,7 +197,7 @@ func TestPubsub_Chunk(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start producer
 	producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
@@ -261,8 +284,14 @@ func TestMultiClient(t *testing.T) {
 
 	host := fmt.Sprintf("%s:%d", ip, port)
 
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance,err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -275,7 +304,7 @@ func TestMultiClient(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
