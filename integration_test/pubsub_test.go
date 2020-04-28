@@ -28,9 +28,18 @@ func TestClient_Connect(t *testing.T) {
 
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
-	go brokerInstance.Start()
 	defer brokerInstance.Clean()
-	defer brokerInstance.Stop()
+
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		err := brokerInstance.Start(brokerCtx)
+		if err != nil {
+			t.Error("error on starting broker")
+			return
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 
@@ -67,9 +76,18 @@ func TestPubSub(t *testing.T) {
 
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
-	go brokerInstance.Start()
 	defer brokerInstance.Clean()
-	defer brokerInstance.Stop()
+
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		err := brokerInstance.Start(brokerCtx)
+		if err != nil {
+			t.Error("error on starting broker")
+			return
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 
@@ -141,12 +159,20 @@ func TestPubsub_Chunk(t *testing.T) {
 	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
-	go brokerInstance.Start()
 	defer brokerInstance.Clean()
-	defer brokerInstance.Stop()
+
+	go func() {
+		err := brokerInstance.Start(brokerCtx)
+		if err != nil {
+			t.Error("error on starting broker")
+			return
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 
@@ -235,11 +261,19 @@ func TestMultiClient(t *testing.T) {
 
 	host := fmt.Sprintf("%s:%d", ip, port)
 
-	// Start broker
 	brokerInstance := broker.NewBroker(uint16(port))
-	go brokerInstance.Start()
 	defer brokerInstance.Clean()
-	defer brokerInstance.Stop()
+
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		err := brokerInstance.Start(brokerCtx)
+		if err != nil {
+			t.Error("error on starting broker")
+			return
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 

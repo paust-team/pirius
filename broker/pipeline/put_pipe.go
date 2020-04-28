@@ -57,7 +57,7 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 			req := in.(*paustq_proto.PutRequest)
 
-			savedOffset := atomic.AddUint64(&topic.Size, 1) - 1
+			savedOffset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
 			err := p.db.PutRecord(topic.Name(), savedOffset, req.Data)
 
 			if err != nil {
