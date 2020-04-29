@@ -14,10 +14,12 @@ import (
 )
 
 type Broker struct {
-	Port       uint16
-	grpcServer *grpc.Server
-	db         *storage.QRocksDB
-	notifier   *internals.Notifier
+	InternalPort 		uint16
+	ExternalPort    	uint16
+	InternalRPCServer 	*grpc.Server
+	ExternalRPCServer 	*grpc.Server
+	db         			*storage.QRocksDB
+	notifier   			*internals.Notifier
 }
 
 func NewBroker(port uint16) (*Broker, error) {
@@ -29,41 +31,58 @@ func NewBroker(port uint16) (*Broker, error) {
 
 	notifier := internals.NewNotifier()
 
-	grpcServer := grpc.NewServer()
-	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
-	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, notifier))
+	externalRPCServer := grpc.NewServer()
+	paustqproto.RegisterAPIServiceServer(externalRPCServer, rpc.NewAPIServiceServer(db))
+	paustqproto.RegisterStreamServiceServer(externalRPCServer, rpc.NewStreamServiceServer(db, notifier))
 
-	return &Broker{Port: port, db: db, grpcServer: grpcServer, notifier: notifier}, nil
+	internalRPCServer := grpc.NewServer()
+	paustqproto.RegisterStreamServiceServer(internalRPCServer, rpc.NewStreamServiceServer(db, notifier))
+
+	var defaultInternalPort uint16 = 11010
+
+	return &Broker{InternalPort: defaultInternalPort, ExternalPort: port, db: db, ExternalRPCServer: externalRPCServer, InternalRPCServer: internalRPCServer, notifier: notifier}, nil
 }
 
 func (b *Broker) Start(ctx context.Context) error {
-	go func() {
-		select {
-		case <-ctx.Done():
-			b.Stop()
-			return
+
+	defer b.stop()
+
+	errChan := make(chan error)
+	defer close(errChan)
+
+	b.notifier.NotifyNews(ctx, errChan)
+
+	startGrpcServer := func(server *grpc.Server, port uint16, errChan chan error) {
+
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			log.Printf("failed to listen: %v", err)
+			errChan <- err
 		}
-	}()
 
-	b.notifier.NotifyNews(ctx)
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
-	if err != nil {
-		log.Printf("failed to listen: %v", err)
-		return err
+		if err = server.Serve(lis); err != nil {
+			log.Println(err)
+			errChan <- err
+		}
 	}
 
-	log.Printf("start broker with port: %d", b.Port)
-	if err = b.grpcServer.Serve(lis); err != nil {
+	go startGrpcServer(b.InternalRPCServer, b.InternalPort, errChan)
+	go startGrpcServer(b.ExternalRPCServer, b.ExternalPort, errChan)
+
+	log.Printf("start broker with port: %d", b.ExternalPort)
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <- errChan:
 		log.Println(err)
 		return err
 	}
-
-	return nil
 }
 
-func (b *Broker) Stop() {
-	b.grpcServer.GracefulStop()
+func (b *Broker) stop() {
+	b.InternalRPCServer.GracefulStop()
+	b.ExternalRPCServer.GracefulStop()
 	b.db.Close()
 	log.Println("stop broker")
 }
