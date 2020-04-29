@@ -6,6 +6,8 @@ import (
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type TopicRPCService interface {
@@ -23,25 +25,32 @@ func NewTopicRPCService(db *storage.QRocksDB) *topicRPCService {
 	return &topicRPCService{db}
 }
 
-func (s topicRPCService) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
+func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
 
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
 		return nil, err
 	}
 
+	if ctx.Err() == context.Canceled {
+		return nil, status.Error(codes.Canceled, "client canceled the request")
+	}
 	return message.NewCreateTopicResponseMsg(), nil
 }
 
-func (s topicRPCService) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
+func (s topicRPCService) DeleteTopic(ctx context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
 
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return nil, err
 	}
+
+	if ctx.Err() == context.Canceled {
+		return nil, status.Error(codes.Canceled, "client canceled the request")
+	}
 	return message.NewDeleteTopicResponseMsg(), nil
 }
 
-func (s topicRPCService) DescribeTopic(_ context.Context, request *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error) {
+func (s topicRPCService) DescribeTopic(ctx context.Context, request *paustqproto.DescribeTopicRequest) (*paustqproto.DescribeTopicResponse, error) {
 
 	result, err := s.DB.GetTopic(request.TopicName)
 
@@ -55,10 +64,14 @@ func (s topicRPCService) DescribeTopic(_ context.Context, request *paustqproto.D
 	topicValue := storage.NewTopicValue(result)
 	topic := message.NewTopicMsg(request.TopicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor())
 
+	if ctx.Err() == context.Canceled {
+		return nil, status.Error(codes.Canceled, "client canceled the request")
+	}
+
 	return message.NewDescribeTopicResponseMsg(topic, 1, 1), nil
 }
 
-func (s topicRPCService) ListTopics(_ context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
+func (s topicRPCService) ListTopics(ctx context.Context, _ *paustqproto.ListTopicsRequest) (*paustqproto.ListTopicsResponse, error) {
 
 	var topics []*paustqproto.Topic
 	topicMap := s.DB.GetAllTopics()
@@ -67,5 +80,8 @@ func (s topicRPCService) ListTopics(_ context.Context, _ *paustqproto.ListTopics
 		topics = append(topics, topic)
 	}
 
+	if ctx.Err() == context.Canceled {
+		return nil, status.Error(codes.Canceled, "client canceled the request")
+	}
 	return message.NewListTopicsResponseMsg(topics), nil
 }

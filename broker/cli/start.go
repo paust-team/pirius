@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"context"
 	"github.com/paust-team/paustq/broker"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
 )
 
@@ -17,8 +19,13 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "start paustq broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			brokerInstance := broker.NewBroker(port, "qstore")
-			brokerInstance.Start()
+			brokerInstance, err := broker.NewBroker(port)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := brokerInstance.Start(context.Background(), false); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 

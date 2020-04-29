@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+func SleepForBroker() {
+	time.Sleep(500 * time.Microsecond)
+}
+
 func TestClient_Connect(t *testing.T) {
 
 	ip := "127.0.0.1"
@@ -27,8 +31,14 @@ func TestClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -41,12 +51,12 @@ func TestClient_Connect(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start client
 	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
 
-	if err := c.ConnectWithTopic(ctx, topic); err != nil {
+	if err := c.Connect(ctx, topic); err != nil {
 		t.Error("Error on connect. ", err)
 		return
 	}
@@ -75,8 +85,14 @@ func TestPubSub(t *testing.T) {
 	ctx2 := context.Background()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -89,16 +105,16 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start producer
-	producerClient := producer.NewProducer(ctx1, host)
-	if producerClient.Connect(topic) != nil {
+	producerClient := producer.NewProducer(host)
+	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
 	}
 
 	for _, record := range testRecordMap[topic] {
-		producerClient.Publish(record)
+		producerClient.Publish(ctx1, record)
 	}
 
 	producerClient.WaitAllPublishResponse()
@@ -108,17 +124,26 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
-	if consumerClient.Connect(topic) != nil {
+	consumerClient := consumer.NewConsumer(host)
+	if consumerClient.Connect(ctx2, topic) != nil {
 		t.Error("Error on connect")
 		return
 	}
-
-	for response := range consumerClient.Subscribe(0) {
+	subscribeCh, err := consumerClient.Subscribe(ctx1, 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for response := range subscribeCh {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {
 			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
+		}
+
+		// break on reach end
+		if response.LastOffset == response.Offset {
+			break
 		}
 	}
 
@@ -150,12 +175,19 @@ func TestPubsub_Chunk(t *testing.T) {
 	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
+
+	brokerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
@@ -165,11 +197,11 @@ func TestPubsub_Chunk(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	// Start producer
-	producerClient := producer.NewProducer(ctx1, host).WithChunkSize(chunkSize)
-	if producerClient.Connect(topic) != nil {
+	producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
+	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
 	}
 
@@ -180,7 +212,7 @@ func TestPubsub_Chunk(t *testing.T) {
 		return
 	}
 
-	producerClient.Publish(data)
+	producerClient.Publish(ctx1, data)
 	producerClient.WaitAllPublishResponse()
 
 	if err := producerClient.Close(); err != nil {
@@ -190,18 +222,28 @@ func TestPubsub_Chunk(t *testing.T) {
 	expectedLen := len(data)
 	// Start consumer
 
-	consumerClient := consumer.NewConsumer(ctx2, host, consumer.NewEndSubscriptionCondition().OnReachEnd())
-	if consumerClient.Connect(topic) != nil {
+	consumerClient := consumer.NewConsumer(host)
+	if consumerClient.Connect(ctx2, topic) != nil {
 		t.Error("Error on connect")
 		return
 	}
 
 	receivedLen := 0
-	for response := range consumerClient.Subscribe(0) {
+	subscribeCh, err := consumerClient.Subscribe(ctx2, 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for response := range subscribeCh {
 		if response.Error != nil {
 			t.Error(response.Error)
 		} else {
 			receivedLen = len(response.Data)
+		}
+
+		// break on reach end
+		if response.LastOffset == response.Offset {
+			break
 		}
 	}
 
@@ -242,8 +284,14 @@ func TestMultiClient(t *testing.T) {
 
 	host := fmt.Sprintf("%s:%d", ip, port)
 
-	brokerInstance := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	defer brokerInstance.Clean()
+	defer SleepForBroker()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -256,7 +304,7 @@ func TestMultiClient(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(1 * time.Second)
+	defer SleepForBroker()
 
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
@@ -271,13 +319,13 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(ctx, host).WithChunkSize(chunkSize)
-			if producerClient.Connect(topic) != nil {
+			producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
+			if producerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
 			}
 
 			for _, record := range sendingRecords {
-				producerClient.Publish(record)
+				producerClient.Publish(ctx, record)
 			}
 
 			mu.Lock()
@@ -310,14 +358,19 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			consumerClient := consumer.NewConsumer(ctx, host, consumer.NewEndSubscriptionCondition().Eternal())
-			if consumerClient.Connect(topic) != nil {
+			consumerClient := consumer.NewConsumer(host)
+			if consumerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
 				return
 			}
 
 			receiveCount := 0
-			for response := range consumerClient.Subscribe(0) {
+			subscribeCh, err := consumerClient.Subscribe(ctx, 0)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			for response := range subscribeCh {
 				if response.Error != nil {
 					t.Error(response.Error)
 				} else {

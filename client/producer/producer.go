@@ -11,8 +11,8 @@ import (
 )
 
 type Producer struct {
-	ctx           context.Context
-	ctxCancel	  context.CancelFunc
+	done          chan bool
+	doneWait      chan bool
 	client        *client.StreamClient
 	sourceChannel chan []byte
 	publishing    bool
@@ -21,10 +21,9 @@ type Producer struct {
 	chunkSize     uint32
 }
 
-func NewProducer(parentCtx context.Context, serverUrl string) *Producer {
-	ctx, cancel := context.WithCancel(parentCtx)
+func NewProducer(serverUrl string) *Producer {
 	c := client.NewStreamClient(serverUrl, paustqproto.SessionType_PUBLISHER)
-	producer := &Producer{ctx: ctx, ctxCancel: cancel, client: c, sourceChannel: make(chan []byte), publishing: false, chunkSize: 1024}
+	producer := &Producer{client: c, publishing: false, chunkSize: 1024}
 	return producer
 }
 
@@ -37,10 +36,10 @@ func (p *Producer) WithChunkSize(size uint32) *Producer {
 	p.chunkSize = size
 	return p
 }
-func (p *Producer) waitResponse() {
+func (p *Producer) waitResponse(ctx context.Context) {
 
 	receiveChan := make(chan client.ReceivedData)
-	go p.client.ReceiveToChan(receiveChan)
+	go p.client.Receive(receiveChan)
 
 	select {
 	case res := <-receiveChan:
@@ -57,43 +56,59 @@ func (p *Producer) waitResponse() {
 			}
 			p.waitGroup.Done()
 		}
-	case <-p.ctx.Done():
+	case <-p.doneWait:
+		p.waitGroup.Done()
+		return
+	case <-ctx.Done():
 		p.waitGroup.Done()
 		return
 	}
 }
 
-func (p *Producer) startPublish() {
+func (p *Producer) startPublish(ctx context.Context) {
+
 	if !p.publishing {
 		return
 	}
-	for {
-		select {
-		case sourceData := <-p.sourceChannel:
 
-			reqMsg, err := message.NewQMessageFromMsg(message.NewPutRequestMsg(sourceData))
-			if err != nil {
-				log.Fatal(err)
-			}
-			if err = p.client.Send(reqMsg); err != nil {
-				log.Fatal(err)
-			}
-			go p.waitResponse()
+	p.sourceChannel = make(chan []byte)
+	p.done = make(chan bool)
+	p.doneWait = make(chan bool)
 
-		case <-p.ctx.Done():
-			return
+	go func() {
+
+		defer close(p.done)
+		defer close(p.doneWait)
+		defer close(p.sourceChannel)
+
+		for {
+			select {
+			case sourceData := <-p.sourceChannel:
+				reqMsg, err := message.NewQMessageFromMsg(message.NewPutRequestMsg(sourceData))
+				if err != nil {
+					log.Fatal(err)
+				}
+				if err = p.client.Send(reqMsg); err != nil {
+					log.Fatal(err)
+				}
+				go p.waitResponse(ctx)
+
+			case <-p.done:
+				return
+			case <-ctx.Done():
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	}()
+
 }
-func (p *Producer) initPublish() {
+
+func (p *Producer) Publish(ctx context.Context, data []byte) {
 	if p.publishing == false {
 		p.publishing = true
-		go p.startPublish()
+		p.startPublish(ctx)
 	}
-}
-func (p *Producer) Publish(data []byte) {
-	p.initPublish()
 	p.waitGroup.Add(1)
 	p.sourceChannel <- data
 }
@@ -104,12 +119,12 @@ func (p *Producer) WaitAllPublishResponse() {
 	}
 }
 
-func (p *Producer) Connect(topic string) error {
-	return p.client.ConnectWithTopic(p.ctx, topic)
+func (p *Producer) Connect(ctx context.Context, topic string) error {
+	return p.client.Connect(ctx, topic)
 }
 
 func (p *Producer) Close() error {
 	p.publishing = false
-	p.ctxCancel()
+	p.done <- true
 	return p.client.Close()
 }
