@@ -22,6 +22,34 @@ func SleepForBroker() {
 	time.Sleep(500 * time.Millisecond)
 }
 
+func readFromFileLineBy(fileName string) (int, [][]byte) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	var records [][]byte
+	count := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		data := []byte(scanner.Text())
+		records = append(records, data)
+		count++
+	}
+	return count, records
+}
+
+func contains(s [][]byte, e []byte) bool {
+	for _, a := range s {
+		if bytes.Compare(a, e) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+
 func TestClient_Connect(t *testing.T) {
 
 	ip := "127.0.0.1"
@@ -258,29 +286,10 @@ func TestPubsub_Chunk(t *testing.T) {
 	}
 }
 
-func readFromFileLineBy(fileName string) (int, [][]byte) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	var records [][]byte
-	count := 0
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		data := []byte(scanner.Text())
-		records = append(records, data)
-		count++
-	}
-	return count, records
-}
-
 func TestMultiClient(t *testing.T) {
 
 	ip := "127.0.0.1"
 	port := 9003
-	var chunkSize uint32 = 1024
 
 	topic := "topic3"
 
@@ -321,7 +330,7 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
+			producerClient := producer.NewProducer(host)
 			if producerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
 				return
@@ -414,11 +423,159 @@ func TestMultiClient(t *testing.T) {
 	}
 }
 
-func contains(s [][]byte, e []byte) bool {
-	for _, a := range s {
-		if bytes.Compare(a, e) == 0 {
-			return true
+type MockZkHelper struct {
+	TopicEndpoints 		map[string]string
+}
+
+func (zk *MockZkHelper) GetTopicEndpoint(topicName string) string {
+	return zk.TopicEndpoints[topicName]
+}
+
+func TestMultiBroker(t *testing.T) {
+
+	ip := "127.0.0.1"
+	port1 := 9004
+	port2 := 9005
+
+	host1 := fmt.Sprintf("%s:%d", ip, port1)
+	host2 := fmt.Sprintf("%s:%d", ip, port2)
+
+	topicLocal := "topic_local"
+	topicRemote := "topic_remote"
+
+	testRecordMap := map[string][][]byte{
+		topicLocal: {
+			{'g', 'o', 'o', 'g', 'l', 'e'},
+			{'p', 'a', 'u', 's', 't', 'q'},
+			{'1', '2', '3', '4', '5', '6'}},
+		topicRemote: {
+			{'G', 'O', 'O', 'G', 'L', 'E'},
+			{'P', 'A', 'U', 'S', 'T', 'Q'},
+			{'R', 'E', 'M', 'O', 'T', 'E'}},
+	}
+
+	topicEndpoint := map[string]string {
+		topicLocal: "localhost",
+		topicRemote: host2,
+	}
+
+	mockZkHelper := &MockZkHelper{topicEndpoint}
+
+	// Start broker 1
+	brokerInstance1, err := broker.NewBroker(uint16(port1))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	brokerInstance1 = brokerInstance1.WithInternalPort(1101).WithZkHelper(mockZkHelper)
+	defer brokerInstance1.Clean()
+
+	// Start broker 2
+	brokerInstance2, err := broker.NewBroker(uint16(port2))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	brokerInstance2 = brokerInstance2.WithInternalPort(1102).WithZkHelper(mockZkHelper)
+	defer brokerInstance2.Clean()
+
+	defer SleepForBroker()
+
+	brokerCtx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
+
+	go func() {
+		err := brokerInstance1.Start(brokerCtx1)
+		if err != nil {
+			t.Error("error on starting broker1")
+			return
+		}
+	}()
+
+	brokerCtx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+
+	go func() {
+		err := brokerInstance2.Start(brokerCtx2)
+		if err != nil {
+			t.Error("error on starting broker2")
+			return
+		}
+	}()
+
+	defer SleepForBroker()
+
+	ctxProducer := context.Background()
+	ctxConsumer := context.Background()
+
+	// Start producer
+	testProducer := func(topic string, host string) {
+		producerClient := producer.NewProducer(host)
+		if producerClient.Connect(ctxProducer, topic) != nil {
+			t.Error("Error on connect to broker1")
+			return
+		}
+
+		for _, record := range testRecordMap[topic] {
+			producerClient.Publish(ctxProducer, record)
+		}
+
+		producerClient.WaitAllPublishResponse()
+
+		if err := producerClient.Close(); err != nil {
+			t.Error(err)
 		}
 	}
-	return false
+
+	testProducer(topicLocal, host1)
+	testProducer(topicRemote, host2)
+
+	// Start consumer
+	// consumer requests data for topicLocal and topicRemote to host1 only
+	testConsumer := func(topic string) {
+		receivedRecordMap := make(map[string][][]byte)
+		consumerClient := consumer.NewConsumer(host1)
+		if consumerClient.Connect(ctxConsumer, topic) != nil {
+			t.Error("Error on connect")
+			return
+		}
+		subscribeCh, err := consumerClient.Subscribe(ctxConsumer, 0)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		for response := range subscribeCh {
+			if response.Error != nil {
+				t.Error(response.Error)
+			} else {
+				receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
+			}
+
+			// break on reach end
+			if response.LastOffset == response.Offset {
+				break
+			}
+		}
+
+		expectedResults := testRecordMap[topic]
+		receivedResults := receivedRecordMap[topic]
+
+		if len(expectedResults) != len(receivedResults) {
+			t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
+		}
+		for i, record := range expectedResults {
+			if bytes.Compare(receivedResults[i], record) != 0 {
+				t.Error("Record is not same")
+			}
+		}
+
+		if err := consumerClient.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+
+	testConsumer(topicLocal)
+	//testConsumer(topicRemote)
 }
+
+

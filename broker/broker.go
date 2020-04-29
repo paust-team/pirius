@@ -12,14 +12,16 @@ import (
 	"net"
 	"time"
 )
+var DefaultInternalPort uint16 = 11010
 
 type Broker struct {
-	InternalPort 		uint16
-	ExternalPort    	uint16
-	InternalRPCServer 	*grpc.Server
-	ExternalRPCServer 	*grpc.Server
+	internalPort 		uint16
+	externalPort    	uint16
+	internalRPCServer 	*grpc.Server
+	externalRPCServer 	*grpc.Server
 	db         			*storage.QRocksDB
 	notifier   			*internals.Notifier
+	zkHelper 			internals.ZookeeperHelper
 }
 
 func NewBroker(port uint16) (*Broker, error) {
@@ -30,20 +32,29 @@ func NewBroker(port uint16) (*Broker, error) {
 	}
 
 	notifier := internals.NewNotifier()
+	zkHelper := internals.NewZookeeperHelper()
 
-	externalRPCServer := grpc.NewServer()
-	paustqproto.RegisterAPIServiceServer(externalRPCServer, rpc.NewAPIServiceServer(db))
-	paustqproto.RegisterStreamServiceServer(externalRPCServer, rpc.NewStreamServiceServer(db, notifier))
+	return &Broker{internalPort: DefaultInternalPort, externalPort: port, db: db, zkHelper: zkHelper, notifier: notifier}, nil
+}
 
-	internalRPCServer := grpc.NewServer()
-	paustqproto.RegisterStreamServiceServer(internalRPCServer, rpc.NewStreamServiceServer(db, notifier))
+func (b *Broker) WithInternalPort(port uint16) *Broker{
+	b.internalPort = port
+	return b
+}
 
-	var defaultInternalPort uint16 = 11010
-
-	return &Broker{InternalPort: defaultInternalPort, ExternalPort: port, db: db, ExternalRPCServer: externalRPCServer, InternalRPCServer: internalRPCServer, notifier: notifier}, nil
+func (b *Broker) WithZkHelper(zkHelper internals.ZookeeperHelper) *Broker{
+	b.zkHelper = zkHelper
+	return b
 }
 
 func (b *Broker) Start(ctx context.Context) error {
+
+	b.externalRPCServer = grpc.NewServer()
+	paustqproto.RegisterAPIServiceServer(b.externalRPCServer, rpc.NewAPIServiceServer(b.db))
+	paustqproto.RegisterStreamServiceServer(b.externalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkHelper))
+
+	b.internalRPCServer = grpc.NewServer()
+	paustqproto.RegisterStreamServiceServer(b.internalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkHelper))
 
 	defer b.stop()
 
@@ -52,7 +63,7 @@ func (b *Broker) Start(ctx context.Context) error {
 
 	b.notifier.NotifyNews(ctx, errChan)
 
-	startGrpcServer := func(server *grpc.Server, port uint16, errChan chan error) {
+	startGrpcServer := func(server *grpc.Server, port uint16) {
 
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
@@ -66,10 +77,10 @@ func (b *Broker) Start(ctx context.Context) error {
 		}
 	}
 
-	go startGrpcServer(b.InternalRPCServer, b.InternalPort, errChan)
-	go startGrpcServer(b.ExternalRPCServer, b.ExternalPort, errChan)
+	go startGrpcServer(b.internalRPCServer, b.internalPort)
+	go startGrpcServer(b.externalRPCServer, b.externalPort)
 
-	log.Printf("start broker with port: %d", b.ExternalPort)
+	log.Printf("start broker with port: %d", b.externalPort)
 
 	select {
 	case <-ctx.Done():
@@ -81,8 +92,8 @@ func (b *Broker) Start(ctx context.Context) error {
 }
 
 func (b *Broker) stop() {
-	b.InternalRPCServer.GracefulStop()
-	b.ExternalRPCServer.GracefulStop()
+	b.internalRPCServer.GracefulStop()
+	b.externalRPCServer.GracefulStop()
 	b.db.Close()
 	log.Println("stop broker")
 }

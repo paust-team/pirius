@@ -11,6 +11,7 @@ import (
 var (
 	dir  string
 	port uint16
+	internalPort uint16
 )
 
 func NewStartCmd() *cobra.Command {
@@ -23,6 +24,11 @@ func NewStartCmd() *cobra.Command {
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			if internalPort != broker.DefaultInternalPort {
+				brokerInstance = brokerInstance.WithInternalPort(internalPort)
+			}
+			
 			if err := brokerInstance.Start(context.Background()); err != nil {
 				log.Fatal(err)
 			}
@@ -30,7 +36,8 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	startCmd.Flags().StringVarP(&dir, "dir", "d", os.ExpandEnv("$HOME/.paustq"), "directory for data store")
-	startCmd.Flags().Uint16VarP(&port, "port", "p", 9000, "directory for data store")
+	startCmd.Flags().Uint16VarP(&port, "port", "p", 9000, "external port")
+	startCmd.Flags().Uint16Var(&internalPort, "internal", broker.DefaultInternalPort, "internal port")
 
 	return startCmd
 }
