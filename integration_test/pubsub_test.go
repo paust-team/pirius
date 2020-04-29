@@ -19,7 +19,7 @@ import (
 )
 
 func SleepForBroker() {
-	time.Sleep(500 * time.Microsecond)
+	time.Sleep(500 * time.Millisecond)
 }
 
 func TestClient_Connect(t *testing.T) {
@@ -111,6 +111,7 @@ func TestPubSub(t *testing.T) {
 	producerClient := producer.NewProducer(host)
 	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
+		return
 	}
 
 	for _, record := range testRecordMap[topic] {
@@ -203,6 +204,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
 	if producerClient.Connect(ctx1, topic) != nil {
 		t.Error("Error on connect")
+		return
 	}
 
 	data, err := ioutil.ReadFile("sample.txt")
@@ -322,6 +324,7 @@ func TestMultiClient(t *testing.T) {
 			producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
 			if producerClient.Connect(ctx, topic) != nil {
 				t.Error("Error on connect")
+				return
 			}
 
 			for _, record := range sendingRecords {

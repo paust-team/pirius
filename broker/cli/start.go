@@ -23,14 +23,14 @@ func NewStartCmd() *cobra.Command {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if err := brokerInstance.Start(context.Background(), false); err != nil {
+			if err := brokerInstance.Start(context.Background()); err != nil {
 				log.Fatal(err)
 			}
 		},
 	}
 
 	startCmd.Flags().StringVarP(&dir, "dir", "d", os.ExpandEnv("$HOME/.paustq"), "directory for data store")
-	startCmd.Flags().Uint16VarP(&port, "port", "p", 1101, "directory for data store")
+	startCmd.Flags().Uint16VarP(&port, "port", "p", 9000, "directory for data store")
 
 	return startCmd
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/paust-team/paustq/client"
 	"github.com/spf13/cobra"
 	"log"
+	"time"
 )
 
 var (
@@ -81,14 +82,14 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer).WithTimeout(time.Duration(timeout) * time.Second)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := apiClient.DeleteTopic(topicName); err != nil {
+			if err := apiClient.DeleteTopic(ctx, topicName); err != nil {
 				log.Fatal(err)
 			}
 

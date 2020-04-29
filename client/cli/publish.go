@@ -19,14 +19,14 @@ func NewPublishCmd() *cobra.Command {
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := producer.NewProducer(ctx, bootstrapServer).WithTimeout(time.Duration(timeout))
+			client := producer.NewProducer(bootstrapServer).WithTimeout(time.Duration(timeout))
 			defer client.Close()
 
-			if client.Connect(topicName) != nil {
+			if client.Connect(ctx, topicName) != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			client.Publish(data)
+			client.Publish(ctx, data)
 			client.WaitAllPublishResponse()
 
 			log.Println("published ok")

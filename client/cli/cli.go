@@ -19,9 +19,9 @@ var paustQClientCmd = &cobra.Command{
 
 func Main() {
 
-	paustQClientCmd.Flags().StringVarP(&bootstrapServer, "bootstrap-broker", "b", "localhost:1101", "set bootstrap broker end-point")
+	paustQClientCmd.Flags().StringVarP(&bootstrapServer, "bootstrap-broker", "b", "localhost:9000", "set bootstrap broker end-point")
 	paustQClientCmd.Flags().StringVarP(&logLevel, "log-level", "l", "info", "set log level [debug|info|error|none]")
-	paustQClientCmd.Flags().Uint8VarP(&timeout, "timeout", "t", 5, "set connection timeout(sec)")
+	paustQClientCmd.Flags().Uint8VarP(&timeout, "timeout", "t", 3, "set connection timeout(sec)")
 
 	paustQClientCmd.AddCommand(
 		NewHeartbeatCmd(),

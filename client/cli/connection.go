@@ -5,6 +5,7 @@ import (
 	"github.com/paust-team/paustq/client"
 	"github.com/spf13/cobra"
 	"log"
+	"time"
 )
 
 var (
@@ -19,7 +20,7 @@ func NewHeartbeatCmd() *cobra.Command {
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer).WithTimeout(time.Duration(timeout) * time.Second)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
