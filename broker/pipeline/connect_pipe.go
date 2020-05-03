@@ -14,7 +14,6 @@ import (
 type ConnectPipe struct {
 	session  *network.Session
 	notifier *internals.Notifier
-	zkHelper internals.ZookeeperHelper
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
@@ -25,16 +24,12 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	notifier, ok := in[1].(*internals.Notifier)
 	casted = casted && ok
 
-	zkHelper, ok := in[2].(internals.ZookeeperHelper)
-	casted = casted && ok
-
 	if !casted {
 		return errors.New("failed to build connect pipe")
 	}
 
 	c.session = session
 	c.notifier = notifier
-	c.zkHelper = zkHelper
 
 	return nil
 }
@@ -77,19 +72,14 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
 
 			case paustq_proto.SessionType_SUBSCRIBER:
-				topicEndpoint := c.zkHelper.GetTopicEndpoint(req.TopicName)
-				if topicEndpoint == "localhost" {
-					topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
+				topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
 
-					if err != nil {
-						errCh <- err
-						return
-					}
-					c.session.SetTopic(topic)
-					atomic.AddInt64(&c.session.Topic().NumSubs, 1)
-				} else {
-					c.session.SetTopic(internals.NewExternalTopic(req.TopicName, topicEndpoint))
+				if err != nil {
+					errCh <- err
+					return
 				}
+				c.session.SetTopic(topic)
+				atomic.AddInt64(&c.session.Topic().NumSubs, 1)
 
 			default:
 			}

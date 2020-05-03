@@ -7,16 +7,10 @@ import (
 type Topic struct {
 	name                   string
 	Size, NumPubs, NumSubs int64
-	External 				bool
-	Endpoint				string
 }
 
 func NewTopic(topicName string) *Topic {
-	return &Topic{topicName, 0, 0, 0, false, ""}
-}
-
-func NewExternalTopic(topicName, endpoint string) *Topic {
-	return &Topic{topicName, 0, 0, 0, true, endpoint}
+	return &Topic{topicName, 0, 0, 0}
 }
 
 func (t Topic) Name() string {

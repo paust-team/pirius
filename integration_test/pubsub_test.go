@@ -454,12 +454,12 @@ func TestMultiBroker(t *testing.T) {
 			{'R', 'E', 'M', 'O', 'T', 'E'}},
 	}
 
-	topicEndpoint := map[string]string {
-		topicLocal: "localhost",
-		topicRemote: host2,
-	}
+	//topicEndpoint := map[string]string {
+	//	topicLocal: "localhost",
+	//	topicRemote: host2,
+	//}
 
-	mockZkHelper := &MockZkHelper{topicEndpoint}
+	//mockZkHelper := &MockZkHelper{topicEndpoint}
 
 	// Start broker 1
 	brokerInstance1, err := broker.NewBroker(uint16(port1))
@@ -467,7 +467,7 @@ func TestMultiBroker(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	brokerInstance1 = brokerInstance1.WithInternalPort(1101).WithZkHelper(mockZkHelper)
+	brokerInstance1 = brokerInstance1.WithInternalPort(1101)
 	defer brokerInstance1.Clean()
 
 	// Start broker 2
@@ -476,7 +476,7 @@ func TestMultiBroker(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	brokerInstance2 = brokerInstance2.WithInternalPort(1102).WithZkHelper(mockZkHelper)
+	brokerInstance2 = brokerInstance2.WithInternalPort(1102)
 	defer brokerInstance2.Clean()
 
 	defer SleepForBroker()

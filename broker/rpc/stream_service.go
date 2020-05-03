@@ -16,12 +16,11 @@ import (
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
-	ZKHelper internals.ZookeeperHelper
 	once     sync.Once
 }
 
-func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier, zkHelper internals.ZookeeperHelper) *StreamServiceServer {
-	return &StreamServiceServer{DB: db, Notifier: notifier, ZKHelper: zkHelper}
+func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) *StreamServiceServer {
+	return &StreamServiceServer{DB: db, Notifier: notifier}
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
@@ -86,14 +85,14 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.Notifier, s.ZKHelper)
+	err = connector.Build(sess, s.Notifier)
 	if err != nil {
 		return err, nil
 	}
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB, s.Notifier, s.ZKHelper)
+	err = fetcher.Build(sess, s.DB, s.Notifier)
 	if err != nil {
 		return err, nil
 	}

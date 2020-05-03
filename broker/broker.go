@@ -15,13 +15,12 @@ import (
 var DefaultInternalPort uint16 = 11010
 
 type Broker struct {
-	internalPort 		uint16
-	externalPort    	uint16
-	internalRPCServer 	*grpc.Server
-	externalRPCServer 	*grpc.Server
-	db         			*storage.QRocksDB
-	notifier   			*internals.Notifier
-	zkHelper 			internals.ZookeeperHelper
+	internalPort      uint16
+	externalPort      uint16
+	internalRPCServer *grpc.Server
+	externalRPCServer *grpc.Server
+	db                *storage.QRocksDB
+	notifier          *internals.Notifier
 }
 
 func NewBroker(port uint16) (*Broker, error) {
@@ -32,9 +31,8 @@ func NewBroker(port uint16) (*Broker, error) {
 	}
 
 	notifier := internals.NewNotifier()
-	zkHelper := internals.NewZookeeperHelper()
 
-	return &Broker{internalPort: DefaultInternalPort, externalPort: port, db: db, zkHelper: zkHelper, notifier: notifier}, nil
+	return &Broker{internalPort: DefaultInternalPort, externalPort: port, db: db, notifier: notifier}, nil
 }
 
 func (b *Broker) WithInternalPort(port uint16) *Broker{
@@ -42,19 +40,14 @@ func (b *Broker) WithInternalPort(port uint16) *Broker{
 	return b
 }
 
-func (b *Broker) WithZkHelper(zkHelper internals.ZookeeperHelper) *Broker{
-	b.zkHelper = zkHelper
-	return b
-}
-
 func (b *Broker) Start(ctx context.Context) error {
 
 	b.externalRPCServer = grpc.NewServer()
 	paustqproto.RegisterAPIServiceServer(b.externalRPCServer, rpc.NewAPIServiceServer(b.db))
-	paustqproto.RegisterStreamServiceServer(b.externalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkHelper))
+	paustqproto.RegisterStreamServiceServer(b.externalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier))
 
 	b.internalRPCServer = grpc.NewServer()
-	paustqproto.RegisterStreamServiceServer(b.internalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkHelper))
+	paustqproto.RegisterStreamServiceServer(b.internalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier))
 
 	defer b.stop()
 

@@ -1,6 +1,6 @@
-package internals
+package zk
 
-// Temporary helper for zookeeper
+// Temporary helper for zk
 type ZookeeperHelper interface {
 	GetTopicEndpoint(string) string
 }

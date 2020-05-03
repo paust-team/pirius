@@ -28,7 +28,7 @@ func NewStartCmd() *cobra.Command {
 			if internalPort != broker.DefaultInternalPort {
 				brokerInstance = brokerInstance.WithInternalPort(internalPort)
 			}
-			
+
 			if err := brokerInstance.Start(context.Background()); err != nil {
 				log.Fatal(err)
 			}
