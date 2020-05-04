@@ -58,27 +58,19 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 
 			c.session.SetType(req.SessionType)
 
+			topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
+
+			if err != nil {
+				errCh <- err
+				return
+			}
+			c.session.SetTopic(topic)
+
 			switch req.SessionType {
 			case paustq_proto.SessionType_PUBLISHER:
-
-				topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
-
-				if err != nil {
-					errCh <- err
-					return
-				}
-				c.session.SetTopic(topic)
-
 				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
 
 			case paustq_proto.SessionType_SUBSCRIBER:
-				topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
-
-				if err != nil {
-					errCh <- err
-					return
-				}
-				c.session.SetTopic(topic)
 				atomic.AddInt64(&c.session.Topic().NumSubs, 1)
 
 			default:
