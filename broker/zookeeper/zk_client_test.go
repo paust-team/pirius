@@ -108,3 +108,86 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Error("failed to add topic broker ", GetOutboundIP())
 	}
 }
+
+func TestZKClient_DeleteTopic(t *testing.T) {
+	topic := "topic5"
+	err := zkClient.AddTopic(topic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = zkClient.DeleteTopic(topic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	topics, err := zkClient.GetTopics()
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, top := range topics {
+		if top == topic {
+			t.Errorf("topic did not deleted")
+		}
+	}
+}
+
+func TestZKClient_DeleteBroker(t *testing.T) {
+	broker := "127.0.0.1"
+	err := zkClient.AddBroker(broker)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = zkClient.DeleteBroker(broker)
+	if err != nil {
+		t.Error(err)
+	}
+
+	brokers, err := zkClient.GetBrokers()
+
+	for _, b := range brokers {
+		if b == broker {
+			t.Errorf("broker did not deleted")
+		}
+	}
+}
+
+func TestZKClient_DeleteTopicBroker(t *testing.T) {
+	topic := "topic4"
+	err := zkClient.AddTopic(topic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	topics, err := zkClient.GetTopics()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if topics[len(topics)-1] != topic {
+		t.Error("failed to add topic ", topic)
+	}
+
+	err = zkClient.AddTopicBroker(topic, GetOutboundIP().String())
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = zkClient.DeleteTopicBroker(topic, GetOutboundIP().String())
+	if err != nil {
+		t.Error(err)
+	}
+
+	brokers, err := zkClient.GetTopicBrokers(topic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, broker := range brokers {
+		if broker == GetOutboundIP().String() {
+			t.Errorf("topic broker did not deleted")
+		}
+	}
+}
