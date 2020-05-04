@@ -10,6 +10,7 @@ import (
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/paust-team/paustq/client/producer"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"io/ioutil"
 	"log"
 	"os"
@@ -79,7 +80,7 @@ func TestClient_Connect(t *testing.T) {
 		}
 	}()
 
-	defer SleepForBroker()
+	SleepForBroker()
 
 	// Start client
 	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
@@ -133,12 +134,36 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	defer SleepForBroker()
+	SleepForBroker()
+
+	// setup zookeeper
+	zkHost := "127.0.0.1"
+	zkClient := zookeeper.NewZKClient(zkHost)
+
+	defer zkClient.Close()
+	defer zkClient.DeleteAllPath()
+
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.CreatePathsIfNotExist(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopic(topic); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopicBroker(topic, host); err != nil {
+		t.Error(err)
+		return
+	}
 
 	// Start producer
-	producerClient := producer.NewProducer(host)
-	if producerClient.Connect(ctx1, topic) != nil {
-		t.Error("Error on connect")
+	producerClient := producer.NewProducer(zkHost)
+	if err := producerClient.Connect(ctx1, topic); err != nil {
+		t.Error(err)
 		return
 	}
 
@@ -153,9 +178,9 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(host)
-	if consumerClient.Connect(ctx2, topic) != nil {
-		t.Error("Error on connect")
+	consumerClient := consumer.NewConsumer(zkHost)
+	if err := consumerClient.Connect(ctx2, topic); err != nil {
+		t.Error(err)
 		return
 	}
 	subscribeCh, err := consumerClient.Subscribe(ctx1, 0)
@@ -226,12 +251,36 @@ func TestPubsub_Chunk(t *testing.T) {
 		}
 	}()
 
-	defer SleepForBroker()
+	SleepForBroker()
+
+	// setup zookeeper
+	zkHost := "127.0.0.1"
+	zkClient := zookeeper.NewZKClient(zkHost)
+
+	defer zkClient.Close()
+	defer zkClient.DeleteAllPath()
+
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.CreatePathsIfNotExist(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopic(topic); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopicBroker(topic, host); err != nil {
+		t.Error(err)
+		return
+	}
 
 	// Start producer
-	producerClient := producer.NewProducer(host).WithChunkSize(chunkSize)
-	if producerClient.Connect(ctx1, topic) != nil {
-		t.Error("Error on connect")
+	producerClient := producer.NewProducer(zkHost).WithChunkSize(chunkSize)
+	if err := producerClient.Connect(ctx1, topic); err != nil {
+		t.Error(err)
 		return
 	}
 
@@ -252,9 +301,9 @@ func TestPubsub_Chunk(t *testing.T) {
 	expectedLen := len(data)
 	// Start consumer
 
-	consumerClient := consumer.NewConsumer(host)
-	if consumerClient.Connect(ctx2, topic) != nil {
-		t.Error("Error on connect")
+	consumerClient := consumer.NewConsumer(zkHost)
+	if err := consumerClient.Connect(ctx2, topic); err != nil {
+		t.Error(err)
 		return
 	}
 
@@ -315,8 +364,31 @@ func TestMultiClient(t *testing.T) {
 		}
 	}()
 
-	defer SleepForBroker()
+	SleepForBroker()
 
+	// setup zookeeper
+	zkHost := "127.0.0.1"
+	zkClient := zookeeper.NewZKClient(zkHost)
+
+	defer zkClient.Close()
+	defer zkClient.DeleteAllPath()
+
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.CreatePathsIfNotExist(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopic(topic); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopicBroker(topic, host); err != nil {
+		t.Error(err)
+		return
+	}
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
@@ -330,9 +402,9 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(host)
-			if producerClient.Connect(ctx, topic) != nil {
-				t.Error("Error on connect")
+			producerClient := producer.NewProducer(zkHost)
+			if err := producerClient.Connect(ctx, topic); err != nil {
+				t.Error(err)
 				return
 			}
 
@@ -370,9 +442,9 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			consumerClient := consumer.NewConsumer(host)
-			if consumerClient.Connect(ctx, topic) != nil {
-				t.Error("Error on connect")
+			consumerClient := consumer.NewConsumer(zkHost)
+			if err := consumerClient.Connect(ctx, topic); err != nil {
+				t.Error(err)
 				return
 			}
 
@@ -423,14 +495,6 @@ func TestMultiClient(t *testing.T) {
 	}
 }
 
-type MockZkHelper struct {
-	TopicEndpoints 		map[string]string
-}
-
-func (zk *MockZkHelper) GetTopicEndpoint(topicName string) string {
-	return zk.TopicEndpoints[topicName]
-}
-
 func TestMultiBroker(t *testing.T) {
 
 	ip := "127.0.0.1"
@@ -443,7 +507,7 @@ func TestMultiBroker(t *testing.T) {
 	topicLocal := "topic_local"
 	topicRemote := "topic_remote"
 
-	testRecordMap := map[string][][]byte{
+	testRecordMap := map[string][][]byte {
 		topicLocal: {
 			{'g', 'o', 'o', 'g', 'l', 'e'},
 			{'p', 'a', 'u', 's', 't', 'q'},
@@ -454,20 +518,13 @@ func TestMultiBroker(t *testing.T) {
 			{'R', 'E', 'M', 'O', 'T', 'E'}},
 	}
 
-	//topicEndpoint := map[string]string {
-	//	topicLocal: "localhost",
-	//	topicRemote: host2,
-	//}
-
-	//mockZkHelper := &MockZkHelper{topicEndpoint}
-
 	// Start broker 1
 	brokerInstance1, err := broker.NewBroker(uint16(port1))
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	brokerInstance1 = brokerInstance1.WithInternalPort(1101)
+	brokerInstance1 = brokerInstance1
 	defer brokerInstance1.Clean()
 
 	// Start broker 2
@@ -476,7 +533,7 @@ func TestMultiBroker(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	brokerInstance2 = brokerInstance2.WithInternalPort(1102)
+	brokerInstance2 = brokerInstance2
 	defer brokerInstance2.Clean()
 
 	defer SleepForBroker()
@@ -503,17 +560,49 @@ func TestMultiBroker(t *testing.T) {
 		}
 	}()
 
-	defer SleepForBroker()
+	SleepForBroker()
+
+	// setup zookeeper
+	zkHost := "127.0.0.1"
+	zkClient := zookeeper.NewZKClient(zkHost)
+
+	defer zkClient.Close()
+	defer zkClient.DeleteAllPath()
+
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.CreatePathsIfNotExist(); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopic(topicLocal); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopicBroker(topicLocal, host1); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopic(topicRemote); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := zkClient.AddTopicBroker(topicRemote, host2); err != nil {
+		t.Error(err)
+		return
+	}
 
 	ctxProducer := context.Background()
 	ctxConsumer := context.Background()
 
 	// Start producer
-	testProducer := func(topic string, host string) {
-		producerClient := producer.NewProducer(host)
-		if producerClient.Connect(ctxProducer, topic) != nil {
-			t.Error("Error on connect to broker1")
-			return
+	testProducer := func(topic string) {
+		producerClient := producer.NewProducer(zkHost)
+		if err := producerClient.Connect(ctxProducer, topic); err != nil {
+			t.Error(err)
+			os.Exit(1)
 		}
 
 		for _, record := range testRecordMap[topic] {
@@ -524,29 +613,31 @@ func TestMultiBroker(t *testing.T) {
 
 		if err := producerClient.Close(); err != nil {
 			t.Error(err)
+			os.Exit(1)
 		}
 	}
 
-	testProducer(topicLocal, host1)
-	testProducer(topicRemote, host2)
+	testProducer(topicLocal)
+	testProducer(topicRemote)
 
 	// Start consumer
 	// consumer requests data for topicLocal and topicRemote to host1 only
 	testConsumer := func(topic string) {
 		receivedRecordMap := make(map[string][][]byte)
-		consumerClient := consumer.NewConsumer(host1)
-		if consumerClient.Connect(ctxConsumer, topic) != nil {
-			t.Error("Error on connect")
-			return
+		consumerClient := consumer.NewConsumer(zkHost)
+		if err := consumerClient.Connect(ctxConsumer, topic); err != nil {
+			t.Error(err)
+			os.Exit(1)
 		}
 		subscribeCh, err := consumerClient.Subscribe(ctxConsumer, 0)
 		if err != nil {
 			t.Error(err)
-			return
+			os.Exit(1)
 		}
 		for response := range subscribeCh {
 			if response.Error != nil {
 				t.Error(response.Error)
+				os.Exit(1)
 			} else {
 				receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
 			}
@@ -559,23 +650,24 @@ func TestMultiBroker(t *testing.T) {
 
 		expectedResults := testRecordMap[topic]
 		receivedResults := receivedRecordMap[topic]
-
 		if len(expectedResults) != len(receivedResults) {
 			t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
 		}
 		for i, record := range expectedResults {
 			if bytes.Compare(receivedResults[i], record) != 0 {
 				t.Error("Record is not same")
+				os.Exit(1)
 			}
 		}
 
 		if err := consumerClient.Close(); err != nil {
 			t.Error(err)
+			os.Exit(1)
 		}
 	}
 
 	testConsumer(topicLocal)
-	//testConsumer(topicRemote)
+	testConsumer(topicRemote)
 }
 
 

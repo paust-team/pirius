@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	zkClient.deleteAllPath()
+	zkClient.DeleteAllPath()
 	zkClient.Close()
 	os.Exit(code)
 }

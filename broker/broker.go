@@ -12,15 +12,12 @@ import (
 	"net"
 	"time"
 )
-var DefaultInternalPort uint16 = 11010
 
 type Broker struct {
-	internalPort      uint16
-	externalPort      uint16
-	internalRPCServer *grpc.Server
-	externalRPCServer *grpc.Server
-	db                *storage.QRocksDB
-	notifier          *internals.Notifier
+	Port      			uint16
+	grpcServer 			*grpc.Server
+	db                	*storage.QRocksDB
+	notifier          	*internals.Notifier
 }
 
 func NewBroker(port uint16) (*Broker, error) {
@@ -32,22 +29,14 @@ func NewBroker(port uint16) (*Broker, error) {
 
 	notifier := internals.NewNotifier()
 
-	return &Broker{internalPort: DefaultInternalPort, externalPort: port, db: db, notifier: notifier}, nil
-}
-
-func (b *Broker) WithInternalPort(port uint16) *Broker{
-	b.internalPort = port
-	return b
+	return &Broker{Port: port, db: db, notifier: notifier}, nil
 }
 
 func (b *Broker) Start(ctx context.Context) error {
 
-	b.externalRPCServer = grpc.NewServer()
-	paustqproto.RegisterAPIServiceServer(b.externalRPCServer, rpc.NewAPIServiceServer(b.db))
-	paustqproto.RegisterStreamServiceServer(b.externalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier))
-
-	b.internalRPCServer = grpc.NewServer()
-	paustqproto.RegisterStreamServiceServer(b.internalRPCServer, rpc.NewStreamServiceServer(b.db, b.notifier))
+	b.grpcServer = grpc.NewServer()
+	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db))
+	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier))
 
 	defer b.stop()
 
@@ -70,10 +59,9 @@ func (b *Broker) Start(ctx context.Context) error {
 		}
 	}
 
-	go startGrpcServer(b.internalRPCServer, b.internalPort)
-	go startGrpcServer(b.externalRPCServer, b.externalPort)
+	go startGrpcServer(b.grpcServer, b.Port)
 
-	log.Printf("start broker with port: %d", b.externalPort)
+	log.Printf("start broker with port: %d", b.Port)
 
 	select {
 	case <-ctx.Done():
@@ -85,8 +73,7 @@ func (b *Broker) Start(ctx context.Context) error {
 }
 
 func (b *Broker) stop() {
-	b.internalRPCServer.GracefulStop()
-	b.externalRPCServer.GracefulStop()
+	b.grpcServer.GracefulStop()
 	b.db.Close()
 	log.Println("stop broker")
 }

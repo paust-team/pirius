@@ -2,10 +2,13 @@ package producer
 
 import (
 	"context"
+	"errors"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -19,11 +22,12 @@ type Producer struct {
 	waitGroup     sync.WaitGroup
 	timeout       time.Duration
 	chunkSize     uint32
+	zkClient    *zookeeper.ZKClient
 }
 
-func NewProducer(serverUrl string) *Producer {
-	c := client.NewStreamClient(serverUrl, paustqproto.SessionType_PUBLISHER)
-	producer := &Producer{client: c, publishing: false, chunkSize: 1024}
+func NewProducer(zkHost string) *Producer {
+	defaultZkClient := zookeeper.NewZKClient(zkHost)
+	producer := &Producer{zkClient: defaultZkClient, publishing: false, chunkSize: 1024}
 	return producer
 }
 
@@ -101,7 +105,6 @@ func (p *Producer) startPublish(ctx context.Context) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
-
 }
 
 func (p *Producer) Publish(ctx context.Context, data []byte) {
@@ -119,12 +122,38 @@ func (p *Producer) WaitAllPublishResponse() {
 	}
 }
 
-func (p *Producer) Connect(ctx context.Context, topic string) error {
-	return p.client.Connect(ctx, topic)
+func (p *Producer) Connect(ctx context.Context, topicName string) error {
+	if err := p.zkClient.Connect(); err != nil {
+		return err
+	}
+
+	brokerHosts, err := p.zkClient.GetTopicBrokers(topicName)
+	if err != nil {
+		return err
+	}
+
+	var brokerHost string
+	if brokerHosts == nil {
+		brokers, err := p.zkClient.GetBrokers()
+		if err != nil {
+			return err
+		}
+		if brokers == nil {
+			return errors.New("broker doesn't exists")
+		}
+		randBrokerIndex := rand.Intn(len(brokers))
+		brokerHost = brokers[randBrokerIndex]
+	} else {
+		brokerHost = brokerHosts[0]
+	}
+	// TODO:: Support partition for topic
+	p.client = client.NewStreamClient(brokerHost, paustqproto.SessionType_PUBLISHER)
+	return p.client.Connect(ctx, topicName)
 }
 
 func (p *Producer) Close() error {
 	p.publishing = false
 	p.done <- true
+	p.zkClient.Close()
 	return p.client.Close()
 }
