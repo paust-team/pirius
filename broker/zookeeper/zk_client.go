@@ -132,6 +132,19 @@ func (z *ZKClient) GetTopics() ([]string, error) {
 	return nil, nil
 }
 
+func (z *ZKClient) DeleteTopic(topic string) error {
+	err := z.tLock.Lock()
+	defer z.tLock.Unlock()
+	if err != nil {
+		return err
+	}
+
+	if err = z.conn.Delete(topicPath(topic), -1); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (z *ZKClient) AddBroker(server string) error {
 	var brokers []string
 	var err error
@@ -141,21 +154,18 @@ func (z *ZKClient) AddBroker(server string) error {
 		return err
 	}
 
+	brokers = append(brokers, server)
+	buffer := &bytes.Buffer{}
+	err = gob.NewEncoder(buffer).Encode(brokers)
+	if err != nil {
+		return err
+	}
+
 	err = z.bLock.Lock()
 	defer z.bLock.Unlock()
 	if err != nil {
 		return err
 	}
-
-	brokers = append(brokers, server)
-	buffer := &bytes.Buffer{}
-
-	err = gob.NewEncoder(buffer).Encode(brokers)
-
-	if err != nil {
-		return err
-	}
-
 	_, err = z.conn.Set(BROKERS.string(), buffer.Bytes(), -1)
 	if err != nil {
 		return err
@@ -191,6 +201,45 @@ func (z *ZKClient) GetBrokers() ([]string, error) {
 	return brokers, nil
 }
 
+func (z *ZKClient) DeleteBroker(server string) error {
+	brokers, err := z.GetBrokers()
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for i, broker := range brokers {
+		if broker == server {
+			brokers = append(brokers[:i], brokers[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if found == false {
+		return errors.New("broker does not exist")
+	}
+
+	buffer := &bytes.Buffer{}
+	err = gob.NewEncoder(buffer).Encode(brokers)
+	if err != nil {
+		return err
+	}
+
+	err = z.bLock.Lock()
+	defer z.bLock.Unlock()
+	if err != nil {
+		return err
+	}
+
+	_, err = z.conn.Set(BROKERS.string(), buffer.Bytes(), -1)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 	topicBrokers, err := z.GetTopicBrokers(topic)
 	if err != nil {
@@ -199,13 +248,13 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 
 	for _, topicBroker := range topicBrokers {
 		if topicBroker == server {
-			return errors.New("broker already exists in topic path")
+			log.Println("topic broker already exists")
+			return nil
 		}
 	}
 
 	topicBrokers = append(topicBrokers, server)
 	buffer := &bytes.Buffer{}
-
 	err = gob.NewEncoder(buffer).Encode(topicBrokers)
 	if err != nil {
 		return err
@@ -250,6 +299,38 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	}
 
 	return brokers, nil
+}
+
+func (z *ZKClient) DeleteTopicBroker(topic string, server string) error {
+	brokers, err := z.GetTopicBrokers(topic)
+	if err != nil {
+		return err
+	}
+
+	for i, broker := range brokers {
+		if broker == server {
+			brokers = append(brokers[:i], brokers[i+1:]...)
+			break
+		}
+	}
+	buffer := &bytes.Buffer{}
+	err = gob.NewEncoder(buffer).Encode(brokers)
+	if err != nil {
+		return err
+	}
+
+	err = z.tbLocks[topic].Lock()
+	defer z.tbLocks[topic].Unlock()
+	if err != nil {
+		return err
+	}
+
+	_, err = z.conn.Set(topicPath(topic), buffer.Bytes(), -1)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // for testing
