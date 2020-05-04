@@ -75,8 +75,8 @@ func TestClient_Connect(t *testing.T) {
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
-			t.Error("error on starting broker")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
@@ -86,7 +86,7 @@ func TestClient_Connect(t *testing.T) {
 	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
 
 	if err := c.Connect(ctx, topic); err != nil {
-		t.Error("Error on connect. ", err)
+		t.Error(err)
 		return
 	}
 
@@ -129,8 +129,8 @@ func TestPubSub(t *testing.T) {
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
-			t.Error("error on starting broker")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
@@ -246,8 +246,8 @@ func TestPubsub_Chunk(t *testing.T) {
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
-			t.Error("error on starting broker")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
@@ -359,8 +359,8 @@ func TestMultiClient(t *testing.T) {
 	go func() {
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
-			t.Error("error on starting broker")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
@@ -544,8 +544,8 @@ func TestMultiBroker(t *testing.T) {
 	go func() {
 		err := brokerInstance1.Start(brokerCtx1)
 		if err != nil {
-			t.Error("error on starting broker1")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
@@ -555,8 +555,8 @@ func TestMultiBroker(t *testing.T) {
 	go func() {
 		err := brokerInstance2.Start(brokerCtx2)
 		if err != nil {
-			t.Error("error on starting broker2")
-			return
+			t.Error(err)
+			os.Exit(1)
 		}
 	}()
 
