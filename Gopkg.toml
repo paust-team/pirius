@@ -41,3 +41,7 @@ ignored = ["github.com/paust-team/paustq/thirdparty*"]
 [[constraint]]
   name = "github.com/spf13/cobra"
   version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/samuel/go-zookeeper"
