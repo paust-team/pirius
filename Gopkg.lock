@@ -24,12 +24,12 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
+  branch = "master"
+  digest = "1:53358eb1ca1c4cfdc53d6a7e1b1327a2e7346dac8f293ec40d88b8b8c36249f0"
+  name = "github.com/samuel/go-zookeeper"
+  packages = ["zk"]
   pruneopts = "UT"
-  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
-  version = "v1.2.0"
+  revision = "2cc03de413da42869e2db7ce7965d3e978d917eb"
 
 [[projects]]
   digest = "1:f6adcf4df6c030a53a14a8fdbb3fade7cac3d014ff78a4e0de500b4c0cf5154f"
@@ -204,10 +204,12 @@
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
-    "github.com/satori/go.uuid",
+    "github.com/samuel/go-zookeeper/zk",
     "github.com/spf13/cobra",
     "github.com/tecbot/gorocksdb",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/codes",
+    "google.golang.org/grpc/status",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
