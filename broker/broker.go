@@ -38,7 +38,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db))
 	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier))
 
-	defer b.stop()
+	defer b.Stop()
 
 	errChan := make(chan error)
 	defer close(errChan)
@@ -51,6 +51,7 @@ func (b *Broker) Start(ctx context.Context) error {
 		if err != nil {
 			log.Printf("failed to listen: %v", err)
 			errChan <- err
+			return
 		}
 
 		if err = server.Serve(lis); err != nil {
@@ -72,7 +73,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	}
 }
 
-func (b *Broker) stop() {
+func (b *Broker) Stop() {
 	b.grpcServer.GracefulStop()
 	b.db.Close()
 	log.Println("stop broker")
