@@ -18,14 +18,17 @@ func NewSubscribeCmd() *cobra.Command {
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := consumer.NewConsumer(ctx, bootstrapServer, consumer.NewEndSubscriptionCondition().Eternal())
+			client := consumer.NewConsumer(bootstrapServer)
 			defer client.Close()
 
-			if client.Connect(topicName) != nil {
+			if client.Connect(ctx, topicName) != nil {
 				log.Fatal("cannot connect to broker")
 			}
-
-			for response := range client.Subscribe(startOffset) {
+			subscribeChan, err := client.Subscribe(ctx, startOffset)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for response := range subscribeChan {
 				if response.Error != nil {
 					log.Fatal(response.Error)
 				} else {

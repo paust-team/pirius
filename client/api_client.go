@@ -16,8 +16,14 @@ type APIClient struct {
 	timeout   time.Duration
 }
 
-func NewAPIClient(serverUrl string, timeout time.Duration) *APIClient {
-	return &APIClient{ServerUrl: serverUrl, Connected: false, timeout: timeout}
+func NewAPIClient(serverUrl string) *APIClient {
+	defaultTimeout := 3 * time.Second
+	return &APIClient{ServerUrl: serverUrl, Connected: false, timeout: defaultTimeout}
+}
+
+func (client *APIClient) WithTimeout(timeout time.Duration) *APIClient {
+	client.timeout = timeout
+	return client
 }
 
 func (client *APIClient) Connect() error {

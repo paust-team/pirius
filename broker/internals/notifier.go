@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 )
 
@@ -44,7 +43,7 @@ func (s *Notifier) RegisterSubscription(trigger *Subscription) {
 	s.subscriptionChan <- trigger
 }
 
-func (s *Notifier) NotifyNews(ctx context.Context) {
+func (s *Notifier) NotifyNews(ctx context.Context, errChan chan error) {
 	s.subscriptionChan = make(chan *Subscription, 2)
 	go func() {
 		defer close(s.subscriptionChan)
@@ -54,7 +53,7 @@ func (s *Notifier) NotifyNews(ctx context.Context) {
 				if value, ok := s.topicMap.Load(subscription.TopicName); ok {
 					topicData, ok := value.(*Topic)
 					if !ok {
-						log.Fatalf("Topic(%s) not exists", subscription.TopicName)
+						errChan <- errors.New(fmt.Sprintf("Topic(%s) not exists", subscription.TopicName))
 					}
 					if subscription.LastFetchedOffset < topicData.LastOffset() {
 						subscription.SubscribeChan <- true
@@ -62,7 +61,7 @@ func (s *Notifier) NotifyNews(ctx context.Context) {
 						s.subscriptionChan <- subscription
 					}
 				} else {
-					log.Fatalf("Topic(%s) not exists", subscription.TopicName)
+					errChan <- errors.New(fmt.Sprintf("Topic(%s) not exists", subscription.TopicName))
 				}
 			case <-ctx.Done():
 				return

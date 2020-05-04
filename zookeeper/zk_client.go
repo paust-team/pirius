@@ -13,11 +13,11 @@ import (
 
 type ZKPath string
 const (
-	PAUSTQ ZKPath = "/paustq"
-	BROKERS ZKPath = "/paustq/brokers"
-	TOPICS ZKPath = "/paustq/topics"
+	PAUSTQ       ZKPath = "/paustq"
+	BROKERS      ZKPath = "/paustq/brokers"
+	TOPICS       ZKPath = "/paustq/topics"
 	BROKERS_LOCK ZKPath = "/brokers-lock"
-	TOPICS_LOCK ZKPath = "/topics-lock"
+	TOPICS_LOCK  ZKPath = "/topics-lock"
 )
 
 func (zp ZKPath) string() string {
@@ -241,6 +241,10 @@ func (z *ZKClient) DeleteBroker(server string) error {
 }
 
 func (z *ZKClient) AddTopicBroker(topic string, server string) error {
+	if z.tbLocks[topic] == nil {
+		z.tbLocks[topic] = zk.NewLock(z.conn, topicLockPath(topic), zk.WorldACL(zk.PermAll))
+	}
+
 	topicBrokers, err := z.GetTopicBrokers(topic)
 	if err != nil {
 		return err
@@ -275,6 +279,10 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 }
 
 func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
+	if z.tbLocks[topic] == nil {
+		z.tbLocks[topic] = zk.NewLock(z.conn, topicLockPath(topic), zk.WorldACL(zk.PermAll))
+	}
+
 	err := z.tbLocks[topic].Lock()
 	defer z.tbLocks[topic].Unlock()
 	if err != nil {
@@ -334,7 +342,7 @@ func (z *ZKClient) DeleteTopicBroker(topic string, server string) error {
 }
 
 // for testing
-func (z *ZKClient) deleteAllPath() {
+func (z *ZKClient) DeleteAllPath() {
 	topics, err := z.GetTopics()
 	if err != nil {
 		return

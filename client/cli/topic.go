@@ -5,6 +5,7 @@ import (
 	"github.com/paust-team/paustq/client"
 	"github.com/spf13/cobra"
 	"log"
+	"time"
 )
 
 var (
@@ -21,14 +22,14 @@ func NewCreateTopicCmd() *cobra.Command {
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := apiClient.CreateTopic(topicName, topicMeta, numPartition, replicationFactor); err != nil {
+			if err := apiClient.CreateTopic(ctx, topicName, topicMeta, numPartition, replicationFactor); err != nil {
 				log.Fatal(err)
 			}
 
@@ -52,13 +53,13 @@ func NewListTopicCmd() *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			topics, err := apiClient.ListTopics()
+			topics, err := apiClient.ListTopics(ctx)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -81,14 +82,14 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer).WithTimeout(time.Duration(timeout) * time.Second)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
 
-			if err := apiClient.DeleteTopic(topicName); err != nil {
+			if err := apiClient.DeleteTopic(ctx, topicName); err != nil {
 				log.Fatal(err)
 			}
 
@@ -108,13 +109,13 @@ func NewDescribeTopicCmd() *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			apiClient := client.NewAPIClient(ctx, bootstrapServer)
+			apiClient := client.NewAPIClient(bootstrapServer)
 			defer apiClient.Close()
 
 			if apiClient.Connect() != nil {
 				log.Fatal("cannot connect to broker")
 			}
-			resp, err := apiClient.DescribeTopic(topicName)
+			resp, err := apiClient.DescribeTopic(ctx, topicName)
 			if err != nil {
 				log.Fatal(err)
 			}

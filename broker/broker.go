@@ -14,10 +14,10 @@ import (
 )
 
 type Broker struct {
-	Port       uint16
-	grpcServer *grpc.Server
-	db         *storage.QRocksDB
-	notifier   *internals.Notifier
+	Port      			uint16
+	grpcServer 			*grpc.Server
+	db                	*storage.QRocksDB
+	notifier          	*internals.Notifier
 }
 
 func NewBroker(port uint16) (*Broker, error) {
@@ -29,37 +29,48 @@ func NewBroker(port uint16) (*Broker, error) {
 
 	notifier := internals.NewNotifier()
 
-	grpcServer := grpc.NewServer()
-	paustqproto.RegisterAPIServiceServer(grpcServer, rpc.NewAPIServiceServer(db))
-	paustqproto.RegisterStreamServiceServer(grpcServer, rpc.NewStreamServiceServer(db, notifier))
-
-	return &Broker{Port: port, db: db, grpcServer: grpcServer, notifier: notifier}, nil
+	return &Broker{Port: port, db: db, notifier: notifier}, nil
 }
 
 func (b *Broker) Start(ctx context.Context) error {
-	go func() {
-		select {
-		case <-ctx.Done():
-			b.Stop()
+
+	b.grpcServer = grpc.NewServer()
+	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db))
+	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier))
+
+	defer b.Stop()
+
+	errChan := make(chan error)
+	defer close(errChan)
+
+	b.notifier.NotifyNews(ctx, errChan)
+
+	startGrpcServer := func(server *grpc.Server, port uint16) {
+
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			log.Printf("failed to listen: %v", err)
+			errChan <- err
 			return
 		}
-	}()
 
-	b.notifier.NotifyNews(ctx)
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", b.Port))
-	if err != nil {
-		log.Printf("failed to listen: %v", err)
-		return err
+		if err = server.Serve(lis); err != nil {
+			log.Println(err)
+			errChan <- err
+		}
 	}
 
+	go startGrpcServer(b.grpcServer, b.Port)
+
 	log.Printf("start broker with port: %d", b.Port)
-	if err = b.grpcServer.Serve(lis); err != nil {
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <- errChan:
 		log.Println(err)
 		return err
 	}
-
-	return nil
 }
 
 func (b *Broker) Stop() {

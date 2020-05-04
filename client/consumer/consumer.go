@@ -6,6 +6,7 @@ import (
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type Consumer struct {
 	client      *client.StreamClient
 	subscribing bool
 	timeout     time.Duration
+	zkClient    *zookeeper.ZKClient
 }
 
 type SinkData struct {
@@ -22,9 +24,9 @@ type SinkData struct {
 	Offset, LastOffset uint64
 }
 
-func NewConsumer(serverUrl string) *Consumer {
-	c := client.NewStreamClient(serverUrl, paustqproto.SessionType_SUBSCRIBER)
-	return &Consumer{client: c, subscribing: false}
+func NewConsumer(zkHost string) *Consumer {
+	defaultZkClient := zookeeper.NewZKClient(zkHost)
+	return &Consumer{zkClient: defaultZkClient, subscribing: false}
 }
 
 func (c *Consumer) WithTimeout(timeout time.Duration) *Consumer {
@@ -98,12 +100,26 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (chan Sink
 	return nil, errors.New("already subscribing")
 }
 
-func (c *Consumer) Connect(ctx context.Context, topic string) error {
-	return c.client.Connect(ctx, topic)
+func (c *Consumer) Connect(ctx context.Context, topicName string) error {
+	if err := c.zkClient.Connect(); err != nil {
+		return err
+	}
+
+	brokerHosts, err := c.zkClient.GetTopicBrokers(topicName)
+	if err != nil {
+		return err
+	}
+	if brokerHosts == nil {
+		return errors.New("topic doesn't exists")
+	}
+	// TODO:: Support partition for topic
+	c.client = client.NewStreamClient(brokerHosts[0], paustqproto.SessionType_SUBSCRIBER)
+	return c.client.Connect(ctx, topicName)
 }
 
 func (c *Consumer) Close() error {
 	c.subscribing = false
 	c.done <- true
+	c.zkClient.Close()
 	return c.client.Close()
 }
