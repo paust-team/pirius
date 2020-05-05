@@ -127,12 +127,13 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 		return err
 	}
 
+	var brokerHost string
+
 	brokerHosts, err := p.zkClient.GetTopicBrokers(topicName)
 	if err != nil {
 		return err
 	}
 
-	var brokerHost string
 	if brokerHosts == nil {
 		brokers, err := p.zkClient.GetBrokers()
 		if err != nil {

@@ -29,27 +29,6 @@ func NewDeleteTopicResponseMsg() *paustqproto.DeleteTopicResponse {
 	return &paustqproto.DeleteTopicResponse{}
 }
 
-func NewListTopicsRequestMsg() *paustqproto.ListTopicsRequest {
-	return &paustqproto.ListTopicsRequest{}
-}
-
-func NewListTopicsResponseMsg(topics []*paustqproto.Topic) *paustqproto.ListTopicsResponse {
-	return &paustqproto.ListTopicsResponse{Topics: topics}
-}
-
-func NewDescribeTopicRequestMsg(topicName string) *paustqproto.DescribeTopicRequest {
-	return &paustqproto.DescribeTopicRequest{TopicName: topicName}
-}
-
-func NewDescribeTopicResponseMsg(topic *paustqproto.Topic, numPublishers uint64, numSubscribers uint64) *paustqproto.DescribeTopicResponse {
-	partition := &paustqproto.Partition{
-		PartitionId: 1, Offset: 0,
-	}
-	partitions := []*paustqproto.Partition{partition}
-	return &paustqproto.DescribeTopicResponse{
-		Topic: topic, NumPublishers: numPublishers, NumSubscribers: numSubscribers, Partitions: partitions}
-}
-
 func NewConnectRequestMsg(sessionType paustqproto.SessionType, topicName string) *paustqproto.ConnectRequest {
 	return &paustqproto.ConnectRequest{SessionType: sessionType, TopicName: topicName}
 }
