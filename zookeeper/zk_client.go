@@ -96,23 +96,12 @@ func (z *ZKClient) AddTopic(topic string) error {
 	if err != nil {
 		return err
 	}
-	ok, _, err  := z.conn.Exists(topicPath(topic))
-	if err != nil {
-		log.Println("failed to create topic path", err)
-		return err
-	}
-	if ok {
-		return nil
-	}
 
 	_, err = z.conn.Create(topicPath(topic), nil, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		log.Println("failed to create topic path", err)
 		return err
 	}
-
-
-
 	return nil
 }
 

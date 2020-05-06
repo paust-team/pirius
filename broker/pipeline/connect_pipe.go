@@ -61,13 +61,6 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 					return
 				}
 			}
-
-			err := c.zkClient.AddTopic(req.TopicName)
-			if err != nil {
-				errCh <- err
-				return
-			}
-
 			c.session.SetType(req.SessionType)
 
 			topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)

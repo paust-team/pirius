@@ -72,24 +72,10 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 			req := in.(*paustq_proto.PutRequest)
 			if !p.brokerAdded {
-				brokers, err := p.zkClient.GetTopicBrokers(p.session.Topic().Name())
+				err := p.zkClient.AddTopicBroker(p.session.Topic().Name(), p.host)
 				if err != nil {
 					errCh <- err
 					return
-				}
-
-				found := false
-				for _, broker := range brokers {
-					if broker == p.host {
-						found = true
-					}
-				}
-				if !found {
-					err := p.zkClient.AddTopicBroker(p.session.Topic().Name(), p.host)
-					if err != nil {
-						errCh <- err
-						return
-					}
 				}
 				p.brokerAdded = true
 			}

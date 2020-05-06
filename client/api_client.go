@@ -63,18 +63,6 @@ func (client *APIClient) DeleteTopic(ctx context.Context, topicName string) erro
 	return nil
 }
 
-func (client *APIClient) DescribeTopic(ctx context.Context, topicName string) (*paustqproto.DescribeTopicResponse, error) {
-	c, cancel := context.WithTimeout(ctx, client.timeout)
-	defer cancel()
-	return client.rpcClient.DescribeTopic(c, message.NewDescribeTopicRequestMsg(topicName))
-}
-
-func (client *APIClient) ListTopics(ctx context.Context) (*paustqproto.ListTopicsResponse, error) {
-	c, cancel := context.WithTimeout(ctx, client.timeout)
-	defer cancel()
-	return client.rpcClient.ListTopics(c, message.NewListTopicsRequestMsg())
-}
-
 func (client *APIClient) Heartbeat(ctx context.Context, msg string, brokerId uint64) (*paustqproto.Pong, error) {
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
