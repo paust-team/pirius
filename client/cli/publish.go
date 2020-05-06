@@ -19,7 +19,7 @@ func NewPublishCmd() *cobra.Command {
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := producer.NewProducer(bootstrapServer).WithTimeout(time.Duration(timeout))
+			client := producer.NewProducer(zkAddr).WithTimeout(time.Duration(timeout))
 			defer client.Close()
 
 			if client.Connect(ctx, topicName) != nil {

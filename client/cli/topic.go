@@ -2,12 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/zookeeper"
 	"github.com/spf13/cobra"
 	"log"
-	"math/rand"
 	"time"
 )
 
@@ -25,35 +23,15 @@ func NewCreateTopicCmd() *cobra.Command {
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			zkClient := zookeeper.NewZKClient(zkHost)
-			var brokerHost string
-			brokerHosts, err := zkClient.GetTopicBrokers(topicName)
-			if err != nil {
+
+			rpcClient := client.NewRPCClient(zkAddr)
+			defer rpcClient.Close()
+
+			if err := rpcClient.Connect(); err != nil {
 				log.Fatal(err)
 			}
 
-			if brokerHosts == nil {
-				brokers, err := zkClient.GetBrokers()
-				if err != nil {
-					log.Fatal(err)
-				}
-				if brokers == nil {
-					log.Fatal(errors.New("broker doesn't exists"))
-				}
-				randBrokerIndex := rand.Intn(len(brokers))
-				brokerHost = brokers[randBrokerIndex]
-			} else {
-				brokerHost = brokerHosts[0]
-			}
-
-			apiClient := client.NewAPIClient(brokerHost)
-			defer apiClient.Close()
-
-			if apiClient.Connect() != nil {
-				log.Fatal("cannot connect to broker")
-			}
-
-			if err := apiClient.CreateTopic(ctx, topicName, topicMeta, numPartition, replicationFactor); err != nil {
+			if err := rpcClient.CreateTopic(ctx, topicName, topicMeta, numPartition, replicationFactor); err != nil {
 				log.Fatal(err)
 			}
 
@@ -77,19 +55,15 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			zkClient := zookeeper.NewZKClient(zkHost)
-			brokers, err := zkClient.GetTopicBrokers(topicName)
-			if err != nil {
+
+			rpcClient := client.NewRPCClient(zkAddr).WithTimeout(time.Duration(timeout) * time.Second)
+			defer rpcClient.Close()
+
+			if err := rpcClient.Connect(); err != nil {
 				log.Fatal(err)
 			}
-			apiClient := client.NewAPIClient(brokers[0]).WithTimeout(time.Duration(timeout) * time.Second)
-			defer apiClient.Close()
 
-			if apiClient.Connect() != nil {
-				log.Fatal("cannot connect to broker")
-			}
-
-			if err := apiClient.DeleteTopic(ctx, topicName); err != nil {
+			if err := rpcClient.DeleteTopic(ctx, topicName); err != nil {
 				log.Fatal(err)
 			}
 
@@ -109,7 +83,7 @@ func NewListTopicCmd() *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			zkClient := zookeeper.NewZKClient(zkHost)
+			zkClient := zookeeper.NewZKClient(zkAddr)
 			defer zkClient.Close()
 
 			if zkClient.Connect() != nil {
@@ -139,7 +113,7 @@ func NewDescribeTopicCmd() *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			zkClient := zookeeper.NewZKClient(zkHost)
+			zkClient := zookeeper.NewZKClient(zkAddr)
 			brokers, err := zkClient.GetTopicBrokers(topicName)
 			if err != nil {
 				log.Fatal(err)

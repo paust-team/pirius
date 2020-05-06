@@ -7,7 +7,6 @@ import (
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/message"
 	paustq_proto "github.com/paust-team/paustq/proto"
-	"github.com/paust-team/paustq/zookeeper"
 	"sync"
 	"sync/atomic"
 )
@@ -15,7 +14,6 @@ import (
 type ConnectPipe struct {
 	session  *network.Session
 	notifier *internals.Notifier
-	zkClient *zookeeper.ZKClient
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
@@ -26,16 +24,12 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	notifier, ok := in[1].(*internals.Notifier)
 	casted = casted && ok
 
-	zkClient, ok := in[2].(*zookeeper.ZKClient)
-	casted = casted && ok
-
 	if !casted {
 		return errors.New("failed to build connect pipe")
 	}
 
 	c.session = session
 	c.notifier = notifier
-	c.zkClient = zkClient
 
 	return nil
 }

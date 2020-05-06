@@ -3,7 +3,9 @@ package producer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/paust-team/paustq/client"
+	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
@@ -14,21 +16,26 @@ import (
 )
 
 type Producer struct {
-	done          chan bool
-	doneWait      chan bool
-	client        *client.StreamClient
-	sourceChannel chan []byte
-	publishing    bool
-	waitGroup     sync.WaitGroup
-	timeout       time.Duration
-	chunkSize     uint32
-	zkClient    *zookeeper.ZKClient
+	done          	chan bool
+	doneWait      	chan bool
+	client        	*client.StreamClient
+	sourceChannel 	chan []byte
+	publishing    	bool
+	waitGroup     	sync.WaitGroup
+	timeout      	 time.Duration
+	chunkSize     	uint32
+	zkClient    	*zookeeper.ZKClient
+	brokerPort 		uint16
 }
 
 func NewProducer(zkHost string) *Producer {
-	defaultZkClient := zookeeper.NewZKClient(zkHost)
-	producer := &Producer{zkClient: defaultZkClient, publishing: false, chunkSize: 1024}
+	producer := &Producer{zkClient: zookeeper.NewZKClient(zkHost), publishing: false, chunkSize: 1024, brokerPort: common.DefaultBrokerPort}
 	return producer
+}
+
+func (p *Producer) WithBrokerPort(port uint16) *Producer {
+	p.brokerPort = port
+	return p
 }
 
 func (p *Producer) WithTimeout(timeout time.Duration) *Producer {
@@ -40,32 +47,33 @@ func (p *Producer) WithChunkSize(size uint32) *Producer {
 	p.chunkSize = size
 	return p
 }
-func (p *Producer) waitResponse(ctx context.Context) {
+func (p *Producer) waitResponse(ctx context.Context, bChan chan bool) {
 
-	receiveChan := make(chan client.ReceivedData)
-	go p.client.Receive(receiveChan)
+	for {
+		select {
+		case _, ok := <-bChan:
+			if ok {
+				msg, err := p.client.Receive()
 
-	select {
-	case res := <-receiveChan:
-
-		if res.Error != nil {
-			log.Fatal(res.Error)
-		} else if res.Msg == nil {
-			p.waitGroup.Done()
-			return
-		} else {
-			putRespMsg := &paustqproto.PutResponse{}
-			if res.Msg.UnpackTo(putRespMsg) != nil {
-				log.Fatal("Failed to parse data to PutResponse")
+				if err != nil {
+					log.Fatal(err)
+				} else if msg == nil {
+					return
+				} else {
+					putRespMsg := &paustqproto.PutResponse{}
+					if msg.UnpackTo(putRespMsg) != nil {
+						log.Fatal("Failed to parse data to PutResponse")
+					}
+					p.waitGroup.Done()
+				}
+			} else {
+				return
 			}
-			p.waitGroup.Done()
+		case <-p.done:
+			return
+		case <-ctx.Done():
+			return
 		}
-	case <-p.doneWait:
-		p.waitGroup.Done()
-		return
-	case <-ctx.Done():
-		p.waitGroup.Done()
-		return
 	}
 }
 
@@ -77,13 +85,15 @@ func (p *Producer) startPublish(ctx context.Context) {
 
 	p.sourceChannel = make(chan []byte)
 	p.done = make(chan bool)
-	p.doneWait = make(chan bool)
+
+	waitResponseCh := make(chan bool, 5) // buffered channel to wait response
+	go p.waitResponse(ctx, waitResponseCh)
 
 	go func() {
 
 		defer close(p.done)
-		defer close(p.doneWait)
 		defer close(p.sourceChannel)
+		defer close(waitResponseCh)
 
 		for {
 			select {
@@ -95,7 +105,8 @@ func (p *Producer) startPublish(ctx context.Context) {
 				if err = p.client.Send(reqMsg); err != nil {
 					log.Fatal(err)
 				}
-				go p.waitResponse(ctx)
+
+				waitResponseCh <- true
 
 			case <-p.done:
 				return
@@ -127,7 +138,7 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 		return err
 	}
 
-	var brokerHost string
+	var brokerAddr string
 
 	brokerHosts, err := p.zkClient.GetTopicBrokers(topicName)
 	if err != nil {
@@ -143,12 +154,13 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 			return errors.New("broker doesn't exists")
 		}
 		randBrokerIndex := rand.Intn(len(brokers))
-		brokerHost = brokers[randBrokerIndex]
+		brokerAddr = brokers[randBrokerIndex]
 	} else {
-		brokerHost = brokerHosts[0]
+		brokerAddr = brokerHosts[0]
 	}
 	// TODO:: Support partition for topic
-	p.client = client.NewStreamClient(brokerHost, paustqproto.SessionType_PUBLISHER)
+	brokerEndpoint := fmt.Sprintf("%s:%d", brokerAddr, p.brokerPort)
+	p.client = client.NewStreamClient(brokerEndpoint, paustqproto.SessionType_PUBLISHER)
 	return p.client.Connect(ctx, topicName)
 }
 

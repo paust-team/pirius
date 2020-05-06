@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
@@ -35,10 +34,9 @@ func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.C
 	err := s.zkClient.AddTopic(request.Topic.TopicName)
 	if err != nil {
 		if err == zk.ErrNodeExists {
-			return nil, errors.New("topic already exists")
-		} else {
-			return nil, err
+			return nil, status.Error(codes.AlreadyExists, "topic already exists")
 		}
+		return nil, err
 	}
 
 	if ctx.Err() == context.Canceled {

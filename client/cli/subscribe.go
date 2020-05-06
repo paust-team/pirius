@@ -18,7 +18,7 @@ func NewSubscribeCmd() *cobra.Command {
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := consumer.NewConsumer(bootstrapServer)
+			client := consumer.NewConsumer(zkAddr)
 			defer client.Close()
 
 			if client.Connect(ctx, topicName) != nil {

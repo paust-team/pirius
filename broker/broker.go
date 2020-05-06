@@ -6,6 +6,7 @@ import (
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/rpc"
 	"github.com/paust-team/paustq/broker/storage"
+	"github.com/paust-team/paustq/common"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc"
@@ -23,7 +24,7 @@ type Broker struct {
 	zkClient 			*zookeeper.ZKClient
 }
 
-func NewBroker(port uint16, zkAddr string) (*Broker, error) {
+func NewBroker(zkAddr string) (*Broker, error) {
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
 	if err != nil {
@@ -33,7 +34,12 @@ func NewBroker(port uint16, zkAddr string) (*Broker, error) {
 	notifier := internals.NewNotifier()
 	zkClient := zookeeper.NewZKClient(zkAddr)
 
-	return &Broker{Port: port, db: db, notifier: notifier, zkClient:zkClient}, nil
+	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient:zkClient}, nil
+}
+
+func (b *Broker) WithPort(port uint16) *Broker{
+	b.Port = port
+	return b
 }
 
 func (b *Broker) Start(ctx context.Context) error {
