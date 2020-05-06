@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"github.com/paust-team/paustq/broker/storage"
+	"github.com/paust-team/paustq/zookeeper"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc/codes"
@@ -17,10 +18,10 @@ type APIServiceServer struct {
 	GroupRPCService
 }
 
-func NewAPIServiceServer(db *storage.QRocksDB) *APIServiceServer {
+func NewAPIServiceServer(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *APIServiceServer {
 	return &APIServiceServer{
-		NewTopicRPCService(db),
-		NewPartitionRPCService(db),
+		NewTopicRPCService(db, zkClient),
+		NewPartitionRPCService(db, zkClient),
 		NewConfigRPCService(),
 		NewGroupRPCService(),
 	}

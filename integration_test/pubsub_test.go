@@ -20,7 +20,7 @@ import (
 )
 
 func SleepForBroker() {
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 }
 
 func readFromFileLineBy(fileName string) (int, [][]byte) {
@@ -54,13 +54,14 @@ func contains(s [][]byte, e []byte) bool {
 func TestClient_Connect(t *testing.T) {
 
 	ip := "127.0.0.1"
+	zkAddr := "127.0.0.1"
 	port := 9000
 	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx := context.Background()
 	topic := "test_topic1"
 
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -98,6 +99,7 @@ func TestClient_Connect(t *testing.T) {
 func TestPubSub(t *testing.T) {
 
 	ip := "127.0.0.1"
+	zkAddr := "127.0.0.1"
 	port := 9001
 
 	testRecordMap := map[string][][]byte{
@@ -114,7 +116,7 @@ func TestPubSub(t *testing.T) {
 	ctx2 := context.Background()
 
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -141,7 +143,7 @@ func TestPubSub(t *testing.T) {
 	zkClient := zookeeper.NewZKClient(zkHost)
 
 	defer zkClient.Close()
-	defer zkClient.DeleteAllPath()
+	defer zkClient.RemoveAllPath()
 
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
@@ -222,6 +224,7 @@ func TestPubsub_Chunk(t *testing.T) {
 
 	ip := "127.0.0.1"
 	port := 9002
+	zkAddr := "127.0.0.1"
 	var chunkSize uint32 = 1024
 
 	topic := "topic2"
@@ -231,7 +234,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	ctx2 := context.Background()
 
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -258,7 +261,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	zkClient := zookeeper.NewZKClient(zkHost)
 
 	defer zkClient.Close()
-	defer zkClient.DeleteAllPath()
+	defer zkClient.RemoveAllPath()
 
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
@@ -339,12 +342,13 @@ func TestMultiClient(t *testing.T) {
 
 	ip := "127.0.0.1"
 	port := 9003
+	zkAddr := "127.0.0.1"
 
 	topic := "topic3"
 
 	host := fmt.Sprintf("%s:%d", ip, port)
 
-	brokerInstance, err := broker.NewBroker(uint16(port))
+	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -371,7 +375,7 @@ func TestMultiClient(t *testing.T) {
 	zkClient := zookeeper.NewZKClient(zkHost)
 
 	defer zkClient.Close()
-	defer zkClient.DeleteAllPath()
+	defer zkClient.RemoveAllPath()
 
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
@@ -399,6 +403,7 @@ func TestMultiClient(t *testing.T) {
 	runProducer := func(ctx context.Context, fileName string) {
 		count, sendingRecords := readFromFileLineBy(fileName)
 		expectedSentCount += count
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
@@ -425,7 +430,7 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	wg.Add(3)
+	//g.Add(3)
 
 	runProducer(context.Background(), "data1.txt")
 	runProducer(context.Background(), "data2.txt")
@@ -501,6 +506,8 @@ func TestMultiBroker(t *testing.T) {
 	port1 := 9004
 	port2 := 9005
 
+	zkAddr := "127.0.0.1"
+
 	host1 := fmt.Sprintf("%s:%d", ip, port1)
 	host2 := fmt.Sprintf("%s:%d", ip, port2)
 
@@ -519,7 +526,7 @@ func TestMultiBroker(t *testing.T) {
 	}
 
 	// Start broker 1
-	brokerInstance1, err := broker.NewBroker(uint16(port1))
+	brokerInstance1, err := broker.NewBroker(uint16(port1), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -528,7 +535,7 @@ func TestMultiBroker(t *testing.T) {
 	defer brokerInstance1.Clean()
 
 	// Start broker 2
-	brokerInstance2, err := broker.NewBroker(uint16(port2))
+	brokerInstance2, err := broker.NewBroker(uint16(port2), zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -567,7 +574,7 @@ func TestMultiBroker(t *testing.T) {
 	zkClient := zookeeper.NewZKClient(zkHost)
 
 	defer zkClient.Close()
-	defer zkClient.DeleteAllPath()
+	defer zkClient.RemoveAllPath()
 
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
