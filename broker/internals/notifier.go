@@ -35,7 +35,7 @@ func (s *Notifier) AddTopic(topic *Topic) {
 	s.topicMap.Store(topic.Name(), topic)
 }
 
-func (s *Notifier) DeleteTopic(topicName string) {
+func (s *Notifier) RemoveTopic(topicName string) {
 	s.topicMap.Delete(topicName)
 }
 

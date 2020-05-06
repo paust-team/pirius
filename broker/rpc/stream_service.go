@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"sync"
 	"sync/atomic"
 )
@@ -16,11 +17,14 @@ import (
 type StreamServiceServer struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
+	zKClient *zookeeper.ZKClient
+	host 	 string
 	once     sync.Once
 }
 
-func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier) *StreamServiceServer {
-	return &StreamServiceServer{DB: db, Notifier: notifier}
+func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier,
+	zkClient *zookeeper.ZKClient, host string) *StreamServiceServer {
+	return &StreamServiceServer{DB: db, Notifier: notifier, zKClient:zkClient, host:host}
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
@@ -85,7 +89,7 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.Notifier)
+	err = connector.Build(sess, s.Notifier, s.zKClient)
 	if err != nil {
 		return err, nil
 	}
@@ -99,7 +103,7 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB)
+	err = putter.Build(sess, s.DB, s.zKClient, s.host)
 	if err != nil {
 		return err, nil
 	}
@@ -120,7 +124,6 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	if err = pl.Add(ctx, connectPipe, dispatchPipe.Outlets[0]); err != nil {
 		return err, nil
 	}
-
 	if err = pl.Add(ctx, fetchPipe, dispatchPipe.Outlets[1]); err != nil {
 		return err, nil
 	}

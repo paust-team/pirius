@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/paustq/broker/rpc"
 	"github.com/paust-team/paustq/broker/storage"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -15,12 +16,14 @@ import (
 
 type Broker struct {
 	Port      			uint16
+	host				string
 	grpcServer 			*grpc.Server
 	db                	*storage.QRocksDB
 	notifier          	*internals.Notifier
+	zkClient 			*zookeeper.ZKClient
 }
 
-func NewBroker(port uint16) (*Broker, error) {
+func NewBroker(port uint16, zkAddr string) (*Broker, error) {
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
 	if err != nil {
@@ -28,15 +31,34 @@ func NewBroker(port uint16) (*Broker, error) {
 	}
 
 	notifier := internals.NewNotifier()
+	zkClient := zookeeper.NewZKClient(zkAddr)
 
-	return &Broker{Port: port, db: db, notifier: notifier}, nil
+	return &Broker{Port: port, db: db, notifier: notifier, zkClient:zkClient}, nil
 }
 
 func (b *Broker) Start(ctx context.Context) error {
 
 	b.grpcServer = grpc.NewServer()
-	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db))
-	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier))
+	host := zookeeper.GetOutboundIP()
+	if !zookeeper.IsPublicIP(host) {
+		log.Println("cannot attach to broker from external network")
+	}
+
+	b.host = host.String()
+	if err := b.zkClient.Connect(); err != nil {
+		return err
+	}
+
+	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
+		return err
+	}
+
+	if err := b.zkClient.AddBroker(b.host); err != nil {
+		return err
+	}
+
+	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db, b.zkClient))
+	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host))
 
 	defer b.Stop()
 
@@ -76,7 +98,13 @@ func (b *Broker) Start(ctx context.Context) error {
 func (b *Broker) Stop() {
 	b.grpcServer.GracefulStop()
 	b.db.Close()
-	log.Println("stop broker")
+	b.zkClient.RemoveBroker(b.host)
+	topics, _ := b.zkClient.GetTopics()
+	for _, topic := range topics {
+		b.zkClient.RemoveTopicBroker(topic, b.host)
+	}
+	b.zkClient.Close()
+	log.Println("broker stopped")
 }
 
 func (b *Broker) Clean() {

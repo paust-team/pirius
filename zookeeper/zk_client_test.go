@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	zkClient.DeleteAllPath()
+	zkClient.RemoveAllPath()
 	zkClient.Close()
 	os.Exit(code)
 }
@@ -109,14 +109,14 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	}
 }
 
-func TestZKClient_DeleteTopic(t *testing.T) {
+func TestZKClient_RemoveTopic(t *testing.T) {
 	topic := "topic5"
 	err := zkClient.AddTopic(topic)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = zkClient.DeleteTopic(topic)
+	err = zkClient.RemoveTopic(topic)
 	if err != nil {
 		t.Error(err)
 	}
@@ -133,14 +133,14 @@ func TestZKClient_DeleteTopic(t *testing.T) {
 	}
 }
 
-func TestZKClient_DeleteBroker(t *testing.T) {
+func TestZKClient_RemoveBroker(t *testing.T) {
 	broker := "127.0.0.1"
 	err := zkClient.AddBroker(broker)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = zkClient.DeleteBroker(broker)
+	err = zkClient.RemoveBroker(broker)
 	if err != nil {
 		t.Error(err)
 	}
@@ -154,7 +154,7 @@ func TestZKClient_DeleteBroker(t *testing.T) {
 	}
 }
 
-func TestZKClient_DeleteTopicBroker(t *testing.T) {
+func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	topic := "topic4"
 	err := zkClient.AddTopic(topic)
 	if err != nil {
@@ -175,7 +175,7 @@ func TestZKClient_DeleteTopicBroker(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = zkClient.DeleteTopicBroker(topic, GetOutboundIP().String())
+	err = zkClient.RemoveTopicBroker(topic, GetOutboundIP().String())
 	if err != nil {
 		t.Error(err)
 	}

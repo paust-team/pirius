@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/paust-team/paustq/broker/storage"
+	"github.com/paust-team/paustq/zookeeper"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,10 +16,11 @@ type PartitionRPCService interface {
 
 type partitionRPCService struct {
 	DB *storage.QRocksDB
+	zkClient *zookeeper.ZKClient
 }
 
-func NewPartitionRPCService(db *storage.QRocksDB) *partitionRPCService {
-	return &partitionRPCService{db}
+func NewPartitionRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *partitionRPCService {
+	return &partitionRPCService{db, zkClient}
 }
 
 func (s *partitionRPCService) CreatePartition(ctx context.Context, request *paustqproto.CreatePartitionRequest) (*paustqproto.CreatePartitionResponse, error) {
