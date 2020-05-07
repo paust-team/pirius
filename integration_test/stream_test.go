@@ -162,7 +162,6 @@ func TestPubSub(t *testing.T) {
 			return
 		}
 	}
-
 	// Start producer
 	producerClient := producer.NewProducer(zkAddr)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
@@ -501,5 +500,3 @@ func TestMultiClient(t *testing.T) {
 		}
 	}
 }
-
-

@@ -17,7 +17,7 @@ type TopicRPCService interface {
 }
 
 type topicRPCService struct {
-	DB *storage.QRocksDB
+	DB       *storage.QRocksDB
 	zkClient *zookeeper.ZKClient
 }
 

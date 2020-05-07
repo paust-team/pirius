@@ -14,11 +14,11 @@ import (
 )
 
 type RPCClient struct {
-	zkClient 	*zookeeper.ZKClient
-	zkAddr 		string
-	brokerPort 	uint16
-	timeout   	time.Duration
-	Connected 	bool
+	zkClient   *zookeeper.ZKClient
+	zkAddr     string
+	brokerPort uint16
+	timeout    time.Duration
+	Connected  bool
 }
 
 func NewRPCClient(zkAddr string) *RPCClient {

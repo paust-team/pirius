@@ -16,12 +16,12 @@ import (
 )
 
 type Broker struct {
-	Port      			uint16
-	host				string
-	grpcServer 			*grpc.Server
-	db                	*storage.QRocksDB
-	notifier          	*internals.Notifier
-	zkClient 			*zookeeper.ZKClient
+	Port       uint16
+	host       string
+	grpcServer *grpc.Server
+	db         *storage.QRocksDB
+	notifier   *internals.Notifier
+	zkClient   *zookeeper.ZKClient
 }
 
 func NewBroker(zkAddr string) (*Broker, error) {
@@ -34,10 +34,10 @@ func NewBroker(zkAddr string) (*Broker, error) {
 	notifier := internals.NewNotifier()
 	zkClient := zookeeper.NewZKClient(zkAddr)
 
-	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient:zkClient}, nil
+	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient: zkClient}, nil
 }
 
-func (b *Broker) WithPort(port uint16) *Broker{
+func (b *Broker) WithPort(port uint16) *Broker {
 	b.Port = port
 	return b
 }
@@ -95,7 +95,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return nil
-	case err := <- errChan:
+	case err := <-errChan:
 		log.Println(err)
 		return err
 	}

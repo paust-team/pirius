@@ -16,15 +16,15 @@ import (
 )
 
 type Producer struct {
-	done          	chan bool
-	client        	*client.StreamClient
-	sourceChannel 	chan []byte
-	publishing    	bool
-	waitGroup     	sync.WaitGroup
-	timeout      	 time.Duration
-	chunkSize     	uint32
-	zkClient    	*zookeeper.ZKClient
-	brokerPort 		uint16
+	done          chan bool
+	client        *client.StreamClient
+	sourceChannel chan []byte
+	publishing    bool
+	waitGroup     sync.WaitGroup
+	timeout       time.Duration
+	chunkSize     uint32
+	zkClient      *zookeeper.ZKClient
+	brokerPort    uint16
 }
 
 func NewProducer(zkHost string) *Producer {

@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	dir  	string
-	port 	uint16
-	zkAddr	string
+	dir    string
+	port   uint16
+	zkAddr string
 )
 
 func NewStartCmd() *cobra.Command {
@@ -37,7 +37,7 @@ func NewStartCmd() *cobra.Command {
 
 	startCmd.Flags().StringVarP(&dir, "dir", "d", os.ExpandEnv("$HOME/.paustq"), "directory for data store")
 	startCmd.Flags().Uint16Var(&port, "port", common.DefaultBrokerPort, "broker port")
-	startCmd.Flags().StringVarP(&zkAddr, "zk-addr", "z","127.0.0.1", "zookeeper ip address")
+	startCmd.Flags().StringVarP(&zkAddr, "zk-addr", "z", "127.0.0.1", "zookeeper ip address")
 
 	startCmd.MarkFlagRequired("zk-addr")
 

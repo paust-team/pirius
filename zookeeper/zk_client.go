@@ -12,6 +12,7 @@ import (
 )
 
 type ZKPath string
+
 const (
 	PAUSTQ       ZKPath = "/paustq"
 	BROKERS      ZKPath = "/paustq/brokers"
@@ -26,7 +27,7 @@ func (zp ZKPath) string() string {
 
 type ZKClient struct {
 	zkAddr string
-	conn *zk.Conn
+	conn   *zk.Conn
 }
 
 func NewZKClient(zkAddr string) *ZKClient {
@@ -38,7 +39,7 @@ func NewZKClient(zkAddr string) *ZKClient {
 
 func (z *ZKClient) Connect() error {
 	var err error
-	z.conn, _, err =  zk.Connect([]string{z.zkAddr,}, time.Second * 3)
+	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*3)
 	if err != nil {
 		log.Println("failed to connect zookeeper", err)
 		return err
@@ -51,9 +52,8 @@ func (z *ZKClient) Close() {
 	z.conn.Close()
 }
 
-
 func (z *ZKClient) CreatePathsIfNotExist() error {
-	paths := []ZKPath{PAUSTQ, BROKERS, TOPICS,}
+	paths := []ZKPath{PAUSTQ, BROKERS, TOPICS}
 	for _, path := range paths {
 		err := z.createPathIfNotExists(path)
 		if err != nil {
@@ -64,7 +64,7 @@ func (z *ZKClient) CreatePathsIfNotExist() error {
 }
 
 func (z *ZKClient) createPathIfNotExists(path ZKPath) error {
-	ok, _, err  := z.conn.Exists(path.string())
+	ok, _, err := z.conn.Exists(path.string())
 	if err != nil {
 		log.Println("failed to request zookeeper while checking if path exists", err)
 		return err
@@ -72,7 +72,7 @@ func (z *ZKClient) createPathIfNotExists(path ZKPath) error {
 
 	if !ok {
 		_, err = z.conn.Create(path.string(), []byte{}, 0, zk.WorldACL(zk.PermAll))
-		if err != nil && err != zk.ErrNodeExists{
+		if err != nil && err != zk.ErrNodeExists {
 			log.Println("failed to request zookeeper while creating path ", path.string())
 			return err
 		}
@@ -184,11 +184,11 @@ func (z *ZKClient) GetBrokers() ([]string, error) {
 	}
 
 	brokersBytes, _, err := z.conn.Get(BROKERS.string())
-	if err != nil  {
+	if err != nil {
 		return nil, err
 	}
 
-	if len(brokersBytes) == 0  {
+	if len(brokersBytes) == 0 {
 		return nil, nil
 	}
 
@@ -291,7 +291,7 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(brokersBytes) == 0  {
+	if len(brokersBytes) == 0 {
 		return nil, nil
 	}
 
@@ -375,7 +375,6 @@ func (z *ZKClient) RemoveAllPath() {
 	}
 }
 
-
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -406,5 +405,3 @@ func IsPublicIP(IP net.IP) bool {
 	}
 	return false
 }
-
-

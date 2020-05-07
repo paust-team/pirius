@@ -18,13 +18,13 @@ type StreamServiceServer struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
 	zKClient *zookeeper.ZKClient
-	host 	 string
+	host     string
 	once     sync.Once
 }
 
 func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier,
 	zkClient *zookeeper.ZKClient, host string) *StreamServiceServer {
-	return &StreamServiceServer{DB: db, Notifier: notifier, zKClient:zkClient, host:host}
+	return &StreamServiceServer{DB: db, Notifier: notifier, zKClient: zkClient, host: host}
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {

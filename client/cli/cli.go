@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	zkAddr		 	string
-	logLevel        string
-	timeout         uint8
-	brokerPort		uint16
+	zkAddr     string
+	logLevel   string
+	timeout    uint8
+	brokerPort uint16
 )
 
 var paustQClientCmd = &cobra.Command{

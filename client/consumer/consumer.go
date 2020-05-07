@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
+	"log"
 	"time"
 )
 
@@ -18,7 +19,7 @@ type Consumer struct {
 	subscribing bool
 	timeout     time.Duration
 	zkClient    *zookeeper.ZKClient
-	brokerPort 		uint16
+	brokerPort  uint16
 }
 
 type SinkData struct {
@@ -48,7 +49,7 @@ func (c *Consumer) waitResponse(ctx context.Context) chan client.ReceivedData {
 	go func() {
 		defer close(onReceiveResponse)
 		for {
-			msg, err:= c.client.Receive()
+			msg, err := c.client.Receive()
 			select {
 			case onReceiveResponse <- client.ReceivedData{Error: err, Msg: msg}:
 			case <-c.done:
@@ -118,7 +119,7 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (chan Sink
 			c.Close()
 			return nil, err
 		}
-
+		log.Println(123)
 		return sinkChan, nil
 	}
 

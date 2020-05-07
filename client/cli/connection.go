@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	echoMsg  	string
-	brokerId 	uint64
-	brokerHost 	string
+	echoMsg    string
+	brokerId   uint64
+	brokerHost string
 )
 
 func NewHeartbeatCmd() *cobra.Command {

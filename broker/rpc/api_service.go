@@ -3,9 +3,9 @@ package rpc
 import (
 	"context"
 	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/zookeeper"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"

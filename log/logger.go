@@ -17,12 +17,12 @@ const (
 )
 
 const (
-	defaultLogFormat = "#%[1]s %[2]s %[3]s:::%.3[4]s"
+	defaultLogFormat  = "#%[1]s %[2]s %[3]s:::%.3[4]s"
 	defaultTimeFormat = "2006-01-02 15:04:05"
 )
 
 func logLevelString(logLevel LogLevel) string {
-	logLevelStrings := []string {
+	logLevelStrings := []string{
 		"Debug",
 		"Info",
 		"Warning",
@@ -37,11 +37,11 @@ func logLevelString(logLevel LogLevel) string {
 
 type QLogger struct {
 	*log.Logger
-	logLevel 		LogLevel
-	packageName 	string
-	fileName 		string
-	timeFormat 		string
-	logFormat 		string
+	logLevel    LogLevel
+	packageName string
+	fileName    string
+	timeFormat  string
+	logFormat   string
 }
 
 func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
