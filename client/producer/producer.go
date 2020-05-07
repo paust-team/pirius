@@ -17,7 +17,6 @@ import (
 
 type Producer struct {
 	done          	chan bool
-	doneWait      	chan bool
 	client        	*client.StreamClient
 	sourceChannel 	chan []byte
 	publishing    	bool

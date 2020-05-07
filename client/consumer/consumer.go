@@ -41,9 +41,31 @@ func (c *Consumer) WithTimeout(timeout time.Duration) *Consumer {
 	return c
 }
 
+func (c *Consumer) waitResponse(ctx context.Context) chan client.ReceivedData {
+
+	onReceiveResponse := make(chan client.ReceivedData)
+
+	go func() {
+		defer close(onReceiveResponse)
+		for {
+			msg, err:= c.client.Receive()
+			select {
+			case onReceiveResponse <- client.ReceivedData{Error: err, Msg: msg}:
+			case <-c.done:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return onReceiveResponse
+}
+
 func (c *Consumer) startSubscribe(ctx context.Context) chan SinkData {
 	c.done = make(chan bool)
 	sinkChannel := make(chan SinkData)
+
+	onReceiveChan := c.waitResponse(ctx)
 
 	go func() {
 		defer close(c.done)
@@ -53,13 +75,9 @@ func (c *Consumer) startSubscribe(ctx context.Context) chan SinkData {
 			return
 		}
 
-		onReceiveResponse := make(chan client.ReceivedData)
-
 		for {
-			c.client.AsyncReceive(onReceiveResponse)
-
 			select {
-			case res := <-onReceiveResponse:
+			case res := <-onReceiveChan:
 				if res.Error != nil {
 					sinkChannel <- SinkData{Error: res.Error}
 					return
