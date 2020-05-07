@@ -11,6 +11,8 @@ import (
 	"github.com/paust-team/paustq/client/producer"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io/ioutil"
 	"log"
 	"os"
@@ -50,18 +52,15 @@ func contains(s [][]byte, e []byte) bool {
 	return false
 }
 
+func TestStreamClient_Connect(t *testing.T) {
 
-func TestClient_Connect(t *testing.T) {
-
-	ip := "127.0.0.1"
 	zkAddr := "127.0.0.1"
-	port := 9000
-	host := fmt.Sprintf("%s:%d", ip, port)
+
 	ctx := context.Background()
 	topic := "test_topic1"
 
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
+	brokerInstance, err := broker.NewBroker(zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -84,7 +83,8 @@ func TestClient_Connect(t *testing.T) {
 	SleepForBroker()
 
 	// Start client
-	c := client.NewStreamClient(host, paustqproto.SessionType_ADMIN)
+	brokerHost := fmt.Sprintf("127.0.0.1:%d", brokerInstance.Port)
+	c := client.NewStreamClient(brokerHost, paustqproto.SessionType_ADMIN)
 
 	if err := c.Connect(ctx, topic); err != nil {
 		t.Error(err)
@@ -98,9 +98,7 @@ func TestClient_Connect(t *testing.T) {
 
 func TestPubSub(t *testing.T) {
 
-	ip := "127.0.0.1"
 	zkAddr := "127.0.0.1"
-	port := 9001
 
 	testRecordMap := map[string][][]byte{
 		"topic1": {
@@ -111,12 +109,20 @@ func TestPubSub(t *testing.T) {
 	topic := "topic1"
 	receivedRecordMap := make(map[string][][]byte)
 
-	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
 
+	// zk client to reset
+	zkClient := zookeeper.NewZKClient(zkAddr)
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer zkClient.Close()
+	defer zkClient.RemoveAllPath()
+
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
+	brokerInstance, err := broker.NewBroker(zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -138,32 +144,27 @@ func TestPubSub(t *testing.T) {
 
 	SleepForBroker()
 
-	// setup zookeeper
-	zkHost := "127.0.0.1"
-	zkClient := zookeeper.NewZKClient(zkHost)
+	// Create topic rpc
+	rpcClient := client.NewRPCClient(zkAddr)
+	if err := rpcClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer rpcClient.Close()
 
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
+	rpcCtx, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
 
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.CreatePathsIfNotExist(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopic(topic); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopicBroker(topic, host); err != nil {
-		t.Error(err)
-		return
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+		st := status.Convert(err)
+		if st.Code() != codes.AlreadyExists {
+			t.Error(err)
+			return
+		}
 	}
 
 	// Start producer
-	producerClient := producer.NewProducer(zkHost)
+	producerClient := producer.NewProducer(zkAddr)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
 		t.Error(err)
 		return
@@ -180,7 +181,7 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(zkHost)
+	consumerClient := consumer.NewConsumer(zkAddr)
 	if err := consumerClient.Connect(ctx2, topic); err != nil {
 		t.Error(err)
 		return
@@ -222,19 +223,25 @@ func TestPubSub(t *testing.T) {
 
 func TestPubsub_Chunk(t *testing.T) {
 
-	ip := "127.0.0.1"
-	port := 9002
 	zkAddr := "127.0.0.1"
 	var chunkSize uint32 = 1024
 
 	topic := "topic2"
 
-	host := fmt.Sprintf("%s:%d", ip, port)
 	ctx1 := context.Background()
 	ctx2 := context.Background()
 
+	// zk client to reset
+	zkClient := zookeeper.NewZKClient(zkAddr)
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer zkClient.Close()
+	defer zkClient.RemoveAllPath()
+
 	// Start broker
-	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
+	brokerInstance, err := broker.NewBroker(zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -256,32 +263,27 @@ func TestPubsub_Chunk(t *testing.T) {
 
 	SleepForBroker()
 
-	// setup zookeeper
-	zkHost := "127.0.0.1"
-	zkClient := zookeeper.NewZKClient(zkHost)
+	// Create topic rpc
+	rpcClient := client.NewRPCClient(zkAddr)
+	if err := rpcClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer rpcClient.Close()
 
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
+	rpcCtx, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
 
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.CreatePathsIfNotExist(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopic(topic); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopicBroker(topic, host); err != nil {
-		t.Error(err)
-		return
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+		st := status.Convert(err)
+		if st.Code() != codes.AlreadyExists {
+			t.Error(err)
+			return
+		}
 	}
 
 	// Start producer
-	producerClient := producer.NewProducer(zkHost).WithChunkSize(chunkSize)
+	producerClient := producer.NewProducer(zkAddr).WithChunkSize(chunkSize)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
 		t.Error(err)
 		return
@@ -302,9 +304,9 @@ func TestPubsub_Chunk(t *testing.T) {
 	}
 
 	expectedLen := len(data)
-	// Start consumer
 
-	consumerClient := consumer.NewConsumer(zkHost)
+	// Start consumer
+	consumerClient := consumer.NewConsumer(zkAddr)
 	if err := consumerClient.Connect(ctx2, topic); err != nil {
 		t.Error(err)
 		return
@@ -340,15 +342,19 @@ func TestPubsub_Chunk(t *testing.T) {
 
 func TestMultiClient(t *testing.T) {
 
-	ip := "127.0.0.1"
-	port := 9003
 	zkAddr := "127.0.0.1"
-
 	topic := "topic3"
 
-	host := fmt.Sprintf("%s:%d", ip, port)
+	// zk client to reset
+	zkClient := zookeeper.NewZKClient(zkAddr)
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer zkClient.Close()
+	defer zkClient.RemoveAllPath()
 
-	brokerInstance, err := broker.NewBroker(uint16(port), zkAddr)
+	brokerInstance, err := broker.NewBroker(zkAddr)
 	if err != nil {
 		t.Error(err)
 		return
@@ -370,29 +376,25 @@ func TestMultiClient(t *testing.T) {
 
 	SleepForBroker()
 
-	// setup zookeeper
-	zkHost := "127.0.0.1"
-	zkClient := zookeeper.NewZKClient(zkHost)
+	// Create topic rpc
+	rpcClient := client.NewRPCClient(zkAddr)
+	if err := rpcClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer rpcClient.Close()
 
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
+	rpcCtx, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
 
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+		st := status.Convert(err)
+		if st.Code() != codes.AlreadyExists {
+			t.Error(err)
+			return
+		}
 	}
-	if err := zkClient.CreatePathsIfNotExist(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopic(topic); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopicBroker(topic, host); err != nil {
-		t.Error(err)
-		return
-	}
+
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
@@ -407,7 +409,7 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(zkHost)
+			producerClient := producer.NewProducer(zkAddr)
 			if err := producerClient.Connect(ctx, topic); err != nil {
 				t.Error(err)
 				return
@@ -430,11 +432,11 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	//g.Add(3)
-
 	runProducer(context.Background(), "data1.txt")
 	runProducer(context.Background(), "data2.txt")
 	runProducer(context.Background(), "data3.txt")
+
+	time.Sleep(1 * time.Second)
 
 	// Start consumer
 	type ReceivedRecords [][]byte
@@ -447,7 +449,7 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			consumerClient := consumer.NewConsumer(zkHost)
+			consumerClient := consumer.NewConsumer(zkAddr)
 			if err := consumerClient.Connect(ctx, topic); err != nil {
 				t.Error(err)
 				return
@@ -498,183 +500,6 @@ func TestMultiClient(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestMultiBroker(t *testing.T) {
-
-	ip := "127.0.0.1"
-	port1 := 9004
-	port2 := 9005
-
-	zkAddr := "127.0.0.1"
-
-	host1 := fmt.Sprintf("%s:%d", ip, port1)
-	host2 := fmt.Sprintf("%s:%d", ip, port2)
-
-	topicLocal := "topic_local"
-	topicRemote := "topic_remote"
-
-	testRecordMap := map[string][][]byte {
-		topicLocal: {
-			{'g', 'o', 'o', 'g', 'l', 'e'},
-			{'p', 'a', 'u', 's', 't', 'q'},
-			{'1', '2', '3', '4', '5', '6'}},
-		topicRemote: {
-			{'G', 'O', 'O', 'G', 'L', 'E'},
-			{'P', 'A', 'U', 'S', 'T', 'Q'},
-			{'R', 'E', 'M', 'O', 'T', 'E'}},
-	}
-
-	// Start broker 1
-	brokerInstance1, err := broker.NewBroker(uint16(port1), zkAddr)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	brokerInstance1 = brokerInstance1
-	defer brokerInstance1.Clean()
-
-	// Start broker 2
-	brokerInstance2, err := broker.NewBroker(uint16(port2), zkAddr)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	brokerInstance2 = brokerInstance2
-	defer brokerInstance2.Clean()
-
-	defer SleepForBroker()
-
-	brokerCtx1, cancel1 := context.WithCancel(context.Background())
-	defer cancel1()
-
-	go func() {
-		err := brokerInstance1.Start(brokerCtx1)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-	}()
-
-	brokerCtx2, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
-
-	go func() {
-		err := brokerInstance2.Start(brokerCtx2)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-	}()
-
-	SleepForBroker()
-
-	// setup zookeeper
-	zkHost := "127.0.0.1"
-	zkClient := zookeeper.NewZKClient(zkHost)
-
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
-
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.CreatePathsIfNotExist(); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopic(topicLocal); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopicBroker(topicLocal, host1); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopic(topicRemote); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := zkClient.AddTopicBroker(topicRemote, host2); err != nil {
-		t.Error(err)
-		return
-	}
-
-	ctxProducer := context.Background()
-	ctxConsumer := context.Background()
-
-	// Start producer
-	testProducer := func(topic string) {
-		producerClient := producer.NewProducer(zkHost)
-		if err := producerClient.Connect(ctxProducer, topic); err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-
-		for _, record := range testRecordMap[topic] {
-			producerClient.Publish(ctxProducer, record)
-		}
-
-		producerClient.WaitAllPublishResponse()
-
-		if err := producerClient.Close(); err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-	}
-
-	testProducer(topicLocal)
-	testProducer(topicRemote)
-
-	// Start consumer
-	// consumer requests data for topicLocal and topicRemote to host1 only
-	testConsumer := func(topic string) {
-		receivedRecordMap := make(map[string][][]byte)
-		consumerClient := consumer.NewConsumer(zkHost)
-		if err := consumerClient.Connect(ctxConsumer, topic); err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-		subscribeCh, err := consumerClient.Subscribe(ctxConsumer, 0)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-		for response := range subscribeCh {
-			if response.Error != nil {
-				t.Error(response.Error)
-				os.Exit(1)
-			} else {
-				receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
-			}
-
-			// break on reach end
-			if response.LastOffset == response.Offset {
-				break
-			}
-		}
-
-		expectedResults := testRecordMap[topic]
-		receivedResults := receivedRecordMap[topic]
-		if len(expectedResults) != len(receivedResults) {
-			t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
-		}
-		for i, record := range expectedResults {
-			if bytes.Compare(receivedResults[i], record) != 0 {
-				t.Error("Record is not same")
-				os.Exit(1)
-			}
-		}
-
-		if err := consumerClient.Close(); err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
-	}
-
-	testConsumer(topicLocal)
-	testConsumer(topicRemote)
 }
 
 

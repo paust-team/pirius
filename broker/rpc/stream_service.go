@@ -89,7 +89,7 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.Notifier, s.zKClient)
+	err = connector.Build(sess, s.Notifier)
 	if err != nil {
 		return err, nil
 	}

@@ -28,9 +28,8 @@ func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *Str
 	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
 }
 
-func (client *StreamClient) Receive(receiveCh chan<- ReceivedData) {
-	msg, err := client.sockContainer.Read()
-	receiveCh <- ReceivedData{err, msg}
+func (client *StreamClient) Receive() (*message.QMessage, error) {
+	return client.sockContainer.Read()
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
