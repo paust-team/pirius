@@ -12,7 +12,13 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"os"
 	"time"
+)
+
+var (
+	DefaultLogDir = os.ExpandEnv("$HOME/.paustq/log")
+	DefaultDataDir = os.ExpandEnv("$HOME/.paustq/data")
 )
 
 type Broker struct {
@@ -22,19 +28,17 @@ type Broker struct {
 	db         *storage.QRocksDB
 	notifier   *internals.Notifier
 	zkClient   *zookeeper.ZKClient
+	logDir 		string
+	dataDir 	string
 }
 
 func NewBroker(zkAddr string) (*Broker, error) {
 
-	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), ".")
-	if err != nil {
-		return nil, err
-	}
-
 	notifier := internals.NewNotifier()
 	zkClient := zookeeper.NewZKClient(zkAddr)
 
-	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient: zkClient}, nil
+	return &Broker{Port: common.DefaultBrokerPort, notifier: notifier, zkClient: zkClient,
+		logDir: DefaultLogDir, dataDir: DefaultDataDir}, nil
 }
 
 func (b *Broker) WithPort(port uint16) *Broker {
@@ -42,8 +46,33 @@ func (b *Broker) WithPort(port uint16) *Broker {
 	return b
 }
 
+func (b *Broker) WithLogDir(dir string) *Broker {
+	b.logDir = dir
+	return b
+}
+
+func (b *Broker) WithDataDir(dir string) *Broker {
+	b.dataDir = dir
+	return b
+}
+
 func (b *Broker) Start(ctx context.Context) error {
 
+	// create directories
+	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(b.logDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), b.dataDir)
+	if err != nil {
+		return err
+	}
+	b.db = db
+
+	// start grpc server
 	b.grpcServer = grpc.NewServer()
 	host := zookeeper.GetOutboundIP()
 	if !zookeeper.IsPublicIP(host) {
@@ -115,4 +144,6 @@ func (b *Broker) Stop() {
 
 func (b *Broker) Clean() {
 	_ = b.db.Destroy()
+	os.RemoveAll(b.logDir)
+	os.RemoveAll(b.dataDir)
 }

@@ -6,13 +6,13 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/spf13/cobra"
 	"log"
-	"os"
 )
 
 var (
-	dir    string
-	port   uint16
-	zkAddr string
+	logDir    	string
+	dataDir    	string
+	port   		uint16
+	zkAddr 		string
 )
 
 func NewStartCmd() *cobra.Command {
@@ -35,7 +35,8 @@ func NewStartCmd() *cobra.Command {
 		},
 	}
 
-	startCmd.Flags().StringVarP(&dir, "dir", "d", os.ExpandEnv("$HOME/.paustq"), "directory for data store")
+	startCmd.Flags().StringVar(&logDir, "log-dir", broker.DefaultLogDir, "log directory")
+	startCmd.Flags().StringVar(&dataDir, "data-dir", broker.DefaultDataDir, "data directory")
 	startCmd.Flags().Uint16Var(&port, "port", common.DefaultBrokerPort, "broker port")
 	startCmd.Flags().StringVarP(&zkAddr, "zk-addr", "z", "127.0.0.1", "zookeeper ip address")
 

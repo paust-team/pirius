@@ -16,7 +16,7 @@ var paustQCmd = &cobra.Command{
 
 func Main() {
 
-	paustQCmd.Flags().StringVarP(&logLevel, "log-level", "l", "info", "set log level [debug|info|error|none]")
+	paustQCmd.Flags().StringVar(&logLevel, "log-level", "1", "set log level [0=debug|1=info|2=warning|3=error]")
 
 	paustQCmd.AddCommand(
 		NewStartCmd(),
