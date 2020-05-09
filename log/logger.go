@@ -19,7 +19,7 @@ const (
 )
 
 const (
-	defaultLogFormat  = "#%.3[1]d %[2]s %[3]s %[4]s:::%.3[5]s"
+	defaultLogFormat  = "#%.3[1]d %[2]s %[3]s [%[4]s]: %[5]s"
 	defaultTimeFormat = "2006-01-02 15:04:05"
 )
 
@@ -52,20 +52,20 @@ type QLogger struct {
 func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
 	rand.Seed(time.Now().UnixNano())
 	loggerId := rand.Intn(900) + 100
-	l := log.New(os.Stderr, "", log.Llongfile)
+	l := log.New(os.Stderr, "", 0)
 
 	return &QLogger{id: loggerId, packageName: packageName, logLevel: logLevel, Logger: l, timeFormat: defaultTimeFormat,
 		logFormat: defaultLogFormat, file: nil}
 }
 
 func (l *QLogger) WithFile(logPath string) *QLogger {
-	fpLog, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	fpLog, err := os.OpenFile(logPath+"/log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil { panic(err) }
 
 	l.file = fpLog
 
 	multiWriter := io.MultiWriter(fpLog, os.Stderr)
-	log.SetOutput(multiWriter)
+	l.Logger.SetOutput(multiWriter)
 
 	return l
 }
@@ -94,11 +94,11 @@ func (l *QLogger) log(level LogLevel, msg string) {
 		return
 	}
 	tFmt := time.Now().Format(l.timeFormat)
-	_ = l.Output(2, fmt.Sprintf(l.logFormat, l.id, tFmt, l.packageName, logLevelString(level), msg))
+	_ = l.Output(3, fmt.Sprintf(l.logFormat, l.id, tFmt, l.packageName, logLevelString(level), msg))
 }
 
 func (l *QLogger) Debug(v ...interface{}) {
-	l.log(LogLevelDebug, fmt.Sprintln(v))
+	l.log(LogLevelDebug, fmt.Sprintln(v...))
 }
 
 func (l *QLogger) DebugF(format string, v ...interface{}) {
@@ -106,7 +106,7 @@ func (l *QLogger) DebugF(format string, v ...interface{}) {
 }
 
 func (l *QLogger) Info(v ...interface{}) {
-	l.log(LogLevelInfo, fmt.Sprintln(v))
+	l.log(LogLevelInfo, fmt.Sprintln(v...))
 }
 
 func (l *QLogger) InfoF(format string, v ...interface{}) {
@@ -114,7 +114,7 @@ func (l *QLogger) InfoF(format string, v ...interface{}) {
 }
 
 func (l *QLogger) Warning(v ...interface{}) {
-	l.log(LogLevelWarning, fmt.Sprintln(v))
+	l.log(LogLevelWarning, fmt.Sprintln(v...))
 }
 
 func (l *QLogger) WarningF(format string, v ...interface{}) {
@@ -122,7 +122,7 @@ func (l *QLogger) WarningF(format string, v ...interface{}) {
 }
 
 func (l *QLogger) Error(v ...interface{}) {
-	l.log(LogLevelError, fmt.Sprintln(v))
+	l.log(LogLevelError, fmt.Sprintln(v...))
 }
 
 func (l *QLogger) ErrorF(format string, v ...interface{}) {

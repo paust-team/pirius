@@ -7,10 +7,10 @@ import (
 	"github.com/paust-team/paustq/broker/rpc"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/common"
+	"github.com/paust-team/paustq/log"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -19,6 +19,7 @@ import (
 var (
 	DefaultLogDir = os.ExpandEnv("$HOME/.paustq/log")
 	DefaultDataDir = os.ExpandEnv("$HOME/.paustq/data")
+	DefaultLogLevel = logger.LogLevelInfo
 )
 
 type Broker struct {
@@ -28,17 +29,18 @@ type Broker struct {
 	db         *storage.QRocksDB
 	notifier   *internals.Notifier
 	zkClient   *zookeeper.ZKClient
+	printLogLevel logger.LogLevel
 	logDir 		string
 	dataDir 	string
+	logger 		*logger.QLogger
 }
 
-func NewBroker(zkAddr string) (*Broker, error) {
+func NewBroker(zkAddr string) *Broker {
 
 	notifier := internals.NewNotifier()
 	zkClient := zookeeper.NewZKClient(zkAddr)
-
 	return &Broker{Port: common.DefaultBrokerPort, notifier: notifier, zkClient: zkClient,
-		logDir: DefaultLogDir, dataDir: DefaultDataDir}, nil
+		logDir: DefaultLogDir, dataDir: DefaultDataDir, printLogLevel: DefaultLogLevel}
 }
 
 func (b *Broker) WithPort(port uint16) *Broker {
@@ -56,6 +58,11 @@ func (b *Broker) WithDataDir(dir string) *Broker {
 	return b
 }
 
+func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
+	b.printLogLevel = level
+	return b
+}
+
 func (b *Broker) Start(ctx context.Context) error {
 
 	// create directories
@@ -65,6 +72,9 @@ func (b *Broker) Start(ctx context.Context) error {
 	if err := os.MkdirAll(b.logDir, os.ModePerm); err != nil {
 		return err
 	}
+
+	b.logger = logger.NewQLogger("Broker", b.printLogLevel).WithFile(DefaultLogDir)
+	defer b.logger.Close()
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), b.dataDir)
 	if err != nil {
@@ -76,7 +86,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	b.grpcServer = grpc.NewServer()
 	host := zookeeper.GetOutboundIP()
 	if !zookeeper.IsPublicIP(host) {
-		log.Println("cannot attach to broker from external network")
+		b.logger.Warning("cannot attach to broker from external network")
 	}
 
 	b.host = host.String()
@@ -106,26 +116,24 @@ func (b *Broker) Start(ctx context.Context) error {
 
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
-			log.Printf("failed to listen: %v", err)
 			errChan <- err
 			return
 		}
 
 		if err = server.Serve(lis); err != nil {
-			log.Println(err)
 			errChan <- err
 		}
 	}
 
 	go startGrpcServer(b.grpcServer, b.Port)
 
-	log.Printf("start broker with port: %d", b.Port)
+	b.logger.InfoF("start broker with port: %d", b.Port)
 
 	select {
 	case <-ctx.Done():
 		return nil
 	case err := <-errChan:
-		log.Println(err)
+		b.logger.Error(err)
 		return err
 	}
 }
@@ -139,7 +147,7 @@ func (b *Broker) Stop() {
 		b.zkClient.RemoveTopicBroker(topic, b.host)
 	}
 	b.zkClient.Close()
-	log.Println("broker stopped")
+	b.logger.Info("broker stopped")
 }
 
 func (b *Broker) Clean() {
