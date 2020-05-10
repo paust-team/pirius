@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	logDir    	string
-	dataDir    	string
-	logLevel	uint8
-	port   		uint16
-	zkAddr 		string
+	logDir   string
+	dataDir  string
+	logLevel uint8
+	port     uint16
+	zkAddr   string
 )
 
 func NewStartCmd() *cobra.Command {

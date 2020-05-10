@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	topicName         string
-	topicMeta         string
+	topicName string
+	topicMeta string
 )
 
 func NewTopicCmd() *cobra.Command {

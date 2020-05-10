@@ -16,26 +16,26 @@ import (
 )
 
 type Producer struct {
-	done          	chan bool
-	client        	*client.StreamClient
-	sourceChannel 	chan []byte
-	publishing    	bool
-	waitGroup     	sync.WaitGroup
-	timeout       	time.Duration
-	chunkSize     	uint32
-	zkClient      	*zookeeper.ZKClient
-	brokerPort    	uint16
-	logger 			*logger.QLogger
+	done          chan bool
+	client        *client.StreamClient
+	sourceChannel chan []byte
+	publishing    bool
+	waitGroup     sync.WaitGroup
+	timeout       time.Duration
+	chunkSize     uint32
+	zkClient      *zookeeper.ZKClient
+	brokerPort    uint16
+	logger        *logger.QLogger
 }
 
 func NewProducer(zkHost string) *Producer {
 	l := logger.NewQLogger("Producer", logger.LogLevelInfo)
 	producer := &Producer{
-		zkClient: zookeeper.NewZKClient(zkHost).WithLogger(l),
+		zkClient:   zookeeper.NewZKClient(zkHost).WithLogger(l),
 		publishing: false,
-		chunkSize: 1024,
+		chunkSize:  1024,
 		brokerPort: common.DefaultBrokerPort,
-		logger: l,
+		logger:     l,
 	}
 	return producer
 }

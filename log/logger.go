@@ -40,26 +40,26 @@ func logLevelString(logLevel LogLevel) string {
 
 type QLogger struct {
 	*log.Logger
-	id 			int
+	id          int
 	logLevel    LogLevel
 	packageName string
 	fileName    string
 	timeFormat  string
 	logFormat   string
-	file 		*os.File
+	file        *os.File
 }
 
 func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
 	rand.Seed(time.Now().UnixNano())
 
 	return &QLogger{
-		id: rand.Intn(900) + 100,
+		id:          rand.Intn(900) + 100,
 		packageName: packageName,
-		logLevel: logLevel,
-		Logger: log.New(os.Stderr, "", 0),
-		timeFormat: defaultTimeFormat,
-		logFormat: defaultLogFormat,
-		file: nil,
+		logLevel:    logLevel,
+		Logger:      log.New(os.Stderr, "", 0),
+		timeFormat:  defaultTimeFormat,
+		logFormat:   defaultLogFormat,
+		file:        nil,
 	}
 }
 
@@ -72,7 +72,9 @@ func (l *QLogger) Inherit(parent *QLogger) {
 
 func (l *QLogger) WithFile(logPath string) *QLogger {
 	fpLog, err := os.OpenFile(logPath+"/log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	l.file = fpLog
 

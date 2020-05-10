@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	chunkSize	uint32
-	filePath 	string
+	chunkSize uint32
+	filePath  string
 )
 
 func NewPublishCmd() *cobra.Command {

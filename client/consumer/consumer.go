@@ -20,7 +20,7 @@ type Consumer struct {
 	timeout     time.Duration
 	zkClient    *zookeeper.ZKClient
 	brokerPort  uint16
-	logger 		*logger.QLogger
+	logger      *logger.QLogger
 }
 
 type SinkData struct {
@@ -32,10 +32,10 @@ type SinkData struct {
 func NewConsumer(zkHost string) *Consumer {
 	l := logger.NewQLogger("Consumer", logger.LogLevelInfo)
 	return &Consumer{
-		zkClient: zookeeper.NewZKClient(zkHost).WithLogger(l),
+		zkClient:    zookeeper.NewZKClient(zkHost).WithLogger(l),
 		subscribing: false,
-		brokerPort: common.DefaultBrokerPort,
-		logger: l,
+		brokerPort:  common.DefaultBrokerPort,
+		logger:      l,
 	}
 }
 
@@ -148,9 +148,9 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (chan Sink
 		}
 		return sinkChan, nil
 	} else {
-		err :=  errors.New("already subscribing")
+		err := errors.New("already subscribing")
 		c.logger.Error(err)
-		return nil,	err
+		return nil, err
 	}
 }
 

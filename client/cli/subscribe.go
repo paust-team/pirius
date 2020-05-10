@@ -44,7 +44,7 @@ func NewSubscribeCmd() *cobra.Command {
 
 			for {
 				select {
-				case response := <- subscribeChan:
+				case response := <-subscribeChan:
 					if response.Error != nil {
 						fmt.Println(response.Error)
 						os.Exit(1)

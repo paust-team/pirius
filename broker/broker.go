@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	DefaultLogDir = os.ExpandEnv("$HOME/.paustq/log")
-	DefaultDataDir = os.ExpandEnv("$HOME/.paustq/data")
+	DefaultLogDir   = os.ExpandEnv("$HOME/.paustq/log")
+	DefaultDataDir  = os.ExpandEnv("$HOME/.paustq/data")
 	DefaultLogLevel = logger.LogLevelInfo
 )
 
@@ -29,9 +29,9 @@ type Broker struct {
 	db         *storage.QRocksDB
 	notifier   *internals.Notifier
 	zkClient   *zookeeper.ZKClient
-	logDir 		string
-	dataDir 	string
-	logger 		*logger.QLogger
+	logDir     string
+	dataDir    string
+	logger     *logger.QLogger
 }
 
 func NewBroker(zkAddr string) *Broker {
@@ -41,12 +41,12 @@ func NewBroker(zkAddr string) *Broker {
 	zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(l)
 
 	return &Broker{
-		Port: common.DefaultBrokerPort,
+		Port:     common.DefaultBrokerPort,
 		notifier: notifier,
 		zkClient: zkClient,
-		logDir: DefaultLogDir,
-		dataDir: DefaultDataDir,
-		logger: l,
+		logDir:   DefaultLogDir,
+		dataDir:  DefaultDataDir,
+		logger:   l,
 	}
 }
 
@@ -71,7 +71,6 @@ func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
 }
 
 func (b *Broker) Start(ctx context.Context) error {
-
 
 	// create directories for log and db
 	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
