@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"github.com/paust-team/paustq/client/consumer"
 	"github.com/spf13/cobra"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -19,28 +22,47 @@ func NewSubscribeCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			client := consumer.NewConsumer(zkAddr)
+
+			if err := client.Connect(ctx, topicName); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
 			defer client.Close()
 
-			if client.Connect(ctx, topicName) != nil {
-				log.Fatal("cannot connect to broker")
-			}
 			subscribeChan, err := client.Subscribe(ctx, startOffset)
 			if err != nil {
-				log.Fatal(err)
+				fmt.Println(err)
+				os.Exit(1)
 			}
-			for response := range subscribeChan {
-				if response.Error != nil {
-					log.Fatal(response.Error)
-				} else {
-					log.Println("received topic data: ", response.Data)
+
+			sigCh := make(chan os.Signal, 1)
+			defer close(sigCh)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+			defer fmt.Println("done subscribe")
+
+			for {
+				select {
+				case response := <- subscribeChan:
+					if response.Error != nil {
+						fmt.Println(response.Error)
+						os.Exit(1)
+					} else {
+						fmt.Println("received topic data:", response.Data)
+					}
+				case sig := <-sigCh:
+					fmt.Println("received signal:", sig)
+					return
 				}
 			}
 		},
 	}
 
-	subscribeCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to subscribe from")
-	subscribeCmd.MarkFlagRequired("topic")
+	subscribeCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to subscribe from")
 	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
+
+	subscribeCmd.MarkFlagRequired("topic")
 
 	return subscribeCmd
 }

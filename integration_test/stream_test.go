@@ -150,7 +150,7 @@ func TestPubSub(t *testing.T) {
 	rpcCtx, cancel2 := context.WithCancel(context.Background())
 	defer cancel2()
 
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
 		st := status.Convert(err)
 		if st.Code() != codes.AlreadyExists {
 			t.Error(err)
@@ -264,7 +264,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	rpcCtx, cancel2 := context.WithCancel(context.Background())
 	defer cancel2()
 
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
 		st := status.Convert(err)
 		if st.Code() != codes.AlreadyExists {
 			t.Error(err)
@@ -373,7 +373,7 @@ func TestMultiClient(t *testing.T) {
 	rpcCtx, cancel2 := context.WithCancel(context.Background())
 	defer cancel2()
 
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 0, 0); err != nil {
+	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
 		st := status.Convert(err)
 		if st.Code() != codes.AlreadyExists {
 			t.Error(err)

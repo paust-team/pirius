@@ -46,8 +46,7 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	ro := gorocksdb.NewDefaultReadOptions()
 	ro.SetTailing(true)
 	wo := gorocksdb.NewDefaultWriteOptions()
-	rocksdb := &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}
-	return rocksdb, nil
+	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
 func (db QRocksDB) Flush() error {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/paust-team/paustq/client"
 	"github.com/spf13/cobra"
-	"log"
+	"os"
 	"time"
 )
 
@@ -25,16 +25,17 @@ func NewHeartbeatCmd() *cobra.Command {
 			rpcClient := client.NewRPCClient(zkAddr).WithTimeout(time.Duration(timeout) * time.Second)
 			defer rpcClient.Close()
 
-			if rpcClient.Connect() != nil {
-				log.Fatal("cannot connect to broker")
+			if err := rpcClient.Connect(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
 			}
 			brokerEndpoint := fmt.Sprintf("%s:%d", brokerHost, brokerPort)
 			pongMsg, err := rpcClient.Heartbeat(ctx, echoMsg, brokerId, brokerEndpoint)
 			if err != nil {
-				log.Fatal(err)
+				fmt.Println(err)
+				os.Exit(1)
 			}
-
-			log.Printf("echo msg: %s, server version: %d", pongMsg.Echo, pongMsg.ServerVersion)
+			fmt.Printf("echo msg: %s, server version: %d", pongMsg.Echo, pongMsg.ServerVersion)
 		},
 	}
 

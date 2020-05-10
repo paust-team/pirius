@@ -48,6 +48,7 @@ func (z *ZKClient) Connect() error {
 	var err error
 	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*3, zk.WithLogger(z.logger))
 	if err != nil {
+		z.logger.Error(err)
 		return err
 	}
 
@@ -63,6 +64,7 @@ func (z *ZKClient) CreatePathsIfNotExist() error {
 	for _, path := range paths {
 		err := z.createPathIfNotExists(path)
 		if err != nil {
+			z.logger.Error(err)
 			return err
 		}
 	}
@@ -72,12 +74,14 @@ func (z *ZKClient) CreatePathsIfNotExist() error {
 func (z *ZKClient) createPathIfNotExists(path ZKPath) error {
 	ok, _, err := z.conn.Exists(path.string())
 	if err != nil {
+		z.logger.Error(err)
 		return err
 	}
 
 	if !ok {
 		_, err = z.conn.Create(path.string(), []byte{}, 0, zk.WorldACL(zk.PermAll))
 		if err != nil && err != zk.ErrNodeExists {
+			z.logger.Error(err)
 			return err
 		}
 	}
@@ -104,6 +108,7 @@ func (z *ZKClient) AddTopic(topic string) error {
 
 	_, err = z.conn.Create(topicPath(topic), nil, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
+		z.logger.Error(err)
 		return err
 	}
 	return nil
@@ -115,11 +120,13 @@ func (z *ZKClient) GetTopics() ([]string, error) {
 	defer tLock.Unlock()
 
 	if err != nil {
+		z.logger.Error(err)
 		return nil, err
 	}
 
 	topics, _, err := z.conn.Children(TOPICS.string())
 	if err != nil {
+		z.logger.Error(err)
 		return nil, err
 	}
 	if len(topics) > 0 {
@@ -134,10 +141,12 @@ func (z *ZKClient) RemoveTopic(topic string) error {
 	defer tLock.Unlock()
 
 	if err != nil {
+		z.logger.Error(err)
 		return err
 	}
 
 	if err = z.conn.Delete(topicPath(topic), -1); err != nil {
+		z.logger.Error(err)
 		return err
 	}
 	return nil

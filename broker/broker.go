@@ -92,6 +92,7 @@ func (b *Broker) Start(ctx context.Context) error {
 		return err
 	}
 	b.db = db
+	b.logger.Info("connected to rocksdb")
 
 	// start grpc server
 	b.grpcServer = grpc.NewServer()
@@ -149,6 +150,7 @@ func (b *Broker) Start(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		b.logger.Info("received context done")
 		return nil
 	case err := <-errChan:
 		b.logger.Error(err)
@@ -159,16 +161,21 @@ func (b *Broker) Start(ctx context.Context) error {
 func (b *Broker) Stop() {
 	b.grpcServer.GracefulStop()
 	b.db.Close()
-	b.zkClient.RemoveBroker(b.host)
+	if err := b.zkClient.RemoveBroker(b.host); err != nil {
+		b.logger.Error(err)
+	}
 	topics, _ := b.zkClient.GetTopics()
 	for _, topic := range topics {
-		b.zkClient.RemoveTopicBroker(topic, b.host)
+		if err := b.zkClient.RemoveTopicBroker(topic, b.host); err != nil {
+			b.logger.Error(err)
+		}
 	}
 	b.zkClient.Close()
 	b.logger.Info("broker stopped")
 }
 
 func (b *Broker) Clean() {
+	b.logger.Info("clean broker")
 	_ = b.db.Destroy()
 	os.RemoveAll(b.logDir)
 	os.RemoveAll(b.dataDir)
