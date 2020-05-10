@@ -89,6 +89,14 @@ func (l *QLogger) Close() {
 	}
 }
 
+func (l *QLogger) PrintTrace(print bool) {
+	if print {
+		l.Logger.SetFlags(log.Llongfile)
+	} else {
+		l.Logger.SetFlags(0)
+	}
+}
+
 func (l *QLogger) SetLogLevel(logLevel LogLevel) {
 	l.logLevel = logLevel
 }
