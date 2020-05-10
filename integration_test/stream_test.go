@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+var testLogLevel = logger.LogLevelDebug
+
 func SleepForBroker() {
 	time.Sleep(1 * time.Second)
 }
@@ -61,7 +63,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
 
 	defer brokerInstance.Clean()
 	defer SleepForBroker()
@@ -119,7 +121,7 @@ func TestPubSub(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
 
 	defer brokerInstance.Clean()
 	defer SleepForBroker()
@@ -156,7 +158,7 @@ func TestPubSub(t *testing.T) {
 		}
 	}
 	// Start producer
-	producerClient := producer.NewProducer(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	producerClient := producer.NewProducer(zkAddr).WithLogLevel(testLogLevel)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
 		t.Error(err)
 		return
@@ -173,7 +175,7 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
 	if err := consumerClient.Connect(ctx2, topic); err != nil {
 		t.Error(err)
 		return
@@ -233,7 +235,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
 
 	defer brokerInstance.Clean()
 	defer SleepForBroker()
@@ -271,7 +273,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	}
 
 	// Start producer
-	producerClient := producer.NewProducer(zkAddr).WithChunkSize(chunkSize).WithLogLevel(logger.LogLevelDebug)
+	producerClient := producer.NewProducer(zkAddr).WithChunkSize(chunkSize).WithLogLevel(testLogLevel)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
 		t.Error(err)
 		return
@@ -294,7 +296,7 @@ func TestPubsub_Chunk(t *testing.T) {
 	expectedLen := len(data)
 
 	// Start consumer
-	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
 	if err := consumerClient.Connect(ctx2, topic); err != nil {
 		t.Error(err)
 		return
@@ -342,7 +344,7 @@ func TestMultiClient(t *testing.T) {
 	defer zkClient.Close()
 	defer zkClient.RemoveAllPath()
 
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(logger.LogLevelDebug)
+	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
 
 	defer brokerInstance.Clean()
 	defer SleepForBroker()
@@ -393,7 +395,7 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			producerClient := producer.NewProducer(zkAddr).WithLogLevel(logger.LogLevelDebug)
+			producerClient := producer.NewProducer(zkAddr).WithLogLevel(testLogLevel)
 			if err := producerClient.Connect(ctx, topic); err != nil {
 				t.Error(err)
 				return
@@ -433,7 +435,7 @@ func TestMultiClient(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(logger.LogLevelDebug)
+			consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
 			if err := consumerClient.Connect(ctx, topic); err != nil {
 				t.Error(err)
 				return

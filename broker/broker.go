@@ -29,7 +29,6 @@ type Broker struct {
 	db         *storage.QRocksDB
 	notifier   *internals.Notifier
 	zkClient   *zookeeper.ZKClient
-	printLogLevel logger.LogLevel
 	logDir 		string
 	dataDir 	string
 	logger 		*logger.QLogger
@@ -38,9 +37,17 @@ type Broker struct {
 func NewBroker(zkAddr string) *Broker {
 
 	notifier := internals.NewNotifier()
-	zkClient := zookeeper.NewZKClient(zkAddr)
-	return &Broker{Port: common.DefaultBrokerPort, notifier: notifier, zkClient: zkClient,
-		logDir: DefaultLogDir, dataDir: DefaultDataDir, printLogLevel: DefaultLogLevel}
+	l := logger.NewQLogger("Broker", DefaultLogLevel)
+	zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(l)
+
+	return &Broker{
+		Port: common.DefaultBrokerPort,
+		notifier: notifier,
+		zkClient: zkClient,
+		logDir: DefaultLogDir,
+		dataDir: DefaultDataDir,
+		logger: l,
+	}
 }
 
 func (b *Broker) WithPort(port uint16) *Broker {
@@ -59,46 +66,57 @@ func (b *Broker) WithDataDir(dir string) *Broker {
 }
 
 func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
-	b.printLogLevel = level
+	b.logger.SetLogLevel(level)
 	return b
 }
 
 func (b *Broker) Start(ctx context.Context) error {
 
-	// create directories
+
+	// create directories for log and db
 	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
+		b.logger.Error(err)
 		return err
 	}
 	if err := os.MkdirAll(b.logDir, os.ModePerm); err != nil {
+		b.logger.Error(err)
 		return err
 	}
 
-	b.logger = logger.NewQLogger("Broker", b.printLogLevel).WithFile(DefaultLogDir)
+	b.logger = b.logger.WithFile(DefaultLogDir)
 	defer b.logger.Close()
 
 	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), b.dataDir)
 	if err != nil {
+		b.logger.Error(err)
 		return err
 	}
 	b.db = db
 
 	// start grpc server
 	b.grpcServer = grpc.NewServer()
-	host := zookeeper.GetOutboundIP()
+	host, err := zookeeper.GetOutboundIP()
+	if err != nil {
+		b.logger.Error(err)
+		return err
+	}
 	if !zookeeper.IsPublicIP(host) {
 		b.logger.Warning("cannot attach to broker from external network")
 	}
 
 	b.host = host.String()
 	if err := b.zkClient.Connect(); err != nil {
+		b.logger.ErrorF("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
+		b.logger.ErrorF("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.AddBroker(b.host); err != nil {
+		b.logger.ErrorF("zk error: %v", err)
 		return err
 	}
 

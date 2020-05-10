@@ -51,11 +51,23 @@ type QLogger struct {
 
 func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
 	rand.Seed(time.Now().UnixNano())
-	loggerId := rand.Intn(900) + 100
-	l := log.New(os.Stderr, "", 0)
 
-	return &QLogger{id: loggerId, packageName: packageName, logLevel: logLevel, Logger: l, timeFormat: defaultTimeFormat,
-		logFormat: defaultLogFormat, file: nil}
+	return &QLogger{
+		id: rand.Intn(900) + 100,
+		packageName: packageName,
+		logLevel: logLevel,
+		Logger: log.New(os.Stderr, "", 0),
+		timeFormat: defaultTimeFormat,
+		logFormat: defaultLogFormat,
+		file: nil,
+	}
+}
+
+func (l *QLogger) Inherit(parent *QLogger) {
+	l.Logger = parent.Logger
+	l.SetLogLevel(parent.logLevel)
+	l.SetTimeFormat(parent.timeFormat)
+	l.SetLogFormat(parent.logFormat)
 }
 
 func (l *QLogger) WithFile(logPath string) *QLogger {
@@ -127,4 +139,32 @@ func (l *QLogger) Error(v ...interface{}) {
 
 func (l *QLogger) ErrorF(format string, v ...interface{}) {
 	l.log(LogLevelError, fmt.Sprintf(format, v))
+	l.Print()
+}
+
+func (l *QLogger) Print(v ...interface{}) {
+	l.Info(v...)
+}
+
+func (l *QLogger) Printf(format string, v ...interface{}) {
+	l.InfoF(format, v...)
+}
+
+func (l *QLogger) Println(v ...interface{}) {
+	l.Info(v...)
+}
+
+func (l *QLogger) Fatal(v ...interface{}) {
+	l.Error(v...)
+	os.Exit(1)
+}
+
+func (l *QLogger) Fatalf(format string, v ...interface{}) {
+	l.ErrorF(format, v...)
+	os.Exit(1)
+}
+
+func (l *QLogger) Fatalln(v ...interface{}) {
+	l.Error(v...)
+	os.Exit(1)
 }

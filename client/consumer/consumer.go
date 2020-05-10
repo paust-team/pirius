@@ -30,8 +30,13 @@ type SinkData struct {
 }
 
 func NewConsumer(zkHost string) *Consumer {
-	return &Consumer{zkClient: zookeeper.NewZKClient(zkHost), subscribing: false, brokerPort: common.DefaultBrokerPort,
-		logger: logger.NewQLogger("Consumer", logger.LogLevelInfo)}
+	l := logger.NewQLogger("Consumer", logger.LogLevelInfo)
+	return &Consumer{
+		zkClient: zookeeper.NewZKClient(zkHost).WithLogger(l),
+		subscribing: false,
+		brokerPort: common.DefaultBrokerPort,
+		logger: l,
+	}
 }
 
 func (c *Consumer) WithLogLevel(level logger.LogLevel) *Consumer {
