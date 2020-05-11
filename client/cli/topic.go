@@ -2,24 +2,40 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/zookeeper"
 	"github.com/spf13/cobra"
 	"log"
+	"os"
 	"time"
 )
 
 var (
-	topicName         string
-	topicMeta         string
-	numPartition      uint32
-	replicationFactor uint32
+	topicName string
+	topicMeta string
 )
+
+func NewTopicCmd() *cobra.Command {
+	var topicCmd = &cobra.Command{
+		Use:   "topic",
+		Short: "topic commands",
+	}
+
+	topicCmd.AddCommand(
+		NewCreateTopicCmd(),
+		NewListTopicCmd(),
+		NewDeleteTopicCmd(),
+		NewDescribeTopicCmd(),
+	)
+
+	return topicCmd
+}
 
 func NewCreateTopicCmd() *cobra.Command {
 
 	var createTopicCmd = &cobra.Command{
-		Use:   "create-topic",
+		Use:   "create",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
@@ -28,22 +44,22 @@ func NewCreateTopicCmd() *cobra.Command {
 			defer rpcClient.Close()
 
 			if err := rpcClient.Connect(); err != nil {
-				log.Fatal(err)
+				fmt.Println(err)
+				os.Exit(1)
 			}
 
-			if err := rpcClient.CreateTopic(ctx, topicName, topicMeta, numPartition, replicationFactor); err != nil {
-				log.Fatal(err)
+			if err := rpcClient.CreateTopic(ctx, topicName, topicMeta, 1, 1); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
 			}
 
-			log.Println("create topic ok")
+			fmt.Println("create topic ok")
 		},
 	}
 
-	createTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "new topic name to create")
-	createTopicCmd.MarkFlagRequired("topic")
+	createTopicCmd.Flags().StringVarP(&topicName, "topic", "n", "", "new topic name to create")
 	createTopicCmd.Flags().StringVarP(&topicMeta, "topic-meta", "m", "", "topic meta for topic")
-	createTopicCmd.Flags().Uint32VarP(&numPartition, "partitions", "p", 1, "num partition")
-	createTopicCmd.Flags().Uint32VarP(&replicationFactor, "replication-factor", "r", 1, "replication factor")
+	createTopicCmd.MarkFlagRequired("topic")
 
 	return createTopicCmd
 }
@@ -51,7 +67,7 @@ func NewCreateTopicCmd() *cobra.Command {
 func NewDeleteTopicCmd() *cobra.Command {
 
 	var deleteTopicCmd = &cobra.Command{
-		Use:   "delete-topic",
+		Use:   "delete",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
@@ -71,15 +87,15 @@ func NewDeleteTopicCmd() *cobra.Command {
 		},
 	}
 
-	deleteTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to delete")
-
+	deleteTopicCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to delete")
+	deleteTopicCmd.MarkFlagRequired("topic")
 	return deleteTopicCmd
 }
 
 func NewListTopicCmd() *cobra.Command {
 
 	var listTopicCmd = &cobra.Command{
-		Use:   "list-topic",
+		Use:   "list",
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -101,15 +117,13 @@ func NewListTopicCmd() *cobra.Command {
 		},
 	}
 
-	listTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to listing")
-
 	return listTopicCmd
 }
 
 func NewDescribeTopicCmd() *cobra.Command {
 
 	var describeTopicCmd = &cobra.Command{
-		Use:   "describe-topic",
+		Use:   "describe",
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -123,7 +137,7 @@ func NewDescribeTopicCmd() *cobra.Command {
 		},
 	}
 
-	describeTopicCmd.Flags().StringVarP(&topicName, "topic", "c", "", "topic name to describe")
-
+	describeTopicCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to describe")
+	describeTopicCmd.MarkFlagRequired("topic")
 	return describeTopicCmd
 }

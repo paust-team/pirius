@@ -31,8 +31,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestZKClient_AddBroker(t *testing.T) {
-	err := zkClient.AddBroker(GetOutboundIP().String())
+	host, err := GetOutboundIP()
 	if err != nil {
+		t.Error(err)
+	}
+
+	if err = zkClient.AddBroker(host.String()); err != nil {
 		t.Error(err)
 	}
 
@@ -41,8 +45,8 @@ func TestZKClient_AddBroker(t *testing.T) {
 		t.Error(err)
 	}
 
-	if brokers[0] != GetOutboundIP().String() {
-		t.Error("failed to add broker ", GetOutboundIP())
+	if brokers[0] != host.String() {
+		t.Error("failed to add broker ", host.String())
 	}
 }
 
@@ -94,7 +98,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Error("failed to add topic ", expected)
 	}
 
-	err = zkClient.AddTopicBroker(expected, GetOutboundIP().String())
+	host, err := GetOutboundIP()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = zkClient.AddTopicBroker(expected, host.String())
 	if err != nil {
 		t.Error(err)
 	}
@@ -104,8 +113,8 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Error(err)
 	}
 
-	if brokers[len(brokers)-1] != GetOutboundIP().String() {
-		t.Error("failed to add topic broker ", GetOutboundIP())
+	if brokers[len(brokers)-1] != host.String() {
+		t.Error("failed to add topic broker ", host)
 	}
 }
 
@@ -170,12 +179,17 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 		t.Error("failed to add topic ", topic)
 	}
 
-	err = zkClient.AddTopicBroker(topic, GetOutboundIP().String())
+	host, err := GetOutboundIP()
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = zkClient.RemoveTopicBroker(topic, GetOutboundIP().String())
+	err = zkClient.AddTopicBroker(topic, host.String())
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = zkClient.RemoveTopicBroker(topic, host.String())
 	if err != nil {
 		t.Error(err)
 	}
@@ -186,7 +200,7 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	}
 
 	for _, broker := range brokers {
-		if broker == GetOutboundIP().String() {
+		if broker == host.String() {
 			t.Errorf("topic broker did not deleted")
 		}
 	}

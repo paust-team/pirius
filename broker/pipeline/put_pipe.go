@@ -13,10 +13,10 @@ import (
 )
 
 type PutPipe struct {
-	session *network.Session
-	db      *storage.QRocksDB
-	zkClient *zookeeper.ZKClient
-	host	string
+	session     *network.Session
+	db          *storage.QRocksDB
+	zkClient    *zookeeper.ZKClient
+	host        string
 	brokerAdded bool
 }
 

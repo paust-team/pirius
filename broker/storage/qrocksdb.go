@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/tecbot/gorocksdb"
-	"log"
 	"path/filepath"
 	"unsafe"
 )
@@ -41,15 +40,13 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	opts := gorocksdb.NewDefaultOptions()
 	db, columnFamilyHandles, err := gorocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*gorocksdb.Options{opts, opts, opts})
 	if err != nil {
-		log.Fatal("DB open error: ", err)
 		return nil, err
 	}
 
 	ro := gorocksdb.NewDefaultReadOptions()
 	ro.SetTailing(true)
 	wo := gorocksdb.NewDefaultWriteOptions()
-	rocksdb := &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}
-	return rocksdb, nil
+	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
 func (db QRocksDB) Flush() error {
