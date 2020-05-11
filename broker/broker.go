@@ -16,12 +16,13 @@ import (
 )
 
 type Broker struct {
-	Port      			uint16
-	host				string
-	grpcServer 			*grpc.Server
-	db                	*storage.QRocksDB
-	notifier          	*internals.Notifier
-	zkClient 			*zookeeper.ZKClient
+	Port        uint16
+	host        string
+	grpcServer  *grpc.Server
+	db          *storage.QRocksDB
+	notifier    *internals.Notifier
+	zkClient    *zookeeper.ZKClient
+	broadcaster *internals.Broadcaster
 }
 
 func NewBroker(zkAddr string) (*Broker, error) {
@@ -33,16 +34,21 @@ func NewBroker(zkAddr string) (*Broker, error) {
 
 	notifier := internals.NewNotifier()
 	zkClient := zookeeper.NewZKClient(zkAddr)
+	broadcaster := &internals.Broadcaster{}
 
-	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient:zkClient}, nil
+	return &Broker{Port: common.DefaultBrokerPort, db: db, notifier: notifier, zkClient: zkClient, broadcaster: broadcaster}, nil
 }
 
-func (b *Broker) WithPort(port uint16) *Broker{
+func (b *Broker) WithPort(port uint16) *Broker {
 	b.Port = port
 	return b
 }
 
 func (b *Broker) Start(ctx context.Context) error {
+	defer b.Stop()
+
+	errCh := make(chan error)
+	defer close(errCh)
 
 	b.grpcServer = grpc.NewServer()
 	host := zookeeper.GetOutboundIP()
@@ -64,27 +70,22 @@ func (b *Broker) Start(ctx context.Context) error {
 	}
 
 	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db, b.zkClient))
-	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host))
+	paustqproto.RegisterStreamServiceServer(b.grpcServer,
+		rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host, b.broadcaster, errCh))
 
-	defer b.Stop()
-
-	errChan := make(chan error)
-	defer close(errChan)
-
-	b.notifier.NotifyNews(ctx, errChan)
+	b.notifier.NotifyNews(ctx, errCh)
 
 	startGrpcServer := func(server *grpc.Server, port uint16) {
-
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
 			log.Printf("failed to listen: %v", err)
-			errChan <- err
+			errCh <- err
 			return
 		}
 
 		if err = server.Serve(lis); err != nil {
-			log.Println(err)
-			errChan <- err
+			errCh <- err
+			return
 		}
 	}
 
@@ -95,7 +96,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return nil
-	case err := <- errChan:
+	case err := <-errCh:
 		log.Println(err)
 		return err
 	}

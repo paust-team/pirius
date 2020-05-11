@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"sync"
@@ -19,17 +20,26 @@ type StreamServiceServer struct {
 	Notifier *internals.Notifier
 	zKClient *zookeeper.ZKClient
 	host 	 string
-	once     sync.Once
+	broadcaster *internals.Broadcaster
+	brokerErrCh chan error
 }
 
-func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier,
-	zkClient *zookeeper.ZKClient, host string) *StreamServiceServer {
-	return &StreamServiceServer{DB: db, Notifier: notifier, zKClient:zkClient, host:host}
+func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier, zkClient *zookeeper.ZKClient,
+	host string, broadcaster *internals.Broadcaster, brokerErrCh chan error) *StreamServiceServer {
+	return &StreamServiceServer{
+		DB: db,
+		Notifier: notifier,
+		zKClient:zkClient,
+		host:host,
+		broadcaster:broadcaster,
+		brokerErrCh:brokerErrCh,
+	}
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
 	sess := network.NewSession()
 	sock := common.NewSocketContainer(stream)
+
 	sock.Open()
 	defer HandleConnectionClose(sess, sock)
 
@@ -44,35 +54,62 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 		return err
 	}
 
-	var msg *message.QMessage
+	var wg sync.WaitGroup
+
+	internalErrCh := make(chan error)
+	defer close(internalErrCh)
+
+	readChan := sock.ContinuousRead()
+
+	wg.Add(1)
 	go func() {
-		defer cancelFunc()
+		defer wg.Done()
 		for {
-			if msg, err = sock.Read(); err != nil {
+			select {
+			case <- stream.Context().Done():
 				return
-			}
-			if msg == nil {
+			case <-ctx.Done():
 				return
-			}
-			pl.Flow(ctx, 0, msg)
-		}
-	}()
-
-	go func() {
-		defer cancelFunc()
-		for outMsg := range pl.Take(ctx, 0, 0) {
-			err = sock.Write(outMsg.(*message.QMessage), 1024)
-			if err != nil {
-				return
+			case result := <- readChan:
+				if result.Err != nil {
+					return
+				}
+				if result.Msg == nil {
+					return
+				}
+				pl.Flow(ctx, 0, result.Msg)
 			}
 		}
 	}()
 
-	err = pl.Wait(ctx)
-	if err != nil {
-		return err
-	}
+	writeChan := make(chan *message.QMessage)
+	defer close(writeChan)
 
+	s.broadcaster.AddChannel(writeChan)
+	defer s.broadcaster.RemoveChannel(writeChan)
+
+	sock.ContinuousWrite(writeChan, internalErrCh)
+	msgStream := pl.Take(ctx, 0, 0)
+
+	wg.Add(1)
+	go func () {
+		defer wg.Done()
+		for {
+			select {
+			case <- stream.Context().Done():
+				return
+			case <-ctx.Done():
+				return
+			case msg := <- msgStream:
+				writeChan <- msg.(*message.QMessage)
+			}
+		}
+	}()
+
+	sessionErrChs := append(pl.ErrChannels, internalErrCh)
+	HandleErrors(ctx, cancelFunc, stream.Context(), writeChan, sessionErrChs, s.brokerErrCh, s.broadcaster, pl.Wg)
+
+	wg.Wait()
 	return nil
 }
 
@@ -151,4 +188,55 @@ func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketConta
 
 	sock.Close()
 	sess.SetState(network.NONE)
+}
+
+func HandleErrors(sessinoCtx context.Context, cancelFunc context.CancelFunc, serverCtx context.Context,
+	writeChan chan *message.QMessage, errChannels []<-chan error, brokerErrCh chan error,
+	broadcaster *internals.Broadcaster, pipelineWg *sync.WaitGroup) {
+	errCh := pqerror.MergeErrors(errChannels...)
+
+	go func () {
+		for {
+			select {
+			case <- serverCtx.Done():
+				return
+			case <-sessinoCtx.Done():
+				return
+			case err := <-errCh:
+				if err != nil {
+					switch err.(type) {
+					case pqerror.IsClientVisible:
+						pqErr, ok := err.(pqerror.PQError)
+						if !ok {
+							brokerErrCh <- pqerror.UnhandledError{ErrStr:err.Error()}
+							return
+						}
+						writeChan <- message.NewErrorAckMsg(pqErr.Code(), pqErr.Error())
+					case pqerror.ISBroadcastable:
+						pqErr, ok := err.(pqerror.PQError)
+						if !ok {
+							brokerErrCh <- pqerror.UnhandledError{ErrStr:err.Error()}
+							return
+						}
+						var wg sync.WaitGroup
+						broadcaster.Broadcast(&wg, message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
+						wg.Wait()
+					default:
+					}
+
+					switch err.(type) {
+					case pqerror.IsSessionCloseable:
+						cancelFunc()
+						// guarantee all pipes are closed after context done
+						pipelineWg.Wait()
+						return
+					case pqerror.IsBrokerStoppable:
+						brokerErrCh <- err
+						return
+					default:
+					}
+				}
+			}
+		}
+	}()
 }
