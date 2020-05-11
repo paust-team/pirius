@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/zookeeper"
 	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,7 +15,7 @@ type PartitionRPCService interface {
 }
 
 type partitionRPCService struct {
-	DB *storage.QRocksDB
+	DB       *storage.QRocksDB
 	zkClient *zookeeper.ZKClient
 }
 

@@ -1,15 +1,18 @@
 package cli
 
 import (
+
+	"fmt"
+	"github.com/paust-team/paustq/common"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 )
 
 var (
-	bootstrapServer string
-	logLevel        string
-	timeout         uint8
+	zkAddr     string
+	logLevel   string
+	timeout    uint8
+	brokerPort uint16
 )
 
 var paustQClientCmd = &cobra.Command{
@@ -18,23 +21,20 @@ var paustQClientCmd = &cobra.Command{
 }
 
 func Main() {
-
-	paustQClientCmd.Flags().StringVarP(&bootstrapServer, "bootstrap-broker", "b", "localhost:9000", "set bootstrap broker end-point")
-	paustQClientCmd.Flags().StringVarP(&logLevel, "log-level", "l", "info", "set log level [debug|info|error|none]")
-	paustQClientCmd.Flags().Uint8VarP(&timeout, "timeout", "t", 3, "set connection timeout(sec)")
+	paustQClientCmd.PersistentFlags().StringVarP(&zkAddr, "zk-addr", "z", "127.0.0.1", "set zookeeper host ip address")
+	paustQClientCmd.PersistentFlags().Uint16Var(&brokerPort, "broker-port", common.DefaultBrokerPort, "default broker port")
+	paustQClientCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "set log level [debug|info|error|none]")
+	paustQClientCmd.PersistentFlags().Uint8VarP(&timeout, "timeout", "t", 3, "set connection timeout(sec)")
 
 	paustQClientCmd.AddCommand(
 		NewHeartbeatCmd(),
-		NewCreateTopicCmd(),
-		NewListTopicCmd(),
-		NewDeleteTopicCmd(),
-		NewDescribeTopicCmd(),
+		NewTopicCmd(),
 		NewPublishCmd(),
 		NewSubscribeCmd(),
 	)
 
 	if err := paustQClientCmd.Execute(); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
