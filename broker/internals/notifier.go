@@ -2,8 +2,7 @@ package internals
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"github.com/paust-team/paustq/pqerror"
 	"sync"
 )
 
@@ -26,7 +25,7 @@ func (s *Notifier) LoadOrStoreTopic(topicName string) (*Topic, error) {
 	value, _ := s.topicMap.LoadOrStore(topicName, NewTopic(topicName))
 	topic, ok := value.(*Topic)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("topic(%s) not exists", topicName))
+		return nil, pqerror.TopicNotExistError{Topic: topicName}
 	}
 	return topic, nil
 }
@@ -51,17 +50,14 @@ func (s *Notifier) NotifyNews(ctx context.Context, errChan chan error) {
 			select {
 			case subscription := <-s.subscriptionChan:
 				if value, ok := s.topicMap.Load(subscription.TopicName); ok {
-					topicData, ok := value.(*Topic)
-					if !ok {
-						errChan <- errors.New(fmt.Sprintf("Topic(%s) not exists", subscription.TopicName))
-					}
+					topicData := value.(*Topic)
 					if subscription.LastFetchedOffset < topicData.LastOffset() {
 						subscription.SubscribeChan <- true
 					} else {
 						s.subscriptionChan <- subscription
 					}
 				} else {
-					errChan <- errors.New(fmt.Sprintf("Topic(%s) not exists", subscription.TopicName))
+					errChan <- pqerror.NewTopicNotExistError(subscription.TopicName)
 				}
 			case <-ctx.Done():
 				return

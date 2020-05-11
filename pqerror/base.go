@@ -1,7 +1,6 @@
 package pqerror
 
 import (
-	"github.com/paust-team/paustq/message"
 	"sync"
 )
 
@@ -26,16 +25,6 @@ type IsBrokerStoppable interface {
 
 type ISBroadcastable interface {
 	IsBroadcastable()
-}
-
-func NewErrorAckMsg(code PQCode, hint string) *message.QMessage {
-	var ackMsg *message.QMessage
-	if code == ErrInternal {
-		ackMsg, _ = message.NewQMessageFromMsg(message.NewAckMsg(uint32(code), "broker internal error"))
-	} else {
-		ackMsg, _ = message.NewQMessageFromMsg(message.NewAckMsg(uint32(code), hint))
-	}
-	return ackMsg
 }
 
 type ErrBroadcaster struct {

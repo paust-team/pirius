@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"sync"
@@ -13,10 +13,10 @@ import (
 )
 
 type PutPipe struct {
-	session *network.Session
-	db      *storage.QRocksDB
-	zkClient *zookeeper.ZKClient
-	host	string
+	session     *network.Session
+	db          *storage.QRocksDB
+	zkClient    *zookeeper.ZKClient
+	host        string
 	brokerAdded bool
 }
 
@@ -37,7 +37,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	if !casted {
-		return errors.New("failed to build fetch pipe")
+		return pqerror.PipeBuildFailError{PipeName: "put"}
 	}
 
 	p.session = session

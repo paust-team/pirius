@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"errors"
+	"github.com/paust-team/paustq/pqerror"
 	"sync"
 	"testing"
 	"time"
@@ -44,7 +44,7 @@ func (e *EvenOrOddPipe) Build(caseFns ...interface{}) error {
 	for _, caseFn := range caseFns {
 		fn, ok := caseFn.(func(input interface{}) (output interface{}, ok bool))
 		if !ok {
-			return errors.New("invalid case function to append")
+			return pqerror.PipeBuildFailError{PipeName: "even or odd"}
 		}
 		e.caseCount++
 		e.AddCase(fn)
@@ -61,7 +61,7 @@ func (e *EvenOrOddPipe) Ready(ctx context.Context,
 	[]<-chan interface{}, <-chan error, error) {
 
 	if len(e.cases) != e.caseCount {
-		return nil, nil, errors.New("not enough cases to prepare pipe")
+		return nil, nil, pqerror.InvalidCaseFnCountError{NumCaseFn: len(e.cases), CaseCount: e.caseCount}
 	}
 
 	outStreams := make([]chan interface{}, e.caseCount)
@@ -93,7 +93,7 @@ func (e *EvenOrOddPipe) Ready(ctx context.Context,
 			}
 
 			if !done {
-				errCh <- errors.New("input does not match with any cases")
+				errCh <- pqerror.NoCaseFnMatchError{}
 				return
 			}
 
@@ -122,7 +122,7 @@ func (a *AddPipe) Build(in ...interface{}) error {
 	var ok bool
 	a.additive, ok = in[0].(int)
 	if !ok {
-		return errors.New("type casting failed")
+		return pqerror.PipeBuildFailError{PipeName: "add"}
 	}
 	return nil
 }

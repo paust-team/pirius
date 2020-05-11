@@ -15,7 +15,7 @@ func (e InvalidPipeTypeError) Error() string {
 
 func (e InvalidPipeTypeError) IsSessionCloseable() {}
 
-type PipeBuildFailError struct {ga
+type PipeBuildFailError struct {
 	PipeName string
 }
 
@@ -198,3 +198,47 @@ type UnhandledError struct {
 func (e UnhandledError) Error() string {
 	return "unhandled error : " + e.ErrStr
 }
+
+// message encode/decode error
+type MarshalAnyFailedError struct {}
+
+func (e MarshalAnyFailedError) Error() string {
+	return "marshaling proto message to any message failed"
+}
+
+func (e MarshalAnyFailedError) IsSessionCloseable() {}
+
+type UnmarshalAnyFailedError struct {}
+
+func (e UnmarshalAnyFailedError) Error() string {
+	return "unmarshaling any message to proto message failed"
+}
+
+func (e UnmarshalAnyFailedError) IsSessionCloseable() {}
+
+type MarshalFailedError struct {}
+
+func (e MarshalFailedError) Error() string {
+	return "marshaling any message to bytes failed"
+}
+
+func (e MarshalFailedError) IsSessionCloseable() {}
+
+type UnmarshalFailedError struct {}
+
+func (e UnmarshalFailedError) Error() string {
+	return "unmarshaling bytes to any message failed"
+}
+
+func (e UnmarshalFailedError) IsSessionCloseable() {}
+
+type InvalidMsgTypeToUnpackError struct {
+	Type string
+}
+
+func (e InvalidMsgTypeToUnpackError) Error() string {
+	return "invalid message type to unpack on " + e.Type
+}
+
+func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
+

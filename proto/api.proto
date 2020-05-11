@@ -182,3 +182,8 @@ message FetchResponse {
     uint64 offset = 4;
     bool publishing = 5;
 }
+
+message Ack {
+    uint32 code = 1;
+    string msg = 2;
+}

@@ -1,6 +1,7 @@
 package message
 
 import (
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 )
 
@@ -75,4 +76,18 @@ func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerReq
 
 func NewShutdownBrokerResponseMsg() *paustqproto.ShutdownBrokerResponse {
 	return &paustqproto.ShutdownBrokerResponse{}
+}
+
+func NewAckMsg(code uint32, msg string) *paustqproto.Ack{
+	return &paustqproto.Ack{Code:code, Msg:msg}
+}
+
+func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {
+	var ackMsg *QMessage
+	if code == pqerror.ErrInternal {
+		ackMsg, _ = NewQMessageFromMsg(NewAckMsg(uint32(code), "broker internal error"))
+	} else {
+		ackMsg, _ = NewQMessageFromMsg(NewAckMsg(uint32(code), hint))
+	}
+	return ackMsg
 }

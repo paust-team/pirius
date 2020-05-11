@@ -2,8 +2,8 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"sync"
 )
@@ -57,7 +57,7 @@ func (d *DispatchPipe) Build(caseFns ...interface{}) error {
 	for _, caseFn := range caseFns {
 		fn, ok := caseFn.(func(input interface{}) (output interface{}, ok bool))
 		if !ok {
-			return errors.New("invalid case function to append")
+			return pqerror.PipeBuildFailError{PipeName: "dispatch"}
 		}
 		d.caseCount++
 		d.AddCase(fn)
@@ -74,7 +74,7 @@ func (d *DispatchPipe) Ready(ctx context.Context,
 	[]<-chan interface{}, <-chan error, error) {
 
 	if len(d.cases) != d.caseCount {
-		return nil, nil, errors.New("not enough cases to prepare pipe")
+		return nil, nil, pqerror.InvalidCaseFnCountError{NumCaseFn: len(d.cases), CaseCount: d.caseCount}
 	}
 
 	outStreams := make([]chan interface{}, d.caseCount)
@@ -106,7 +106,7 @@ func (d *DispatchPipe) Ready(ctx context.Context,
 			}
 
 			if !done {
-				errCh <- errors.New("message does not match with any cases")
+				errCh <- pqerror.NoCaseFnMatchError{}
 				return
 			}
 

@@ -1,10 +1,10 @@
 package message
 
 import (
-	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/paust-team/paustq/pqerror"
 )
 
 type QMessage struct {
@@ -35,7 +35,7 @@ func (q *QMessage) Is(msg proto.Message) bool {
 func (q *QMessage) Any() (*any.Any, error) {
 	anyMsg := &any.Any{}
 	if err := proto.Unmarshal(q.Data, anyMsg); err != nil {
-		return nil, err
+		return nil, pqerror.UnmarshalFailedError{}
 	}
 
 	return anyMsg, nil
@@ -44,27 +44,31 @@ func (q *QMessage) Any() (*any.Any, error) {
 func (q *QMessage) UnpackTo(msg proto.Message) error {
 	anyMsg, err := q.Any()
 	if err != nil {
-		return err
+		return pqerror.MarshalAnyFailedError{}
 	}
 	if err := proto.Unmarshal(q.Data, anyMsg); err != nil {
-		return err
+		return pqerror.UnmarshalFailedError{}
 	}
 
 	if ptypes.Is(anyMsg, msg) {
-		return ptypes.UnmarshalAny(anyMsg, msg)
+		err := ptypes.UnmarshalAny(anyMsg, msg)
+		if err != nil {
+			return pqerror.UnmarshalAnyFailedError{}
+		}
 	} else {
-		return errors.New("Not same type: " + anyMsg.TypeUrl)
+		return pqerror.InvalidMsgTypeToUnpackError{Type:anyMsg.TypeUrl}
 	}
+	return nil
 }
 
 func (q *QMessage) PackFrom(msg proto.Message) error {
 	anyMsg, err := ptypes.MarshalAny(msg)
 	if err != nil {
-		return err
+		return pqerror.MarshalAnyFailedError{}
 	}
 	data, err := proto.Marshal(anyMsg)
 	if err != nil {
-		return err
+		return pqerror.MarshalFailedError{}
 	}
 	q.Data = data
 	return nil
