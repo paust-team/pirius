@@ -58,6 +58,7 @@ $ zkServer start
 	- `-p` port (default 11010)
 	- `-z` zk-address `required`
 	- `—log-level` log level : 0-debug, 1-info, 2-warning, 3-error (default: 1)
+	- `—home-dir` home directory for broker to store information data (default ~/.shapleQ)
 	- `—log-dir` directory for saving log file (default ~/.shapleQ/log)
 	- `—data-dir` directory for saving data file (default ~/.shapleQ/data)
 
