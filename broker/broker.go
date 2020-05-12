@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	DefaultLogDir   = os.ExpandEnv("$HOME/.paustq/log")
-	DefaultDataDir  = os.ExpandEnv("$HOME/.paustq/data")
+	DefaultBrokerHomeDir  = os.ExpandEnv("$HOME/.paustq")
+	DefaultLogDir   = fmt.Sprintf("%s/log", DefaultBrokerHomeDir)
+	DefaultDataDir   = fmt.Sprintf("%s/data", DefaultBrokerHomeDir)
 	DefaultLogLevel = logger.LogLevelInfo
 )
 
@@ -38,7 +39,7 @@ func NewBroker(zkAddr string) *Broker {
 
 	notifier := internals.NewNotifier()
 	l := logger.NewQLogger("Broker", DefaultLogLevel)
-	zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(l)
+	zkClient := zookeeper.NewZKClient(zkAddr)
 
 	return &Broker{
 		Port:     common.DefaultBrokerPort,
@@ -105,6 +106,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	}
 
 	b.host = host.String()
+	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
 		b.logger.ErrorF("zk error: %v", err)
 		return err

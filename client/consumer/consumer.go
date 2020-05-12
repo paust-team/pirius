@@ -32,7 +32,7 @@ type SinkData struct {
 func NewConsumer(zkHost string) *Consumer {
 	l := logger.NewQLogger("Consumer", logger.LogLevelInfo)
 	return &Consumer{
-		zkClient:    zookeeper.NewZKClient(zkHost).WithLogger(l),
+		zkClient:    zookeeper.NewZKClient(zkHost),
 		subscribing: false,
 		brokerPort:  common.DefaultBrokerPort,
 		logger:      l,
@@ -155,6 +155,7 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (chan Sink
 }
 
 func (c *Consumer) Connect(ctx context.Context, topicName string) error {
+	c.zkClient = c.zkClient.WithLogger(c.logger)
 	if err := c.zkClient.Connect(); err != nil {
 		c.logger.Error(err)
 		return err

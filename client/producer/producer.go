@@ -31,7 +31,7 @@ type Producer struct {
 func NewProducer(zkHost string) *Producer {
 	l := logger.NewQLogger("Producer", logger.LogLevelInfo)
 	producer := &Producer{
-		zkClient:   zookeeper.NewZKClient(zkHost).WithLogger(l),
+		zkClient:   zookeeper.NewZKClient(zkHost),
 		publishing: false,
 		chunkSize:  1024,
 		brokerPort: common.DefaultBrokerPort,
@@ -165,7 +165,7 @@ func (p *Producer) WaitAllPublishResponse() {
 }
 
 func (p *Producer) Connect(ctx context.Context, topicName string) error {
-
+	p.zkClient = p.zkClient.WithLogger(p.logger)
 	if err := p.zkClient.Connect(); err != nil {
 		p.logger.Error(err)
 		return err

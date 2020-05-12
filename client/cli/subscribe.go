@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/paust-team/paustq/client/consumer"
+	logger "github.com/paust-team/paustq/log"
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
@@ -21,7 +22,7 @@ func NewSubscribeCmd() *cobra.Command {
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := consumer.NewConsumer(zkAddr)
+			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.LogLevelError)
 
 			if err := client.Connect(ctx, topicName); err != nil {
 				fmt.Println(err)
