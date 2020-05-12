@@ -4,26 +4,52 @@ Reference of ShapleQ Broker and Client for golang.
 ## Introduction
 PaustQ has a great mission to offer publishing and subscribing **Data Streams** with **Custom Operations** over **P2P Network**. 
 
+## Features
+- Continuously produce stream data and consume it
+- Support Multi Broker
+- Support Multi Topic
+- Support Multi Client (Consumer, Producer)
+
 ## Installation
 
-### Prerequisite
+### From Source
+#### Prerequisite
 * [git](https://git-scm.com)
 * [make](https://www.gnu.org/software/make/)
-* [golang](https://golang.org/dl/) v1.17 or later
+* [golang](https://golang.org/dl/) v1.13 or later
 * [zookeeper](https://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html#sc_Download)
-### Install from source code
+
+#### Install
 ```
-go get github.com/paust-team/ShapleQ
-cd $GOPATH/github.com/paust-team/ShapleQ
-make build
-make install 
+$ go get github.com/paust-team/ShapleQ
+$ cd $GOPATH/github.com/paust-team/ShapleQ
+$ make build
+$ make install 
+$ shapleQ 
+ShapleQ cli
+
+Usage:
+  shapleQ [command]
+
+Available Commands:
+  help        Help about any command
+  start       start shapleQ broker
+  stop        stop shapleQ broker
+  Status      Show status of shapleQ broker
+
+Flags:
+  -h, --help   help for paustq
+
+Use "shapleQ [command] --help" for more information about a command.
 ```
+
 
 ## Usage
 ### Broker
 Before running broker, zookeeper server must be running
-```
-zkServer start
+
+```shell
+$ zkServer start
 ```
 
 #### Start broker
@@ -35,21 +61,28 @@ zkServer start
 	- `—log-dir` directory for saving log file (default ~/.shapleQ/log)
 	- `—data-dir` directory for saving data file (default ~/.shapleQ/data)
 
+
 ```shell
-shapleQ start -z 127.0.0.1
+$ shapleQ start -z [zk-host]
 ```
 
 #### Stop broker
 - **Flags**
 	- `--dir` home path for broker (default ~/.paustq)
+
+
 ```shell
-shapleQ stop
+$ shapleQ stop
 ```
+
 #### Status of broker
+
 ```shell
-shapleQ status
+$ shapleQ status
 ```
 
 ### Client
-- **[Client documentation](https://github.com/paust-team/paustq/client)**
+- **[Client documentation](https://github.com/paust-team/paustq/tree/master/client#shapleq-client)**
 
+## License
+- GPLv3
