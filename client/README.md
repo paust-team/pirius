@@ -113,13 +113,20 @@ if err := producerClient.Connect(ctx, topic); err != nil {
 }
 
 // Publish records
+dataCh := make(chan []byte)
+errCh := producerClient.Publish(ctx, dataCh)
+
+go func() {
+	for err := errCh {
+		fmt.Println(err)
+		return
+	}
+}()
+
 testRecords := [][]byte{“1”, “2”, “3”, “4”, “5”}
 for _, record := range testRecords {
-	producerClient.Publish(ctx, record)
+	dataCh <- record
 }
-
-// Wait until all publish requests finished
-producerClient.WaitAllPublishResponse()
 
 // Close Producer client
 if err := producerClient.Close(); err != nil {
