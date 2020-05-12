@@ -35,7 +35,7 @@ Available Commands:
   help        Help about any command
   start       start shapleQ broker
   stop        stop shapleQ broker
-  Status      Show status of shapleQ broker
+  status      show status of shapleQ broker
 
 Flags:
   -h, --help   help for paustq
