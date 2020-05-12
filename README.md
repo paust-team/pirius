@@ -2,13 +2,17 @@
 Reference of ShapleQ Broker and Client for golang.
 
 ## Introduction
-PaustQ has a great mission to offer publishing and subscribing **Data Streams** with **Custom Operations** over **P2P Network**. 
+ShapleQ has a great mission to offer delivery of data streams over distribute network.
 
-## Features
-- Continuously produce stream data and consume it
-- Support Multi Broker
-- Support Multi Topic
-- Support Multi Client (Consumer, Producer)
+## Composition
+### Broker
+Broker connects data streams between producers and consumers. It also operates flow of data transformation on request of consumer applications. Broker network is composed of multiple brokers and it behaves like a single broker. Clients don't have to specify a particular broker. Broker stores data temporarily according to its policy, so that clients can utilize broker as a storage system.
+
+### Producer
+Producer transfers data streams related with topic to brokers. Producer can set policy of replication and distribution of data.
+
+### Consumer
+Consumer receives data streams from brokers. Since broker sends data to consumers actively and manage its frequency according to consumer configurations, so consumer doesn't have to poll continuously to receive data unlike other data stream platform. 
 
 ## Installation
 
