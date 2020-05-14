@@ -3,11 +3,11 @@ package pipeline
 import (
 	"bytes"
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
 )
@@ -32,7 +32,7 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	if !casted {
-		return errors.New("failed to build fetch pipe")
+		return pqerror.PipeBuildFailError{PipeName: "fetch"}
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
 
 			if req.StartOffset > topic.LastOffset() {
-				errCh <- errors.New("invalid start offset")
+				errCh <- pqerror.InvalidStartOffsetError{Topic: topic.Name(), StartOffset: req.StartOffset, LastOffset: topic.LastOffset()}
 				return
 			}
 

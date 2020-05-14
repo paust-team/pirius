@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
 	"sync/atomic"
@@ -25,7 +25,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	if !casted {
-		return errors.New("failed to build connect pipe")
+		return pqerror.PipeBuildFailError{PipeName: "connect"}
 	}
 
 	c.session = session
