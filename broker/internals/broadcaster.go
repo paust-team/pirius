@@ -26,12 +26,10 @@ func (b *Broadcaster) RemoveChannel(ch chan *message.QMessage) {
 	}
 }
 
-func (b *Broadcaster) Broadcast(wg *sync.WaitGroup, msg *message.QMessage) {
-	wg.Add(len(b.BroadcastChs))
-	go func() {
-		for _, broadcastCh := range b.BroadcastChs {
-			broadcastCh <- msg
-			wg.Done()
-		}
-	}()
+func (b *Broadcaster) Broadcast(msg *message.QMessage) {
+	b.Lock()
+	defer b.Unlock()
+	for _, broadcastCh := range b.BroadcastChs {
+		broadcastCh <- msg
+	}
 }

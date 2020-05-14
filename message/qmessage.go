@@ -44,7 +44,7 @@ func (q *QMessage) Any() (*any.Any, error) {
 func (q *QMessage) UnpackTo(msg proto.Message) error {
 	anyMsg, err := q.Any()
 	if err != nil {
-		return pqerror.MarshalAnyFailedError{}
+		return err
 	}
 	if err := proto.Unmarshal(q.Data, anyMsg); err != nil {
 		return pqerror.UnmarshalFailedError{}

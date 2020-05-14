@@ -57,6 +57,9 @@ func (sc *StreamSocketContainer) Write(msg *message.QMessage, maxBufferSize uint
 		header := &paustqproto.Header{ChunkId: chunkId, TotalChunkCount: totalChunkCount, CurrentChunkIdx: currentChunkIdx}
 		body := &paustqproto.Body{Data: data}
 		if err := sc.socket.Send(&paustqproto.Data{Header: header, Body: body}); err != nil {
+			if err == io.EOF {
+				return pqerror.SocketClosedError{}
+			}
 			return pqerror.SocketWriteError{ErrStr:err.Error()}
 		}
 	}
@@ -72,7 +75,7 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 	for {
 		receivedData, err := sc.socket.Recv()
 		if err == io.EOF { // end stream
-			return nil, nil
+			return nil, pqerror.SocketClosedError{}
 		}
 		if err != nil {
 			return nil, pqerror.SocketReadError{ErrStr:err.Error()}
@@ -101,6 +104,7 @@ type Result struct {
 	Msg *message.QMessage
 	Err error
 }
+
 func (sc *StreamSocketContainer) ContinuousRead() <-chan Result {
 	resultCh := make(chan Result)
 	go func() {
@@ -108,6 +112,11 @@ func (sc *StreamSocketContainer) ContinuousRead() <-chan Result {
 		for {
 			msg, err := sc.Read()
 			resultCh <- Result{msg, err}
+
+			var e pqerror.SocketClosedError
+			if errors.As(err, &e) {
+				return
+			}
 		}
 	}()
 
@@ -120,8 +129,13 @@ func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessag
 			err := sc.Write(msgToWrite, 1024)
 			if err != nil {
 				errCh <- err
-				return
+
+				var e pqerror.SocketClosedError
+				if errors.As(err, &e) {
+					return
+				}
 			}
+
 		}
 	}()
 }

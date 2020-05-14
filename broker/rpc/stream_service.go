@@ -71,13 +71,9 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 			case <-ctx.Done():
 				return
 			case result := <- readChan:
-				if result.Err != nil {
-					return
+				if result.Msg != nil {
+					pl.Flow(ctx, 0, result.Msg)
 				}
-				if result.Msg == nil {
-					return
-				}
-				pl.Flow(ctx, 0, result.Msg)
 			}
 		}
 	}()
@@ -190,7 +186,7 @@ func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketConta
 	sess.SetState(network.NONE)
 }
 
-func HandleErrors(sessinoCtx context.Context, cancelFunc context.CancelFunc, serverCtx context.Context,
+func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, serverCtx context.Context,
 	writeChan chan *message.QMessage, errChannels []<-chan error, brokerErrCh chan error,
 	broadcaster *internals.Broadcaster, pipelineWg *sync.WaitGroup) {
 	errCh := pqerror.MergeErrors(errChannels...)
@@ -200,10 +196,11 @@ func HandleErrors(sessinoCtx context.Context, cancelFunc context.CancelFunc, ser
 			select {
 			case <- serverCtx.Done():
 				return
-			case <-sessinoCtx.Done():
+			case <-sessionCtx.Done():
 				return
 			case err := <-errCh:
 				if err != nil {
+
 					switch err.(type) {
 					case pqerror.IsClientVisible:
 						pqErr, ok := err.(pqerror.PQError)
@@ -212,15 +209,14 @@ func HandleErrors(sessinoCtx context.Context, cancelFunc context.CancelFunc, ser
 							return
 						}
 						writeChan <- message.NewErrorAckMsg(pqErr.Code(), pqErr.Error())
-					case pqerror.ISBroadcastable:
+					case pqerror.IsBroadcastable:
 						pqErr, ok := err.(pqerror.PQError)
 						if !ok {
 							brokerErrCh <- pqerror.UnhandledError{ErrStr:err.Error()}
 							return
 						}
-						var wg sync.WaitGroup
-						broadcaster.Broadcast(&wg, message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
-						wg.Wait()
+
+						broadcaster.Broadcast(message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
 					default:
 					}
 

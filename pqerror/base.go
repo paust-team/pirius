@@ -23,7 +23,7 @@ type IsBrokerStoppable interface {
 	IsBrokerStoppable()
 }
 
-type ISBroadcastable interface {
+type IsBroadcastable interface {
 	IsBroadcastable()
 }
 

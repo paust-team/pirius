@@ -163,6 +163,7 @@ func NewTopicNotExistError(topic string) TopicNotExistError {
 }
 
 //socket
+// May be retryable
 type SocketReadError struct {
 	ErrStr string
 }
@@ -171,8 +172,7 @@ func (e SocketReadError) Error() string {
 	return fmt.Sprintf("error occurred while reading data from socket: %s", e.ErrStr)
 }
 
-func (e SocketReadError) IsSessionCloseable() {}
-
+// May be retryable
 type SocketWriteError struct {
 	ErrStr string
 }
@@ -180,8 +180,6 @@ type SocketWriteError struct {
 func (e SocketWriteError) Error() string {
 	return fmt.Sprintf("error occurred while writing data to socket: %s", e.ErrStr)
 }
-
-func (e SocketWriteError) IsSessionCloseable() {}
 
 type SocketClosedError struct{}
 
