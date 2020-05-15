@@ -2,15 +2,15 @@ package pipeline
 
 import (
 	"context"
-	"errors"
+	"github.com/paust-team/paustq/pqerror"
 	"sync"
 )
 
 type Pipeline struct {
-	wg          *sync.WaitGroup
+	Wg          *sync.WaitGroup
 	inlets      []chan interface{}
 	outlets     []<-chan interface{}
-	errChannels []<-chan error
+	ErrChannels []<-chan error
 }
 
 type pipe struct {
@@ -74,46 +74,46 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan int
 	}
 	switch (*additive.internal).(type) {
 	case SelectorPipe:
-		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(ctx, inlets[0], p.wg)
+		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(ctx, inlets[0], p.Wg)
 		if err != nil {
 			return err
 		}
-		p.errChannels = append(p.errChannels, errCh)
+		p.ErrChannels = append(p.ErrChannels, errCh)
 		for _, inlet := range inlets {
 			removeIfExists(&p.outlets, inlet)
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case MergePipe:
-		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(ctx, inlets, p.wg)
+		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(ctx, inlets, p.Wg)
 		if err != nil {
 			return err
 		}
 		additive.Outlets = append(additive.Outlets, outlet)
-		p.errChannels = append(p.errChannels, errCh)
+		p.ErrChannels = append(p.ErrChannels, errCh)
 		for _, inlet := range inlets {
 			removeIfExists(&p.outlets, inlet)
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case VersatilePipe:
-		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(ctx, inlets[0], p.wg)
+		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(ctx, inlets[0], p.Wg)
 		if err != nil {
 			return err
 		}
-		p.errChannels = append(p.errChannels, errCh)
+		p.ErrChannels = append(p.ErrChannels, errCh)
 		additive.Outlets = append(additive.Outlets, outlet)
 		for _, inlet := range inlets {
 			removeIfExists(&p.outlets, inlet)
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	default:
-		return errors.New("invalid type of pipe to add")
+		return pqerror.InvalidPipeTypeError{PipeName: additive.Name()}
 	}
 
 	return nil
 }
 
 func (p *Pipeline) Wait(ctx context.Context) error {
-	errCh := MergeErrors(p.errChannels...)
+	errCh := pqerror.MergeErrors(p.ErrChannels...)
 	for {
 		select {
 		case <-ctx.Done():
@@ -121,7 +121,7 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 		case err := <-errCh:
 			if err != nil {
 				// guarantee all pipes are done if an error occurred
-				p.wg.Wait()
+				p.Wg.Wait()
 				return err
 			}
 		}
@@ -166,32 +166,8 @@ func (p *Pipeline) Flow(ctx context.Context, inletIndex int, data ...interface{}
 	}()
 }
 
-func MergeErrors(errChannels ...<-chan error) <-chan error {
-	var wg sync.WaitGroup
-
-	out := make(chan error, len(errChannels))
-	output := func(c <-chan error) {
-		defer wg.Done()
-		for n := range c {
-			out <- n
-		}
-	}
-
-	wg.Add(len(errChannels))
-	for _, c := range errChannels {
-		go output(c)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-
-	return out
-}
-
-func WaitForPipeline(errChannels ...<-chan error) error {
-	errCh := MergeErrors(errChannels...)
+func WaitForPipeline(ErrChannels ...<-chan error) error {
+	errCh := pqerror.MergeErrors(ErrChannels...)
 	for err := range errCh {
 		if err != nil {
 			return err

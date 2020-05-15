@@ -1,8 +1,8 @@
 package network
 
 import (
-	"errors"
 	"github.com/paust-team/paustq/broker/internals"
+	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"sync"
 	"time"
@@ -21,6 +21,21 @@ const (
 	ON_PUBLISH
 	ON_SUBSCRIBE
 )
+
+func (st SessionStateType) String() string {
+	switch st {
+	case NONE:
+		return "NONE"
+	case READY:
+		return "READY"
+	case ON_PUBLISH:
+		return "ON_PUBLISH"
+	case ON_SUBSCRIBE:
+		return "ON_SUBSCRIBE"
+	default:
+		return ""
+	}
+}
 
 var stateTransition = map[SessionStateType][]SessionStateType{
 	NONE:         {NONE, READY},
@@ -87,7 +102,7 @@ func (s *Session) SetState(nextState SessionStateType) error {
 		s.state.stType = nextState
 		return nil
 	} else {
-		return errors.New("invalid state transition")
+		return pqerror.StateTransitionError{PrevState: s.state.stType.String(), NextState: nextState.String()}
 	}
 }
 

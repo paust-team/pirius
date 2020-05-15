@@ -24,12 +24,13 @@ var (
 )
 
 type Broker struct {
-	Port       uint16
-	host       string
-	grpcServer *grpc.Server
-	db         *storage.QRocksDB
-	notifier   *internals.Notifier
-	zkClient   *zookeeper.ZKClient
+	Port        uint16
+	host        string
+	grpcServer  *grpc.Server
+	db          *storage.QRocksDB
+	notifier    *internals.Notifier
+	zkClient    *zookeeper.ZKClient
+	broadcaster *internals.Broadcaster
 	logDir     string
 	dataDir    string
 	logger     *logger.QLogger
@@ -39,17 +40,20 @@ func NewBroker(zkAddr string) *Broker {
 
 	notifier := internals.NewNotifier()
 	l := logger.NewQLogger("Broker", DefaultLogLevel)
-	zkClient := zookeeper.NewZKClient(zkAddr)
+	zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(l)
+	broadcaster := &internals.Broadcaster{}
 
 	return &Broker{
 		Port:     common.DefaultBrokerPort,
 		notifier: notifier,
 		zkClient: zkClient,
+		broadcaster:broadcaster,
 		logDir:   DefaultLogDir,
 		dataDir:  DefaultDataDir,
 		logger:   l,
 	}
 }
+
 
 func (b *Broker) WithPort(port uint16) *Broker {
 	b.Port = port
@@ -72,6 +76,10 @@ func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
 }
 
 func (b *Broker) Start(ctx context.Context) error {
+	defer b.Stop()
+
+	errCh := make(chan error)
+	defer close(errCh)
 
 	// create directories for log and db
 	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
@@ -123,25 +131,21 @@ func (b *Broker) Start(ctx context.Context) error {
 	}
 
 	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db, b.zkClient))
-	paustqproto.RegisterStreamServiceServer(b.grpcServer, rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host))
+	paustqproto.RegisterStreamServiceServer(b.grpcServer,
+		rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host, b.broadcaster, errCh))
 
-	defer b.Stop()
-
-	errChan := make(chan error)
-	defer close(errChan)
-
-	b.notifier.NotifyNews(ctx, errChan)
+	b.notifier.NotifyNews(ctx, errCh)
 
 	startGrpcServer := func(server *grpc.Server, port uint16) {
-
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
-			errChan <- err
+			errCh <- err
 			return
 		}
 
 		if err = server.Serve(lis); err != nil {
-			errChan <- err
+			errCh <- err
+			return
 		}
 	}
 
@@ -153,7 +157,7 @@ func (b *Broker) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		b.logger.Info("received context done")
 		return nil
-	case err := <-errChan:
+	case err := <-errCh:
 		b.logger.Error(err)
 		return err
 	}

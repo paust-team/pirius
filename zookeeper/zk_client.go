@@ -3,8 +3,8 @@ package zookeeper
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"fmt"
+	"github.com/paust-team/paustq/pqerror"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/samuel/go-zookeeper/zk"
 	"net"
@@ -48,10 +48,10 @@ func (z *ZKClient) Connect() error {
 	var err error
 	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*3, zk.WithLogger(z.logger))
 	if err != nil {
+		err = pqerror.ZKConnectionError{ZKAddr:z.zkAddr}
 		z.logger.Error(err)
 		return err
 	}
-
 	return nil
 }
 
@@ -72,19 +72,13 @@ func (z *ZKClient) CreatePathsIfNotExist() error {
 }
 
 func (z *ZKClient) createPathIfNotExists(path ZKPath) error {
-	ok, _, err := z.conn.Exists(path.string())
-	if err != nil {
+	_, err := z.conn.Create(path.string(), []byte{}, 0, zk.WorldACL(zk.PermAll))
+	if err != nil && err != zk.ErrNodeExists{
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
-	if !ok {
-		_, err = z.conn.Create(path.string(), []byte{}, 0, zk.WorldACL(zk.PermAll))
-		if err != nil && err != zk.ErrNodeExists {
-			z.logger.Error(err)
-			return err
-		}
-	}
 	return nil
 }
 
@@ -100,14 +94,19 @@ func (z *ZKClient) AddTopic(topic string) error {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
-
 	if err != nil {
+		err =  pqerror.ZKLockFailError{LockPath:TOPICS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
 	_, err = z.conn.Create(topicPath(topic), nil, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
+		if err == zk.ErrNodeExists {
+			err = pqerror.ZKTargetAlreadyExistsError{Target:topicPath(topic)}
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
+		}
 		z.logger.Error(err)
 		return err
 	}
@@ -118,17 +117,19 @@ func (z *ZKClient) GetTopics() ([]string, error) {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
-
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:TOPICS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
 
 	topics, _, err := z.conn.Children(TOPICS.string())
 	if err != nil {
+		err =  pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
+
 	if len(topics) > 0 {
 		return topics, nil
 	}
@@ -139,16 +140,18 @@ func (z *ZKClient) RemoveTopic(topic string) error {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
-
 	if err != nil {
+		err =  pqerror.ZKLockFailError{LockPath:TOPICS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
 	if err = z.conn.Delete(topicPath(topic), -1); err != nil {
+		err =  pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
+
 	return nil
 }
 
@@ -173,6 +176,7 @@ func (z *ZKClient) AddBroker(server string) error {
 	buffer := &bytes.Buffer{}
 	err = gob.NewEncoder(buffer).Encode(brokers)
 	if err != nil {
+		err =  pqerror.ZKEncodeFailError{}
 		z.logger.Error(err)
 		return err
 	}
@@ -181,14 +185,18 @@ func (z *ZKClient) AddBroker(server string) error {
 	err = bLock.Lock()
 	defer bLock.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:BROKERS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
+
 	_, err = z.conn.Set(BROKERS.string(), buffer.Bytes(), -1)
 	if err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
+
 	return nil
 }
 
@@ -197,12 +205,14 @@ func (z *ZKClient) GetBrokers() ([]string, error) {
 	err := bLock.Lock()
 	defer bLock.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:BROKERS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
 
 	brokersBytes, _, err := z.conn.Get(BROKERS.string())
-	if err != nil {
+	if err != nil  {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
@@ -218,6 +228,7 @@ func (z *ZKClient) GetBrokers() ([]string, error) {
 	var brokers []string
 	err = gob.NewDecoder(buffer).Decode(&brokers)
 	if err != nil {
+		err = pqerror.ZKDecodeFailError{}
 		z.logger.Error(err)
 		return nil, err
 	}
@@ -242,12 +253,13 @@ func (z *ZKClient) RemoveBroker(server string) error {
 	}
 
 	if found == false {
-		return errors.New("broker does not exist")
+		return pqerror.ZKNothingToRemoveError{}
 	}
 
 	buffer := &bytes.Buffer{}
 	err = gob.NewEncoder(buffer).Encode(brokers)
 	if err != nil {
+		err = pqerror.ZKEncodeFailError{}
 		z.logger.Error(err)
 		return err
 	}
@@ -256,12 +268,14 @@ func (z *ZKClient) RemoveBroker(server string) error {
 	err = bLock.Lock()
 	defer bLock.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:BROKERS_LOCK.string(), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
 	_, err = z.conn.Set(BROKERS.string(), buffer.Bytes(), -1)
 	if err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
@@ -278,8 +292,9 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 
 	for _, topicBroker := range topicBrokers {
 		if topicBroker == server {
-			z.logger.Info("topic broker already exists")
-			return nil
+			err = pqerror.ZKTargetAlreadyExistsError{Target:server}
+			z.logger.Error(err)
+			return err
 		}
 	}
 
@@ -287,6 +302,7 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 	buffer := &bytes.Buffer{}
 	err = gob.NewEncoder(buffer).Encode(topicBrokers)
 	if err != nil {
+		err = pqerror.ZKEncodeFailError{}
 		z.logger.Error(err)
 		return err
 	}
@@ -295,12 +311,14 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 	err = tLocks.Lock()
 	defer tLocks.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:topicLockPath(topic), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
 	_, err = z.conn.Set(topicPath(topic), buffer.Bytes(), -1)
 	if err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
@@ -313,12 +331,14 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	err := tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:topicLockPath(topic), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
 
 	brokersBytes, _, err := z.conn.Get(topicPath(topic))
 	if err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
@@ -333,6 +353,7 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	var brokers []string
 	err = gob.NewDecoder(buffer).Decode(&brokers)
 	if err != nil {
+		err = pqerror.ZKDecodeFailError{}
 		z.logger.Error(err)
 		return nil, err
 	}
@@ -357,13 +378,15 @@ func (z *ZKClient) RemoveTopicBroker(topic string, server string) error {
 	}
 
 	if !found {
-		z.logger.Info("there is no broker to delete")
-		return nil
+		err = pqerror.ZKNothingToRemoveError{}
+		z.logger.Error(err)
+		return err
 	}
 
 	buffer := &bytes.Buffer{}
 	err = gob.NewEncoder(buffer).Encode(brokers)
 	if err != nil {
+		err = pqerror.ZKEncodeFailError{}
 		z.logger.Error(err)
 		return err
 	}
@@ -372,12 +395,14 @@ func (z *ZKClient) RemoveTopicBroker(topic string, server string) error {
 	err = tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath:topicLockPath(topic), ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
 	_, err = z.conn.Set(topicPath(topic), buffer.Bytes(), -1)
 	if err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr:err.Error()}
 		z.logger.Error(err)
 		return err
 	}

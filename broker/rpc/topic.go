@@ -2,11 +2,12 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
-	"github.com/samuel/go-zookeeper/zk"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,7 +26,8 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 	return &topicRPCService{db, zkClient}
 }
 
-func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.CreateTopicRequest) (*paustqproto.CreateTopicResponse, error) {
+func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.CreateTopicRequest) (
+	*paustqproto.CreateTopicResponse, error) {
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
 		return nil, err
@@ -33,7 +35,8 @@ func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.C
 
 	err := s.zkClient.AddTopic(request.Topic.TopicName)
 	if err != nil {
-		if err == zk.ErrNodeExists {
+		var e pqerror.ZKTargetAlreadyExistsError
+		if errors.As(err, &e) {
 			return nil, status.Error(codes.AlreadyExists, "topic already exists")
 		}
 		return nil, err
@@ -45,8 +48,8 @@ func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.C
 	return message.NewCreateTopicResponseMsg(), nil
 }
 
-func (s topicRPCService) DeleteTopic(ctx context.Context, request *paustqproto.DeleteTopicRequest) (*paustqproto.DeleteTopicResponse, error) {
-
+func (s topicRPCService) DeleteTopic(ctx context.Context, request *paustqproto.DeleteTopicRequest) (
+	*paustqproto.DeleteTopicResponse, error) {
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return nil, err
 	}

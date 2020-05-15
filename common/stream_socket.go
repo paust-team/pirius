@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"io"
 	"math"
@@ -56,7 +57,10 @@ func (sc *StreamSocketContainer) Write(msg *message.QMessage, maxBufferSize uint
 		header := &paustqproto.Header{ChunkId: chunkId, TotalChunkCount: totalChunkCount, CurrentChunkIdx: currentChunkIdx}
 		body := &paustqproto.Body{Data: data}
 		if err := sc.socket.Send(&paustqproto.Data{Header: header, Body: body}); err != nil {
-			return err
+			if err == io.EOF {
+				return pqerror.SocketClosedError{}
+			}
+			return pqerror.SocketWriteError{ErrStr:err.Error()}
 		}
 	}
 	return nil
@@ -71,10 +75,10 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 	for {
 		receivedData, err := sc.socket.Recv()
 		if err == io.EOF { // end stream
-			return nil, nil
+			return nil, pqerror.SocketClosedError{}
 		}
 		if err != nil {
-			return nil, err
+			return nil, pqerror.SocketReadError{ErrStr:err.Error()}
 		}
 
 		if chunkId == 0 {
@@ -94,6 +98,46 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 	}
 
 	return message.NewQMessage(totalData), nil
+}
+
+type Result struct {
+	Msg *message.QMessage
+	Err error
+}
+
+func (sc *StreamSocketContainer) ContinuousRead() <-chan Result {
+	resultCh := make(chan Result)
+	go func() {
+		defer close(resultCh)
+		for {
+			msg, err := sc.Read()
+			resultCh <- Result{msg, err}
+
+			var e pqerror.SocketClosedError
+			if errors.As(err, &e) {
+				return
+			}
+		}
+	}()
+
+	return resultCh
+}
+
+func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessage, errCh chan error) {
+	go func() {
+		for msgToWrite := range writeCh {
+			err := sc.Write(msgToWrite, 1024)
+			if err != nil {
+				errCh <- err
+
+				var e pqerror.SocketClosedError
+				if errors.As(err, &e) {
+					return
+				}
+			}
+
+		}
+	}()
 }
 
 func (sc *StreamSocketContainer) Close() {
