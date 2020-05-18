@@ -56,7 +56,7 @@ func (q *QMessage) UnpackTo(msg proto.Message) error {
 			return pqerror.UnmarshalAnyFailedError{}
 		}
 	} else {
-		return pqerror.InvalidMsgTypeToUnpackError{Type:anyMsg.TypeUrl}
+		return pqerror.InvalidMsgTypeToUnpackError{Type: anyMsg.TypeUrl}
 	}
 	return nil
 }

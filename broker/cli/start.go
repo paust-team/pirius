@@ -38,7 +38,7 @@ func NewStartCmd() *cobra.Command {
 
 				reconstructedArgs := []string{"start"}
 				cmd.Flags().Visit(func(flag *pflag.Flag) {
-					if flag.Name != "daemon"{
+					if flag.Name != "daemon" {
 						reconstructedArgs = append(reconstructedArgs, fmt.Sprintf("--%s", flag.Name), flag.Value.String())
 					}
 				})
@@ -49,7 +49,7 @@ func NewStartCmd() *cobra.Command {
 					os.Exit(1)
 				}
 
-				daemon := exec.Command(fmt.Sprintf("%s/paustq",dir), reconstructedArgs...)
+				daemon := exec.Command(fmt.Sprintf("%s/paustq", dir), reconstructedArgs...)
 				if err = daemon.Start(); err != nil {
 					fmt.Println("start error: ", err)
 					os.Exit(1)
@@ -108,7 +108,7 @@ func NewStartCmd() *cobra.Command {
 		},
 	}
 
-	startCmd.Flags().BoolP("daemon", "d", false,  "run with daemon")
+	startCmd.Flags().BoolP("daemon", "d", false, "run with daemon")
 	startCmd.Flags().StringVar(&logDir, "log-dir", broker.DefaultLogDir, "log directory")
 	startCmd.Flags().StringVar(&dataDir, "data-dir", broker.DefaultDataDir, "data directory")
 	startCmd.Flags().Uint8Var(&logLevel, "log-level", uint8(broker.DefaultLogLevel), "set log level [0=debug|1=info|2=warning|3=error]")

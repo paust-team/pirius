@@ -60,7 +60,7 @@ func (sc *StreamSocketContainer) Write(msg *message.QMessage, maxBufferSize uint
 			if err == io.EOF {
 				return pqerror.SocketClosedError{}
 			}
-			return pqerror.SocketWriteError{ErrStr:err.Error()}
+			return pqerror.SocketWriteError{ErrStr: err.Error()}
 		}
 	}
 	return nil
@@ -78,7 +78,7 @@ func (sc *StreamSocketContainer) Read() (*message.QMessage, error) {
 			return nil, pqerror.SocketClosedError{}
 		}
 		if err != nil {
-			return nil, pqerror.SocketReadError{ErrStr:err.Error()}
+			return nil, pqerror.SocketReadError{ErrStr: err.Error()}
 		}
 
 		if chunkId == 0 {

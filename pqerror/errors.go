@@ -198,7 +198,7 @@ func (e UnhandledError) Error() string {
 }
 
 // message encode/decode error
-type MarshalAnyFailedError struct {}
+type MarshalAnyFailedError struct{}
 
 func (e MarshalAnyFailedError) Error() string {
 	return "marshaling proto message to any message failed"
@@ -206,7 +206,7 @@ func (e MarshalAnyFailedError) Error() string {
 
 func (e MarshalAnyFailedError) IsSessionCloseable() {}
 
-type UnmarshalAnyFailedError struct {}
+type UnmarshalAnyFailedError struct{}
 
 func (e UnmarshalAnyFailedError) Error() string {
 	return "unmarshaling any message to proto message failed"
@@ -214,7 +214,7 @@ func (e UnmarshalAnyFailedError) Error() string {
 
 func (e UnmarshalAnyFailedError) IsSessionCloseable() {}
 
-type MarshalFailedError struct {}
+type MarshalFailedError struct{}
 
 func (e MarshalFailedError) Error() string {
 	return "marshaling any message to bytes failed"
@@ -222,7 +222,7 @@ func (e MarshalFailedError) Error() string {
 
 func (e MarshalFailedError) IsSessionCloseable() {}
 
-type UnmarshalFailedError struct {}
+type UnmarshalFailedError struct{}
 
 func (e UnmarshalFailedError) Error() string {
 	return "unmarshaling bytes to any message failed"
@@ -239,4 +239,3 @@ func (e InvalidMsgTypeToUnpackError) Error() string {
 }
 
 func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
-

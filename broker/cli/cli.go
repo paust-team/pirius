@@ -19,7 +19,7 @@ func checkRunningBrokerProcess() (bool, int) {
 	}
 	outs := strings.Split(string(out), "\n")
 	for _, ln := range outs {
-		if len(ln) !=0 && !strings.Contains(ln, strconv.Itoa(parentPid)) {
+		if len(ln) != 0 && !strings.Contains(ln, strconv.Itoa(parentPid)) {
 			pid, err := strconv.Atoi(strings.Split(string(ln), " ")[0])
 			if err != nil {
 				return false, 0
@@ -41,7 +41,6 @@ func Main() {
 		NewStartCmd(),
 		NewStatusCmd(),
 		NewStopCmd(),
-
 	)
 
 	if err := paustQCmd.Execute(); err != nil {

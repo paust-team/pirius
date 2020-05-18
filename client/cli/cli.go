@@ -1,7 +1,6 @@
 package cli
 
 import (
-
 	"fmt"
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"

@@ -29,9 +29,9 @@ func NewRPCClient(zkAddr string) *RPCClient {
 	l := logger.NewQLogger("Rpc-client", logger.Info)
 
 	return &RPCClient{
-		zkClient: zookeeper.NewZKClient(zkAddr),
-		timeout: defaultTimeout,
-		Connected: false,
+		zkClient:   zookeeper.NewZKClient(zkAddr),
+		timeout:    defaultTimeout,
+		Connected:  false,
 		brokerPort: common.DefaultBrokerPort,
 		logger:     l,
 	}
