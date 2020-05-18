@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"math/rand"
@@ -16,28 +18,40 @@ import (
 )
 
 type Producer struct {
-	done          chan bool
+	connected     bool
+	mu            *sync.Mutex
+	ctx           context.Context
+	cancel        context.CancelFunc
 	client        *client.StreamClient
-	sourceChannel chan []byte
-	publishing    bool
-	waitGroup     sync.WaitGroup
 	timeout       time.Duration
 	chunkSize     uint32
 	zkClient      *zookeeper.ZKClient
 	brokerPort    uint16
 	logger        *logger.QLogger
+	bpMode        common.BackPressureMode
 }
 
 func NewProducer(zkHost string) *Producer {
 	l := logger.NewQLogger("Producer", logger.Info)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	producer := &Producer{
+		connected: false,
+		mu: &sync.Mutex{},
+		ctx: 		ctx,
+		cancel:		cancel,
 		zkClient:   zookeeper.NewZKClient(zkHost),
-		publishing: false,
 		chunkSize:  1024,
 		brokerPort: common.DefaultBrokerPort,
 		logger:     l,
+		bpMode:     common.AtMostOnce,
 	}
 	return producer
+}
+
+func (p *Producer) WithBackPressureMode(mode common.BackPressureMode) *Producer {
+	p.bpMode = mode
+	return p
 }
 
 func (p *Producer) WithLogLevel(level logger.LogLevel) *Producer {
@@ -59,109 +73,117 @@ func (p *Producer) WithChunkSize(size uint32) *Producer {
 	p.chunkSize = size
 	return p
 }
-func (p *Producer) waitPublished(ctx context.Context, bChan chan bool) {
+
+func (p *Producer) waitPublished(done <- chan bool) (<-chan paustqproto.PutResponse, <-chan error){
 
 	p.logger.Debug("start waiting publish response msg.")
+	resCh := make(chan paustqproto.PutResponse)
+	errCh := make(chan error)
 
-	for {
-		select {
-		case _, ok := <-bChan:
-			if ok {
+	go func() {
+		defer close(resCh)
+		defer close(errCh)
+
+		msgHandler := message.Handler{}
+		msgHandler.AddMessage(&paustqproto.PutResponse{}, func(msg proto.Message) {
+			res := msg.(*paustqproto.PutResponse)
+			resCh <- *res
+		})
+		msgHandler.AddMessage(&paustqproto.Ack{}, func(msg proto.Message) {
+			ack := msg.(*paustqproto.Ack)
+			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
+			errCh <- err
+		})
+
+		for {
+			select {
+			case <-done:
+				p.logger.Debug("stop waitPublished")
+				return
+			default:
+				// TODO:: Add timeout for receive to handle back pressure
 				msg, err := p.client.Receive()
 
 				if err != nil {
-					p.logger.Error(err)
-					return
-				} else if msg == nil {
-					p.logger.Debug("publish stream finished.")
+					var e pqerror.SocketClosedError
+					if errors.Is(err, e) {
+						p.logger.Debug("publish stream finished.")
+						p.Close()
+					} else {
+						errCh <- err
+					}
 					return
 				} else {
-					putRespMsg := &paustqproto.PutResponse{}
-					if msg.UnpackTo(putRespMsg) != nil {
-						p.logger.Error("Failed to unmarshal data to PutResponse")
-						return
+					if err := msgHandler.Handle(msg); err != nil {
+						errCh <- err
 					}
-					p.waitGroup.Done()
-					p.logger.Debug("received publish response.")
 				}
-			} else {
-				return
 			}
-		case <-p.done:
-			p.logger.Debug("done channel closed. stop waitPublished")
-			return
-		case <-ctx.Done():
-			p.logger.Debug("received ctx done. stop waitPublished")
-			return
 		}
-	}
+	}()
+
+	return resCh, errCh
 }
 
-func (p *Producer) startPublish(ctx context.Context) {
-
-	if !p.publishing {
-		return
-	}
+func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan error {
 
 	p.logger.Info("start publish.")
 
-	p.sourceChannel = make(chan []byte)
-	p.done = make(chan bool)
-
-	waitResponseCh := make(chan bool, 5) // buffered channel to wait response
-	go p.waitPublished(ctx, waitResponseCh)
+	errCh := make(chan error)
 
 	go func() {
 
 		defer p.logger.Info("end publish")
-		defer close(p.done)
-		defer close(p.sourceChannel)
-		defer close(waitResponseCh)
+		defer close(errCh)
+
+		doneRecvCh := make(chan bool)
+		defer close(doneRecvCh)
+
+		recvCh, recvErrCh := p.waitPublished(doneRecvCh)
 
 		for {
 			select {
-			case sourceData := <-p.sourceChannel:
+			case sourceData, ok := <- sourceCh:
+				if !ok {
+					return
+				}
 				reqMsg, err := message.NewQMessageFromMsg(message.NewPutRequestMsg(sourceData))
 
 				if err != nil {
 					p.logger.Error(err)
+					errCh <- err
 					return
 				}
 				if err = p.client.Send(reqMsg); err != nil {
 					p.logger.Error(err)
+					errCh <- err
 					return
 				}
-				p.logger.Debug("sent publish request msg.")
 
-				waitResponseCh <- true
+				p.logger.Debug("sent publish request:", reqMsg)
 
-			case <-p.done:
-				p.logger.Debug("done channel closed. stop publish")
+				// blocking receive
+				// msg := <- recvCh
+				//p.logger.Debug("received response: ", msg)
+
+			case msg := <- recvCh: // non-blocking receive
+				p.logger.Debug("received response: ", msg)
+			case recvErr := <- recvErrCh:
+				p.logger.Error(recvErr)
+				return
+			case <-p.ctx.Done():
+				p.logger.Debug("producer closed. stop publish")
 				return
 			case <-ctx.Done():
-				p.logger.Debug("received ctx done. stop publish")
+				p.logger.Debug("received ctx done from parent. close producer")
+				p.Close()
 				return
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
-}
 
-func (p *Producer) Publish(ctx context.Context, data []byte) {
-	if p.publishing == false {
-		p.publishing = true
-		p.startPublish(ctx)
-	}
-	p.waitGroup.Add(1)
-	p.sourceChannel <- data
-	p.logger.Debug("published data -> ", data)
-}
-
-func (p *Producer) WaitAllPublishResponse() {
-	if p.publishing {
-		p.waitGroup.Wait()
-	}
-	p.logger.Debug("wait all publish response done")
+	return errCh
 }
 
 func (p *Producer) Connect(ctx context.Context, topicName string) error {
@@ -176,6 +198,7 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 	brokerHosts, err := p.zkClient.GetTopicBrokers(topicName)
 	if err != nil {
 		p.logger.Error(err)
+		p.zkClient.Close()
 		return err
 	}
 
@@ -183,11 +206,13 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 		brokers, err := p.zkClient.GetBrokers()
 		if err != nil {
 			p.logger.Error(err)
+			p.zkClient.Close()
 			return err
 		}
 		if brokers == nil {
 			err = errors.New("broker doesn't exists")
 			p.logger.Error(err)
+			p.zkClient.Close()
 			return err
 		}
 		randBrokerIndex := rand.Intn(len(brokers))
@@ -201,23 +226,32 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 
 	if err = p.client.Connect(ctx, topicName); err != nil {
 		p.logger.Error(err)
+		p.zkClient.Close()
 		return err
 	}
 
 	p.logger.Info("producer is connected")
+	p.connected = true
 	return nil
 }
 
 func (p *Producer) Close() error {
-	p.publishing = false
-	p.done <- true
-	p.zkClient.Close()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	if err := p.client.Close(); err != nil {
-		p.logger.Error(err)
-		return err
+	if p.connected {
+		p.connected = false
+
+		p.cancel()
+		p.zkClient.Close()
+
+		if err := p.client.Close(); err != nil {
+			p.logger.Error(err)
+			return err
+		}
+
+		p.logger.Info("producer is closed")
 	}
 
-	p.logger.Info("producer is closed")
 	return nil
 }

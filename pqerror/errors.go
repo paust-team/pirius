@@ -109,7 +109,7 @@ func (e ZKTargetAlreadyExistsError) Error() string {
 	return fmt.Sprintf("target %s already exists", e.Target)
 }
 
-func (e ZKTargetAlreadyExistsError) IsSessionCloseable() {}
+//func (e ZKTargetAlreadyExistsError) IsSessionCloseable() {}
 
 type ZKLockFailError struct {
 	LockPath string

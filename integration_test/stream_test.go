@@ -14,7 +14,6 @@ import (
 	"github.com/paust-team/paustq/zookeeper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -24,8 +23,8 @@ import (
 
 var testLogLevel = logger.Debug
 
-func SleepForBroker() {
-	time.Sleep(1 * time.Second)
+func Sleep(sec int) {
+	time.Sleep(time.Duration(sec) * time.Second)
 }
 
 func readFromFileLineBy(fileName string) (int, [][]byte) {
@@ -64,14 +63,16 @@ func TestStreamClient_Connect(t *testing.T) {
 
 	// Start broker
 	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
-
+	bwg := sync.WaitGroup{}
+	bwg.Add(1)
 	defer brokerInstance.Clean()
-	defer SleepForBroker()
+	defer bwg.Wait()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() {
+		defer bwg.Done()
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
 			t.Error(err)
@@ -79,7 +80,7 @@ func TestStreamClient_Connect(t *testing.T) {
 		}
 	}()
 
-	SleepForBroker()
+	Sleep(1)
 
 	// Start client
 	brokerHost := fmt.Sprintf("127.0.0.1:%d", brokerInstance.Port)
@@ -108,8 +109,11 @@ func TestPubSub(t *testing.T) {
 	topic := "topic1"
 	receivedRecordMap := make(map[string][][]byte)
 
-	ctx1 := context.Background()
-	ctx2 := context.Background()
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	ctx2, cancel2 := context.WithCancel(context.Background())
+
+	defer cancel1()
+	defer cancel2()
 
 	// zk client to reset
 	zkClient := zookeeper.NewZKClient(zkAddr)
@@ -122,14 +126,16 @@ func TestPubSub(t *testing.T) {
 
 	// Start broker
 	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
-
+	bwg := sync.WaitGroup{}
+	bwg.Add(1)
 	defer brokerInstance.Clean()
-	defer SleepForBroker()
+	defer bwg.Wait()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() {
+		defer bwg.Done()
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
 			t.Error(err)
@@ -137,7 +143,7 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	SleepForBroker()
+	Sleep(1)
 
 	// Create topic rpc
 	rpcClient := client.NewRPCClient(zkAddr)
@@ -157,143 +163,34 @@ func TestPubSub(t *testing.T) {
 			return
 		}
 	}
+
 	// Start producer
 	producerClient := producer.NewProducer(zkAddr).WithLogLevel(testLogLevel)
 	if err := producerClient.Connect(ctx1, topic); err != nil {
 		t.Error(err)
 		return
 	}
-
-	for _, record := range testRecordMap[topic] {
-		producerClient.Publish(ctx1, record)
-	}
-
-	producerClient.WaitAllPublishResponse()
-
-	if err := producerClient.Close(); err != nil {
-		t.Error(err)
-	}
-
-	// Start consumer
-	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
-	if err := consumerClient.Connect(ctx2, topic); err != nil {
-		t.Error(err)
-		return
-	}
-	subscribeCh, err := consumerClient.Subscribe(ctx1, 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	for response := range subscribeCh {
-		if response.Error != nil {
-			t.Error(response.Error)
-		} else {
-			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
-		}
-
-		// break on reach end
-		if response.LastOffset == response.Offset {
-			break
-		}
-	}
-
-	expectedResults := testRecordMap[topic]
-	receivedResults := receivedRecordMap[topic]
-
-	if len(expectedResults) != len(receivedResults) {
-		t.Error("Length Mismatch - Expected records: ", len(expectedResults), ", Received records: ", len(receivedResults))
-	}
-	for i, record := range expectedResults {
-		if bytes.Compare(receivedResults[i], record) != 0 {
-			t.Error("Record is not same")
-		}
-	}
-
-	if err := consumerClient.Close(); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestPubsub_Chunk(t *testing.T) {
-
-	zkAddr := "127.0.0.1"
-	var chunkSize uint32 = 1024
-
-	topic := "topic2"
-
-	ctx1 := context.Background()
-	ctx2 := context.Background()
-
-	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr)
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
-
-	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
-
-	defer brokerInstance.Clean()
-	defer SleepForBroker()
-
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	publishCh := make(chan []byte)
+	defer close(publishCh)
+	errChP := producerClient.Publish(ctx1, publishCh)
 
 	go func() {
-		err := brokerInstance.Start(brokerCtx)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
+		select {
+		case err, ok := <-errChP:
+			if ok {
+				t.Error(err)
+			}
+			return
+		case <-ctx1.Done():
+			return
 		}
 	}()
 
-	SleepForBroker()
-
-	// Create topic rpc
-	rpcClient := client.NewRPCClient(zkAddr)
-	if err := rpcClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	defer rpcClient.Close()
-
-	rpcCtx, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
-
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
-		st := status.Convert(err)
-		if st.Code() != codes.AlreadyExists {
-			t.Error(err)
-			return
-		}
+	for _, record := range testRecordMap[topic] {
+		publishCh <- record
 	}
 
-	// Start producer
-	producerClient := producer.NewProducer(zkAddr).WithChunkSize(chunkSize).WithLogLevel(testLogLevel)
-	if err := producerClient.Connect(ctx1, topic); err != nil {
-		t.Error(err)
-		return
-	}
-
-	data, err := ioutil.ReadFile("sample.txt")
-
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	producerClient.Publish(ctx1, data)
-	producerClient.WaitAllPublishResponse()
-
-	if err := producerClient.Close(); err != nil {
-		t.Error(err)
-	}
-
-	expectedLen := len(data)
+	Sleep(1)
 
 	// Start consumer
 	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
@@ -302,31 +199,49 @@ func TestPubsub_Chunk(t *testing.T) {
 		return
 	}
 
-	receivedLen := 0
-	subscribeCh, err := consumerClient.Subscribe(ctx2, 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	for response := range subscribeCh {
-		if response.Error != nil {
-			t.Error(response.Error)
-		} else {
-			receivedLen = len(response.Data)
-		}
+	subscribeCh, errChC := consumerClient.Subscribe(ctx2, 0)
 
-		// break on reach end
-		if response.LastOffset == response.Offset {
-			break
+	go func() {
+		select {
+		case err, ok := <-errChC:
+			if ok {
+				t.Error(err)
+			}
+			return
+		case <-ctx2.Done():
+			return
 		}
+	}()
+
+subscribeUntil:
+	for {
+		select {
+		case response:= <- subscribeCh:
+			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
+
+			// break on reach end
+			if len(testRecordMap[topic]) == len(receivedRecordMap[topic]) {
+				break subscribeUntil
+			}
+		case <- time.After(time.Second * 10):
+			t.Error("subscribe timeout")
+			os.Exit(1)
+		}
+	}
+
+	if err := producerClient.Close(); err != nil {
+		t.Error(err)
 	}
 
 	if err := consumerClient.Close(); err != nil {
 		t.Error(err)
 	}
 
-	if expectedLen != receivedLen {
-		t.Error("Length Mismatch - Expected record length: ", expectedLen, ", Received record length: ", receivedLen)
+	// test
+	for i, record := range testRecordMap[topic] {
+		if bytes.Compare(receivedRecordMap[topic][i], record) != 0 {
+			t.Error("Record is not same")
+		}
 	}
 }
 
@@ -345,14 +260,16 @@ func TestMultiClient(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
-
+	bwg := sync.WaitGroup{}
+	bwg.Add(1)
 	defer brokerInstance.Clean()
-	defer SleepForBroker()
+	defer bwg.Wait()
 
 	brokerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() {
+		defer bwg.Done()
 		err := brokerInstance.Start(brokerCtx)
 		if err != nil {
 			t.Error(err)
@@ -360,7 +277,7 @@ func TestMultiClient(t *testing.T) {
 		}
 	}()
 
-	SleepForBroker()
+	Sleep(1)
 
 	// Create topic rpc
 	rpcClient := client.NewRPCClient(zkAddr)
@@ -400,16 +317,31 @@ func TestMultiClient(t *testing.T) {
 				t.Error(err)
 				return
 			}
+			publishCh := make(chan []byte)
+			defer close(publishCh)
+			errCh := producerClient.Publish(ctx, publishCh)
+
+			go func() {
+				select {
+				case err, ok := <-errCh:
+					if ok {
+						t.Error(err)
+					}
+					return
+				case <-ctx.Done():
+					return
+				}
+			}()
 
 			for _, record := range sendingRecords {
-				producerClient.Publish(ctx, record)
+				publishCh <- record
 			}
 
 			mu.Lock()
 			sentRecords = append(sentRecords, sendingRecords...)
 			mu.Unlock()
 
-			producerClient.WaitAllPublishResponse()
+			Sleep(2)
 
 			if err := producerClient.Close(); err != nil {
 				t.Error(err)
@@ -418,11 +350,18 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	runProducer(context.Background(), "data1.txt")
-	runProducer(context.Background(), "data2.txt")
-	runProducer(context.Background(), "data3.txt")
+	ctx1, cancelP1 := context.WithCancel(context.Background())
+	ctx2, cancelP2 := context.WithCancel(context.Background())
+	ctx3, cancelP3 := context.WithCancel(context.Background())
+	defer cancelP1()
+	defer cancelP2()
+	defer cancelP3()
 
-	time.Sleep(1 * time.Second)
+	runProducer(ctx1, "data1.txt")
+	runProducer(ctx2, "data2.txt")
+	runProducer(ctx3, "data3.txt")
+
+	Sleep(1)
 
 	// Start consumer
 	type ReceivedRecords [][]byte
@@ -442,22 +381,33 @@ func TestMultiClient(t *testing.T) {
 			}
 
 			receiveCount := 0
-			subscribeCh, err := consumerClient.Subscribe(ctx, 0)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			for response := range subscribeCh {
-				if response.Error != nil {
-					t.Error(response.Error)
-				} else {
+			subscribeCh, errCh := consumerClient.Subscribe(ctx, 0)
 
+			go func() {
+				select {
+				case err, ok := <-errCh:
+					if ok {
+						t.Error(err)
+					}
+					return
+				case <-ctx.Done():
+					return
+				}
+			}()
+
+		subscribeUntil:
+			for {
+				select {
+				case response:= <- subscribeCh:
 					receivedRecords = append(receivedRecords, response.Data)
 					receiveCount++
 					if expectedSentCount == receiveCount {
 						fmt.Println("complete consumer. received :", receiveCount)
-						break
+						break subscribeUntil
 					}
+				case <- time.After(time.Second * 3):
+					t.Error("subscribe timeout")
+					return
 				}
 			}
 
@@ -469,8 +419,13 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	runConsumer(context.Background())
-	runConsumer(context.Background())
+	ctx4, cancelC1 := context.WithCancel(context.Background())
+	ctx5, cancelC2 := context.WithCancel(context.Background())
+	defer cancelC1()
+	defer cancelC2()
+
+	runConsumer(ctx4)
+	runConsumer(ctx5)
 
 	wg.Wait()
 

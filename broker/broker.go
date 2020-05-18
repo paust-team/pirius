@@ -40,7 +40,7 @@ func NewBroker(zkAddr string) *Broker {
 
 	notifier := internals.NewNotifier()
 	l := logger.NewQLogger("Broker", DefaultLogLevel)
-	zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(l)
+	zkClient := zookeeper.NewZKClient(zkAddr)
 	broadcaster := &internals.Broadcaster{}
 
 	return &Broker{

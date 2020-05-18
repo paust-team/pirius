@@ -38,6 +38,24 @@ func NewPublishCmd() *cobra.Command {
 
 			defer client.Close()
 
+			handlePublishError := func(errCh <-chan error) {
+				select {
+				case err, ok := <-errCh:
+					if ok {
+						fmt.Println("received error:", err)
+						os.Exit(1)
+					}
+					return
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			publishCh := make(chan []byte)
+			defer close(publishCh)
+			errCh := client.Publish(ctx, publishCh)
+			go handlePublishError(errCh)
+
 			if cmd.Flags().Changed("file-path") {
 
 				f, err := os.Open(filePath)
@@ -48,17 +66,18 @@ func NewPublishCmd() *cobra.Command {
 
 				scanner := bufio.NewScanner(f)
 				for scanner.Scan() {
-					client.Publish(ctx, []byte(scanner.Text()))
+					publishCh <- []byte(scanner.Text())
 				}
 
 			} else if len(args) > 0 {
-				client.Publish(ctx, []byte(args[0]))
+				publishCh <- []byte(args[0])
 			} else {
 				fmt.Println("no data to publish")
 				os.Exit(1)
 			}
 
-			client.WaitAllPublishResponse()
+			// TODO:: WIP: wait to all data saved on broker
+			time.Sleep(3 * time.Second)
 
 			fmt.Println("done publish")
 		},
