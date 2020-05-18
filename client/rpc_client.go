@@ -100,6 +100,10 @@ func (client *RPCClient) Close() {
 
 func (client *RPCClient) CreateTopic(ctx context.Context, topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
+	if !client.Connected {
+		return errors.New("rpc client is not connected to broker")
+	}
+
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
 
@@ -113,6 +117,10 @@ func (client *RPCClient) CreateTopic(ctx context.Context, topicName string, topi
 
 func (client *RPCClient) DeleteTopic(ctx context.Context, topicName string) error {
 
+	if !client.Connected {
+		return errors.New("rpc client is not connected to broker")
+	}
+
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
 	_, err := client.rpcClient.DeleteTopic(c, message.NewDeleteTopicRequestMsg(topicName))
@@ -124,6 +132,10 @@ func (client *RPCClient) DeleteTopic(ctx context.Context, topicName string) erro
 }
 
 func (client *RPCClient) Heartbeat(ctx context.Context, msg string, brokerId uint64, brokerHost string) (*paustqproto.Pong, error) {
+
+	if !client.Connected {
+		return nil, errors.New("rpc client is not connected to broker")
+	}
 
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
