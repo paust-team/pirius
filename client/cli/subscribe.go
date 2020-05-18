@@ -22,7 +22,7 @@ func NewSubscribeCmd() *cobra.Command {
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.LogLevelError)
+			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.Error)
 
 			if err := client.Connect(ctx, topicName); err != nil {
 				fmt.Println(err)

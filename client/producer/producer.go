@@ -29,7 +29,7 @@ type Producer struct {
 }
 
 func NewProducer(zkHost string) *Producer {
-	l := logger.NewQLogger("Producer", logger.LogLevelInfo)
+	l := logger.NewQLogger("Producer", logger.Info)
 	producer := &Producer{
 		zkClient:   zookeeper.NewZKClient(zkHost),
 		publishing: false,

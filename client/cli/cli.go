@@ -16,7 +16,7 @@ var (
 	brokerPort uint16
 )
 
-var defaultLogger = logger.NewQLogger("paustq-cli", logger.LogLevelError)
+var defaultLogger = logger.NewQLogger("paustq-cli", logger.Error)
 
 var paustQClientCmd = &cobra.Command{
 	Use:   "paustq-client [command] (flags)",

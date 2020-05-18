@@ -20,7 +20,7 @@ var (
 	DefaultBrokerHomeDir  = os.ExpandEnv("$HOME/.paustq")
 	DefaultLogDir   = fmt.Sprintf("%s/log", DefaultBrokerHomeDir)
 	DefaultDataDir   = fmt.Sprintf("%s/data", DefaultBrokerHomeDir)
-	DefaultLogLevel = logger.LogLevelInfo
+	DefaultLogLevel = logger.Info
 )
 
 type Broker struct {
@@ -116,17 +116,17 @@ func (b *Broker) Start(ctx context.Context) error {
 	b.host = host.String()
 	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.AddBroker(b.host); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
@@ -151,7 +151,7 @@ func (b *Broker) Start(ctx context.Context) error {
 
 	go startGrpcServer(b.grpcServer, b.Port)
 
-	b.logger.InfoF("start broker with port: %d", b.Port)
+	b.logger.Infof("start broker with port: %d", b.Port)
 
 	select {
 	case <-ctx.Done():

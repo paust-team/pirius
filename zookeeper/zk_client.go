@@ -35,7 +35,7 @@ func NewZKClient(zkAddr string) *ZKClient {
 	return &ZKClient{
 		zkAddr: zkAddr,
 		conn:   nil,
-		logger: logger.NewQLogger("ZkClient", logger.LogLevelInfo),
+		logger: logger.NewQLogger("ZkClient", logger.Info),
 	}
 }
 

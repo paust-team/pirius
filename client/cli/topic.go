@@ -41,7 +41,7 @@ func NewCreateTopicCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 
-			rpcClient := client.NewRPCClient(zkAddr).WithLogLevel(logger.LogLevelError)
+			rpcClient := client.NewRPCClient(zkAddr).WithLogLevel(logger.Error)
 			defer rpcClient.Close()
 
 			if err := rpcClient.Connect(); err != nil {
@@ -73,7 +73,7 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 
-			rpcClient := client.NewRPCClient(zkAddr).WithTimeout(time.Duration(timeout) * time.Second).WithLogLevel(logger.LogLevelError)
+			rpcClient := client.NewRPCClient(zkAddr).WithTimeout(time.Duration(timeout) * time.Second).WithLogLevel(logger.Error)
 			defer rpcClient.Close()
 
 			if err := rpcClient.Connect(); err != nil {

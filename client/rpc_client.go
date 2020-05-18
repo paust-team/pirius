@@ -25,7 +25,7 @@ type RPCClient struct {
 
 func NewRPCClient(zkAddr string) *RPCClient {
 	defaultTimeout := 3 * time.Second
-	l := logger.NewQLogger("Rpc-client", logger.LogLevelInfo)
+	l := logger.NewQLogger("Rpc-client", logger.Info)
 
 	return &RPCClient{
 		zkClient: zookeeper.NewZKClient(zkAddr),

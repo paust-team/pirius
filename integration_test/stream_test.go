@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-var testLogLevel = logger.LogLevelDebug
+var testLogLevel = logger.Debug
 
 func SleepForBroker() {
 	time.Sleep(1 * time.Second)
