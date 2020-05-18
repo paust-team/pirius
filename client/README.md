@@ -113,26 +113,32 @@ if err := producerClient.Connect(ctx, topic); err != nil {
 }
 
 // Publish records
-dataCh := make(chan []byte)
-errCh := producerClient.Publish(ctx, dataCh)
+publishCh, errCh := producerClient.Publish(ctx)
 
 go func() {
-	for err := errCh {
-		fmt.Println(err)
+	case err, ok := <-errChP:
+		if ok {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 		return
-	}
+	case <-ctx1.Done():
+		return
 }()
 
 testRecords := [][]byte{“1”, “2”, “3”, “4”, “5”}
 for _, record := range testRecords {
-	dataCh <- record
+	publishCh <- record
 }
+
+// wait to all data saved on broker
+time.Sleep(3 * time.Second)
 
 // Close Producer client
 if err := producerClient.Close(); err != nil {
 	fmt.Println(err)
 }
-
+			
 fmt.Println(“publish finished”)
 ```
 
@@ -177,23 +183,40 @@ if err := consumerClient.Connect(ctx, topic); err != nil {
 	return
 }
 startOffset := 0
-subscribeCh, err := consumerClient.Subscribe(ctx, startOffset)
-if err != nil {
+subscribeCh, errCh := consumerClient.Subscribe(ctx, startOffset)
+
+go func() {
+	select {
+	case err, ok := <-errCh:
+		if ok {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return
+	case <-ctx.Done():
+		return
+	}
+}()
+
+subscribeUntil:
+for {
+	select {
+	case response:= <- subscribeCh:
+		fmt.Println("received data:", response.Data)
+
+		// break on reach end
+		if response.StartOffset == response.LastOffset  {
+			break subscribeUntil
+		}
+	case <- time.After(time.Second * 1):
+		fmt.Println("subscribe timeout")
+		return
+	}
+}
+
+if err := consumerClient.Close(); err != nil {
 	fmt.Println(err)
 	return
 }
-for response := range subscribeCh {
-	if response.Error != nil {
-		fmt.Println(response.Error)
-	} else {
-		fmt.Println(“received data: “, response.Data)
-	}
-
-	// break on reach end
-	if response.LastOffset == response.Offset {
-		break
-	}
-}
-
 fmt.Println(“subscribe finished”)
 ```
