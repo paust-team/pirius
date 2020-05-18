@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/paust-team/paustq/common"
+	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
@@ -14,16 +15,26 @@ import (
 )
 
 type RPCClient struct {
+	conn       *grpc.ClientConn
+	rpcClient  paustqproto.APIServiceClient
 	zkClient   *zookeeper.ZKClient
-	zkAddr     string
 	brokerPort uint16
 	timeout    time.Duration
 	Connected  bool
+	logger     *logger.QLogger
 }
 
 func NewRPCClient(zkAddr string) *RPCClient {
 	defaultTimeout := 3 * time.Second
-	return &RPCClient{zkAddr: zkAddr, timeout: defaultTimeout, Connected: false, brokerPort: common.DefaultBrokerPort}
+	l := logger.NewQLogger("Rpc-client", logger.Info)
+
+	return &RPCClient{
+		zkClient:   zookeeper.NewZKClient(zkAddr),
+		timeout:    defaultTimeout,
+		Connected:  false,
+		brokerPort: common.DefaultBrokerPort,
+		logger:     l,
+	}
 }
 
 func (client *RPCClient) WithTimeout(timeout time.Duration) *RPCClient {
@@ -36,48 +47,69 @@ func (client *RPCClient) WithBrokerPort(port uint16) *RPCClient {
 	return client
 }
 
+func (client *RPCClient) WithLogLevel(level logger.LogLevel) *RPCClient {
+	client.logger.SetLogLevel(level)
+	return client
+}
+
 func (client *RPCClient) Connect() error {
-	client.zkClient = zookeeper.NewZKClient(client.zkAddr)
+	client.zkClient = client.zkClient.WithLogger(client.logger)
 	err := client.zkClient.Connect()
 	if err != nil {
+		client.logger.Error(err)
 		return err
 	}
+
+	var brokerAddr string
+
+	brokers, err := client.zkClient.GetBrokers()
+	if err != nil {
+		client.logger.Error(err)
+		client.zkClient.Close()
+		return err
+	}
+	if brokers == nil {
+		err := errors.New("broker doesn't exists")
+		client.logger.Error(err)
+		client.zkClient.Close()
+		return err
+	}
+
+	// Get random broker
+	randBrokerIndex := rand.Intn(len(brokers))
+	brokerAddr = brokers[randBrokerIndex]
+	brokerEndpoint := fmt.Sprintf("%s:%d", brokerAddr, client.brokerPort)
+	conn, err := grpc.Dial(brokerEndpoint, grpc.WithInsecure())
+	if err != nil {
+		client.logger.Error(err)
+		client.zkClient.Close()
+		return err
+	}
+
+	client.conn = conn
+	client.rpcClient = paustqproto.NewAPIServiceClient(conn)
 	client.Connected = true
 	return nil
 }
 
 func (client *RPCClient) Close() {
 	client.Connected = false
+	client.conn.Close()
 	client.zkClient.Close()
 }
 
 func (client *RPCClient) CreateTopic(ctx context.Context, topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
-	var brokerAddr string
-
-	brokers, err := client.zkClient.GetBrokers()
-	if err != nil {
-		return err
+	if !client.Connected {
+		return errors.New("rpc client is not connected to broker")
 	}
-	if brokers == nil {
-		return errors.New("broker doesn't exists")
-	}
-	randBrokerIndex := rand.Intn(len(brokers))
-	brokerAddr = brokers[randBrokerIndex]
-	brokerEndpoint := fmt.Sprintf("%s:%d", brokerAddr, client.brokerPort)
-	conn, err := grpc.Dial(brokerEndpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	rpcClient := paustqproto.NewAPIServiceClient(conn)
 
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
 
-	_, err = rpcClient.CreateTopic(c, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
+	_, err := client.rpcClient.CreateTopic(c, message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor))
 	if err != nil {
+		client.logger.Error(err)
 		return err
 	}
 	return nil
@@ -85,28 +117,15 @@ func (client *RPCClient) CreateTopic(ctx context.Context, topicName string, topi
 
 func (client *RPCClient) DeleteTopic(ctx context.Context, topicName string) error {
 
-	brokers, err := client.zkClient.GetTopicBrokers(topicName)
-	if err != nil {
-		return err
+	if !client.Connected {
+		return errors.New("rpc client is not connected to broker")
 	}
-
-	if brokers == nil {
-		return errors.New("broker which has topic doesn't exists")
-	}
-
-	brokerEndpoint := fmt.Sprintf("%s:%d", brokers[0], client.brokerPort)
-	conn, err := grpc.Dial(brokerEndpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	rpcClient := paustqproto.NewAPIServiceClient(conn)
 
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
-	_, err = rpcClient.DeleteTopic(c, message.NewDeleteTopicRequestMsg(topicName))
+	_, err := client.rpcClient.DeleteTopic(c, message.NewDeleteTopicRequestMsg(topicName))
 	if err != nil {
+		client.logger.Error(err)
 		return err
 	}
 	return nil
@@ -114,15 +133,11 @@ func (client *RPCClient) DeleteTopic(ctx context.Context, topicName string) erro
 
 func (client *RPCClient) Heartbeat(ctx context.Context, msg string, brokerId uint64, brokerHost string) (*paustqproto.Pong, error) {
 
-	conn, err := grpc.Dial(brokerHost, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
+	if !client.Connected {
+		return nil, errors.New("rpc client is not connected to broker")
 	}
-	defer conn.Close()
-
-	rpcClient := paustqproto.NewAPIServiceClient(conn)
 
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
-	return rpcClient.Heartbeat(c, message.NewPingMsg(msg, brokerId))
+	return client.rpcClient.Heartbeat(c, message.NewPingMsg(msg, brokerId))
 }

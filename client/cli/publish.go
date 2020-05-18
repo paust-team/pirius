@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/paust-team/paustq/client/producer"
 	"github.com/paust-team/paustq/common"
+	logger "github.com/paust-team/paustq/log"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -24,7 +25,7 @@ func NewPublishCmd() *cobra.Command {
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := producer.NewProducer(zkAddr).WithTimeout(time.Duration(timeout))
+			client := producer.NewProducer(zkAddr).WithTimeout(time.Duration(timeout)).WithLogLevel(logger.Error)
 
 			if cmd.Flags().Changed("chunk") {
 				client = client.WithChunkSize(chunkSize)

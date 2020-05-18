@@ -16,10 +16,10 @@ import (
 )
 
 type StreamServiceServer struct {
-	DB       *storage.QRocksDB
-	Notifier *internals.Notifier
-	zKClient *zookeeper.ZKClient
-	host 	 string
+	DB          *storage.QRocksDB
+	Notifier    *internals.Notifier
+	zKClient    *zookeeper.ZKClient
+	host        string
 	broadcaster *internals.Broadcaster
 	brokerErrCh chan error
 }
@@ -27,12 +27,12 @@ type StreamServiceServer struct {
 func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier, zkClient *zookeeper.ZKClient,
 	host string, broadcaster *internals.Broadcaster, brokerErrCh chan error) *StreamServiceServer {
 	return &StreamServiceServer{
-		DB: db,
-		Notifier: notifier,
-		zKClient:zkClient,
-		host:host,
-		broadcaster:broadcaster,
-		brokerErrCh:brokerErrCh,
+		DB:          db,
+		Notifier:    notifier,
+		zKClient:    zkClient,
+		host:        host,
+		broadcaster: broadcaster,
+		brokerErrCh: brokerErrCh,
 	}
 }
 
@@ -66,11 +66,11 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 		defer wg.Done()
 		for {
 			select {
-			case <- stream.Context().Done():
+			case <-stream.Context().Done():
 				return
 			case <-ctx.Done():
 				return
-			case result := <- readChan:
+			case result := <-readChan:
 				if result.Msg != nil {
 					pl.Flow(ctx, 0, result.Msg)
 				}
@@ -88,15 +88,15 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	msgStream := pl.Take(ctx, 0, 0)
 
 	wg.Add(1)
-	go func () {
+	go func() {
 		defer wg.Done()
 		for {
 			select {
-			case <- stream.Context().Done():
+			case <-stream.Context().Done():
 				return
 			case <-ctx.Done():
 				return
-			case msg := <- msgStream:
+			case msg := <-msgStream:
 				writeChan <- msg.(*message.QMessage)
 			}
 		}
@@ -191,10 +191,10 @@ func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, ser
 	broadcaster *internals.Broadcaster, pipelineWg *sync.WaitGroup) {
 	errCh := pqerror.MergeErrors(errChannels...)
 
-	go func () {
+	go func() {
 		for {
 			select {
-			case <- serverCtx.Done():
+			case <-serverCtx.Done():
 				return
 			case <-sessionCtx.Done():
 				return
@@ -205,14 +205,14 @@ func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, ser
 					case pqerror.IsClientVisible:
 						pqErr, ok := err.(pqerror.PQError)
 						if !ok {
-							brokerErrCh <- pqerror.UnhandledError{ErrStr:err.Error()}
+							brokerErrCh <- pqerror.UnhandledError{ErrStr: err.Error()}
 							return
 						}
 						writeChan <- message.NewErrorAckMsg(pqErr.Code(), pqErr.Error())
 					case pqerror.IsBroadcastable:
 						pqErr, ok := err.(pqerror.PQError)
 						if !ok {
-							brokerErrCh <- pqerror.UnhandledError{ErrStr:err.Error()}
+							brokerErrCh <- pqerror.UnhandledError{ErrStr: err.Error()}
 							return
 						}
 

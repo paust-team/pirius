@@ -78,8 +78,8 @@ func NewShutdownBrokerResponseMsg() *paustqproto.ShutdownBrokerResponse {
 	return &paustqproto.ShutdownBrokerResponse{}
 }
 
-func NewAckMsg(code uint32, msg string) *paustqproto.Ack{
-	return &paustqproto.Ack{Code:code, Msg:msg}
+func NewAckMsg(code uint32, msg string) *paustqproto.Ack {
+	return &paustqproto.Ack{Code: code, Msg: msg}
 }
 
 func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {

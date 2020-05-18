@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	DefaultLogDir   = os.ExpandEnv("$HOME/.paustq/log")
-	DefaultDataDir  = os.ExpandEnv("$HOME/.paustq/data")
-	DefaultLogLevel = logger.LogLevelInfo
+	DefaultBrokerHomeDir = os.ExpandEnv("$HOME/.paustq")
+	DefaultLogDir        = fmt.Sprintf("%s/log", DefaultBrokerHomeDir)
+	DefaultDataDir       = fmt.Sprintf("%s/data", DefaultBrokerHomeDir)
+	DefaultLogLevel      = logger.Info
 )
 
 type Broker struct {
@@ -30,9 +31,9 @@ type Broker struct {
 	notifier    *internals.Notifier
 	zkClient    *zookeeper.ZKClient
 	broadcaster *internals.Broadcaster
-	logDir     string
-	dataDir    string
-	logger     *logger.QLogger
+	logDir      string
+	dataDir     string
+	logger      *logger.QLogger
 }
 
 func NewBroker(zkAddr string) *Broker {
@@ -43,16 +44,15 @@ func NewBroker(zkAddr string) *Broker {
 	broadcaster := &internals.Broadcaster{}
 
 	return &Broker{
-		Port:     common.DefaultBrokerPort,
-		notifier: notifier,
-		zkClient: zkClient,
-		broadcaster:broadcaster,
-		logDir:   DefaultLogDir,
-		dataDir:  DefaultDataDir,
-		logger:   l,
+		Port:        common.DefaultBrokerPort,
+		notifier:    notifier,
+		zkClient:    zkClient,
+		broadcaster: broadcaster,
+		logDir:      DefaultLogDir,
+		dataDir:     DefaultDataDir,
+		logger:      l,
 	}
 }
-
 
 func (b *Broker) WithPort(port uint16) *Broker {
 	b.Port = port
@@ -113,18 +113,19 @@ func (b *Broker) Start(ctx context.Context) error {
 	}
 
 	b.host = host.String()
+	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.AddBroker(b.host); err != nil {
-		b.logger.ErrorF("zk error: %v", err)
+		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
@@ -149,7 +150,7 @@ func (b *Broker) Start(ctx context.Context) error {
 
 	go startGrpcServer(b.grpcServer, b.Port)
 
-	b.logger.InfoF("start broker with port: %d", b.Port)
+	b.logger.Infof("start broker with port: %d", b.Port)
 
 	select {
 	case <-ctx.Done():

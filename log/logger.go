@@ -12,10 +12,10 @@ import (
 type LogLevel int
 
 const (
-	LogLevelDebug LogLevel = iota
-	LogLevelInfo
-	LogLevelWarning
-	LogLevelError
+	Debug LogLevel = iota
+	Info
+	Warning
+	Error
 )
 
 const (
@@ -26,15 +26,15 @@ const (
 func logLevelString(logLevel LogLevel) string {
 
 	logLevelStrings := []string{
-		"Debug",
-		"Info",
-		"Warning",
-		"Error",
+		"DEBUG",
+		"INFO",
+		"WARNING",
+		"ERROR",
 	}
 	if logLevel > -1 && int(logLevel) < len(logLevelStrings) {
 		return logLevelStrings[logLevel]
 	} else {
-		return "Unknown"
+		return "UNKNOWN"
 	}
 }
 
@@ -44,8 +44,6 @@ type QLogger struct {
 	logLevel    LogLevel
 	packageName string
 	fileName    string
-	timeFormat  string
-	logFormat   string
 	file        *os.File
 }
 
@@ -57,8 +55,6 @@ func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
 		packageName: packageName,
 		logLevel:    logLevel,
 		Logger:      log.New(os.Stderr, "", 0),
-		timeFormat:  defaultTimeFormat,
-		logFormat:   defaultLogFormat,
 		file:        nil,
 	}
 }
@@ -66,8 +62,6 @@ func NewQLogger(packageName string, logLevel LogLevel) *QLogger {
 func (l *QLogger) Inherit(parent *QLogger) {
 	l.Logger = parent.Logger
 	l.SetLogLevel(parent.logLevel)
-	l.SetTimeFormat(parent.timeFormat)
-	l.SetLogFormat(parent.logFormat)
 }
 
 func (l *QLogger) WithFile(logPath string) *QLogger {
@@ -103,52 +97,44 @@ func (l *QLogger) SetLogLevel(logLevel LogLevel) {
 	l.logLevel = logLevel
 }
 
-func (l *QLogger) SetTimeFormat(timeFormat string) {
-	l.timeFormat = timeFormat
-}
-
-func (l *QLogger) SetLogFormat(logFormat string) {
-	l.logFormat = logFormat
-}
-
 func (l *QLogger) log(level LogLevel, msg string) {
 	if level < l.logLevel {
 		return
 	}
-	tFmt := time.Now().Format(l.timeFormat)
-	_ = l.Output(3, fmt.Sprintf(l.logFormat, l.id, tFmt, l.packageName, logLevelString(level), msg))
+	tFmt := time.Now().Format(defaultTimeFormat)
+	_ = l.Output(3, fmt.Sprintf(defaultLogFormat, l.id, tFmt, l.packageName, logLevelString(level), msg))
 }
 
 func (l *QLogger) Debug(v ...interface{}) {
-	l.log(LogLevelDebug, fmt.Sprintln(v...))
+	l.log(Debug, fmt.Sprintln(v...))
 }
 
-func (l *QLogger) DebugF(format string, v ...interface{}) {
-	l.log(LogLevelDebug, fmt.Sprintf(format, v))
+func (l *QLogger) Debugf(format string, v ...interface{}) {
+	l.log(Debug, fmt.Sprintf(format, v))
 }
 
 func (l *QLogger) Info(v ...interface{}) {
-	l.log(LogLevelInfo, fmt.Sprintln(v...))
+	l.log(Info, fmt.Sprintln(v...))
 }
 
-func (l *QLogger) InfoF(format string, v ...interface{}) {
-	l.log(LogLevelInfo, fmt.Sprintf(format, v))
+func (l *QLogger) Infof(format string, v ...interface{}) {
+	l.log(Info, fmt.Sprintf(format, v))
 }
 
 func (l *QLogger) Warning(v ...interface{}) {
-	l.log(LogLevelWarning, fmt.Sprintln(v...))
+	l.log(Warning, fmt.Sprintln(v...))
 }
 
-func (l *QLogger) WarningF(format string, v ...interface{}) {
-	l.log(LogLevelWarning, fmt.Sprintf(format, v))
+func (l *QLogger) Warningf(format string, v ...interface{}) {
+	l.log(Warning, fmt.Sprintf(format, v))
 }
 
 func (l *QLogger) Error(v ...interface{}) {
-	l.log(LogLevelError, fmt.Sprintln(v...))
+	l.log(Error, fmt.Sprintln(v...))
 }
 
-func (l *QLogger) ErrorF(format string, v ...interface{}) {
-	l.log(LogLevelError, fmt.Sprintf(format, v))
+func (l *QLogger) Errorf(format string, v ...interface{}) {
+	l.log(Error, fmt.Sprintf(format, v))
 	l.Print()
 }
 
@@ -157,7 +143,7 @@ func (l *QLogger) Print(v ...interface{}) {
 }
 
 func (l *QLogger) Printf(format string, v ...interface{}) {
-	l.InfoF(format, v...)
+	l.Infof(format, v...)
 }
 
 func (l *QLogger) Println(v ...interface{}) {
@@ -170,7 +156,7 @@ func (l *QLogger) Fatal(v ...interface{}) {
 }
 
 func (l *QLogger) Fatalf(format string, v ...interface{}) {
-	l.ErrorF(format, v...)
+	l.Errorf(format, v...)
 	os.Exit(1)
 }
 

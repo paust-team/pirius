@@ -1,9 +1,9 @@
 package cli
 
 import (
-
 	"fmt"
 	"github.com/paust-team/paustq/common"
+	logger "github.com/paust-team/paustq/log"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -14,6 +14,8 @@ var (
 	timeout    uint8
 	brokerPort uint16
 )
+
+var defaultLogger = logger.NewQLogger("paustq-cli", logger.Error)
 
 var paustQClientCmd = &cobra.Command{
 	Use:   "paustq-client [command] (flags)",
