@@ -13,7 +13,7 @@ func NewStatusCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if running {
-				fmt.Printf("running with port %d", pid)
+				fmt.Printf("running on port %d", pid)
 			} else {
 				fmt.Println("not running")
 			}

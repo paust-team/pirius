@@ -30,7 +30,7 @@ func NewStartCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if running {
-				fmt.Printf("broker already running with port %d", pid)
+				fmt.Printf("broker already running on port %d", pid)
 				return
 			}
 

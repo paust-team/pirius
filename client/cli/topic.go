@@ -86,7 +86,7 @@ func NewDeleteTopicCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Println("delete topic ok")
+			fmt.Printf("topic %s deleted", topicName)
 		},
 	}
 
