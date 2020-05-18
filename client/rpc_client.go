@@ -15,6 +15,7 @@ import (
 )
 
 type RPCClient struct {
+	conn       *grpc.ClientConn
 	rpcClient  paustqproto.APIServiceClient
 	zkClient   *zookeeper.ZKClient
 	brokerPort uint16
@@ -85,6 +86,7 @@ func (client *RPCClient) Connect() error {
 		return err
 	}
 
+	client.conn = conn
 	client.rpcClient = paustqproto.NewAPIServiceClient(conn)
 	client.Connected = true
 	return nil
@@ -92,6 +94,7 @@ func (client *RPCClient) Connect() error {
 
 func (client *RPCClient) Close() {
 	client.Connected = false
+	client.conn.Close()
 	client.zkClient.Close()
 }
 
@@ -122,16 +125,7 @@ func (client *RPCClient) DeleteTopic(ctx context.Context, topicName string) erro
 
 func (client *RPCClient) Heartbeat(ctx context.Context, msg string, brokerId uint64, brokerHost string) (*paustqproto.Pong, error) {
 
-	conn, err := grpc.Dial(brokerHost, grpc.WithInsecure())
-	if err != nil {
-		client.logger.Error(err)
-		return nil, err
-	}
-	defer conn.Close()
-
-	rpcClient := paustqproto.NewAPIServiceClient(conn)
-
 	c, cancel := context.WithTimeout(ctx, client.timeout)
 	defer cancel()
-	return rpcClient.Heartbeat(c, message.NewPingMsg(msg, brokerId))
+	return client.rpcClient.Heartbeat(c, message.NewPingMsg(msg, brokerId))
 }
