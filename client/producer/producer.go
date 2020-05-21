@@ -85,11 +85,11 @@ func (p *Producer) waitPublished(done <- chan bool) (<-chan paustqproto.PutRespo
 		defer close(errCh)
 
 		msgHandler := message.Handler{}
-		msgHandler.AddMessage(&paustqproto.PutResponse{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
 			res := msg.(*paustqproto.PutResponse)
 			resCh <- *res
 		})
-		msgHandler.AddMessage(&paustqproto.Ack{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
 			ack := msg.(*paustqproto.Ack)
 			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
 			errCh <- err

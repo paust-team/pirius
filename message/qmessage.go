@@ -79,7 +79,7 @@ type Handler struct {
 	messageMap map[proto.Message]fn
 }
 
-func (h *Handler) AddMessage(msg proto.Message, f fn) {
+func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
 	if h.messageMap == nil {
 		h.messageMap = make(map[proto.Message]fn)
 	}

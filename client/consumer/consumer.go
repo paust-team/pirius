@@ -75,11 +75,11 @@ func (c *Consumer) waitSubscribed(done <- chan bool) (<-chan paustqproto.FetchRe
 		defer close(errCh)
 
 		msgHandler := message.Handler{}
-		msgHandler.AddMessage(&paustqproto.FetchResponse{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
 			res := msg.(*paustqproto.FetchResponse)
 			resCh <- *res
 		})
-		msgHandler.AddMessage(&paustqproto.Ack{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
 			ack := msg.(*paustqproto.Ack)
 			err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", ack.Code))
 			errCh <- err
