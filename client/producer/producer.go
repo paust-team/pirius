@@ -74,57 +74,6 @@ func (p *Producer) WithChunkSize(size uint32) *Producer {
 	return p
 }
 
-func (p *Producer) waitPublished(done <- chan bool) (<-chan paustqproto.PutResponse, <-chan error){
-
-	p.logger.Debug("start waiting publish response msg.")
-	resCh := make(chan paustqproto.PutResponse)
-	errCh := make(chan error)
-
-	go func() {
-		defer close(resCh)
-		defer close(errCh)
-
-		msgHandler := message.Handler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
-			res := msg.(*paustqproto.PutResponse)
-			resCh <- *res
-		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
-			ack := msg.(*paustqproto.Ack)
-			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
-			errCh <- err
-		})
-
-		for {
-			select {
-			case <-done:
-				p.logger.Debug("stop waitPublished")
-				return
-			default:
-				// TODO:: Add timeout for receive to handle back pressure
-				msg, err := p.client.Receive()
-
-				if err != nil {
-					var e pqerror.SocketClosedError
-					if errors.Is(err, e) {
-						p.logger.Debug("publish stream finished.")
-						p.Close()
-					} else {
-						errCh <- err
-					}
-					return
-				} else {
-					if err := msgHandler.Handle(msg); err != nil {
-						errCh <- err
-					}
-				}
-			}
-		}
-	}()
-
-	return resCh, errCh
-}
-
 func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan error {
 
 	p.logger.Info("start publish.")
@@ -139,7 +88,24 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		doneRecvCh := make(chan bool)
 		defer close(doneRecvCh)
 
-		recvCh, recvErrCh := p.waitPublished(doneRecvCh)
+		recvCh, err := p.client.ContinuousRead()
+		if err != nil {
+			p.logger.Error(err)
+			errCh <- err
+			return
+		}
+
+		msgHandler := message.Handler{}
+		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
+			res := msg.(*paustqproto.PutResponse)
+			p.logger.Debug("received response: ", res)
+		})
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
+			ack := msg.(*paustqproto.Ack)
+			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
+			errCh <- err
+			p.logger.Error(err)
+		})
 
 		for {
 			select {
@@ -159,21 +125,26 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 					errCh <- err
 					return
 				}
-
 				p.logger.Debug("sent publish request:", reqMsg)
 
-				// blocking receive
-				// msg := <- recvCh
-				//p.logger.Debug("received response: ", msg)
+			case msg := <- recvCh:
+				if msg.Err != nil {
+					var e pqerror.SocketClosedError
+					if errors.As(err, &e) {
+						p.logger.Debug("publish stream finished.")
+						p.Close()
+					} else {
+						errCh <- err
+					}
+					return
+				} else if err := msgHandler.Handle(msg.Msg); err != nil {
+					errCh <- err
+				}
 
-			case msg := <- recvCh: // non-blocking receive
-				p.logger.Debug("received response: ", msg)
-			case recvErr := <- recvErrCh:
-				p.logger.Error(recvErr)
-				return
 			case <-p.ctx.Done():
 				p.logger.Debug("producer closed. stop publish")
 				return
+
 			case <-ctx.Done():
 				p.logger.Debug("received ctx done from parent. close producer")
 				p.Close()

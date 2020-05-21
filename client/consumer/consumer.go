@@ -63,56 +63,6 @@ func (c *Consumer) WithTimeout(timeout time.Duration) *Consumer {
 	return c
 }
 
-func (c *Consumer) waitSubscribed(done <- chan bool) (<-chan paustqproto.FetchResponse, <-chan error) {
-
-	c.logger.Debug("start waiting subscribe response msg.")
-
-	resCh := make(chan paustqproto.FetchResponse)
-	errCh := make(chan error)
-
-	go func() {
-		defer close(resCh)
-		defer close(errCh)
-
-		msgHandler := message.Handler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
-			res := msg.(*paustqproto.FetchResponse)
-			resCh <- *res
-		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
-			ack := msg.(*paustqproto.Ack)
-			err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", ack.Code))
-			errCh <- err
-		})
-
-		for {
-			select {
-			case <-done:
-				c.logger.Debug("stop waitSubscribed")
-				return
-			default:
-				msg, err := c.client.Receive()
-
-				if err != nil {
-					var e pqerror.SocketClosedError
-					if errors.Is(err, e) {
-						c.logger.Debug("subscribe stream finished.")
-						c.Close()
-					} else {
-						errCh <- err
-					}
-					return
-				} else {
-					if err := msgHandler.Handle(msg); err != nil {
-						errCh <- err
-					}
-				}
-			}
-		}
-	}()
-	return resCh, errCh
-}
-
 func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan FetchData, <- chan error) {
 
 	c.logger.Info("start subscribe.")
@@ -129,6 +79,26 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 		doneRecvCh := make(chan bool)
 		defer close(doneRecvCh)
 
+		recvCh, err := c.client.ContinuousRead()
+		if err != nil {
+			c.logger.Error(err)
+			errCh <- err
+			return
+		}
+
+		msgHandler := message.Handler{}
+		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
+			res := msg.(*paustqproto.FetchResponse)
+			sinkCh <- FetchData{res.Data, res.Offset, res.LastOffset}
+			c.logger.Debug("subscribe data ->", res.Data, "offset ->", res.Offset, "last offset ->", res.LastOffset)
+
+		})
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
+			ack := msg.(*paustqproto.Ack)
+			err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", ack.Code))
+			errCh <- err
+		})
+
 		reqMsg, err := message.NewQMessageFromMsg(message.NewFetchRequestMsg(startOffset))
 		if err != nil {
 			c.logger.Error(err)
@@ -141,18 +111,26 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 			return
 		}
 
-		recvCh, recvErrCh := c.waitSubscribed(doneRecvCh)
-
 		for {
 			select {
-			case res := <-recvCh:
-				sinkCh <- FetchData{res.Data, res.Offset, res.LastOffset}
-				c.logger.Debug("subscribe data ->", res.Data, "offset ->", res.Offset, "last offset ->", res.LastOffset)
-			case recvErr := <- recvErrCh:
-				c.logger.Error(recvErr)
+			case msg := <-recvCh:
+				if msg.Err != nil {
+					var e pqerror.SocketClosedError
+					if errors.As(err, &e) {
+						c.logger.Debug("subscribe stream finished.")
+						c.Close()
+					} else {
+						errCh <- err
+					}
+					return
+				} else if err := msgHandler.Handle(msg.Msg); err != nil {
+					errCh <- err
+				}
+
 			case <-c.ctx.Done():
 				c.logger.Debug("consumer closed. stop subscribe")
 				return
+
 			case <-ctx.Done():
 				c.logger.Debug("received ctx done. stop subscribe")
 				c.Close()

@@ -27,6 +27,13 @@ func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *Str
 	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl}
 }
 
+func (client *StreamClient) ContinuousRead() (<-chan common.Result, error) {
+	if client.Connected {
+		return client.sockContainer.ContinuousRead(), nil
+	}
+	return nil, errors.New("not connected")
+}
+
 func (client *StreamClient) Receive() (*message.QMessage, error) {
 	if client.Connected {
 		return client.sockContainer.Read()
