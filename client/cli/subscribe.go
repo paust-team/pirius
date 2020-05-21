@@ -40,8 +40,8 @@ func NewSubscribeCmd() *cobra.Command {
 			subscribeCh, errCh := client.Subscribe(ctx, startOffset)
 			go func() {
 				select {
-				case err, ok := <-errCh:
-					if ok {
+				case err := <-errCh:
+					if err != nil {
 						fmt.Println(err)
 						os.Exit(1)
 					}

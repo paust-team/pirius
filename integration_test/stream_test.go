@@ -176,8 +176,8 @@ func TestPubSub(t *testing.T) {
 
 	go func() {
 		select {
-		case err, ok := <-errChP:
-			if ok {
+		case err := <-errChP:
+			if err != nil {
 				t.Error(err)
 			}
 			return
@@ -203,8 +203,8 @@ func TestPubSub(t *testing.T) {
 
 	go func() {
 		select {
-		case err, ok := <-errChC:
-			if ok {
+		case err := <-errChC:
+			if err != nil {
 				t.Error(err)
 			}
 			return
@@ -323,8 +323,8 @@ func TestMultiClient(t *testing.T) {
 
 			go func() {
 				select {
-				case err, ok := <-errCh:
-					if ok {
+				case err := <-errCh:
+					if err != nil {
 						t.Error(err)
 					}
 					return
@@ -385,8 +385,8 @@ func TestMultiClient(t *testing.T) {
 
 			go func() {
 				select {
-				case err, ok := <-errCh:
-					if ok {
+				case err := <-errCh:
+					if err != nil {
 						t.Error(err)
 					}
 					return

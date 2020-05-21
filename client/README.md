@@ -116,8 +116,8 @@ if err := producerClient.Connect(ctx, topic); err != nil {
 publishCh, errCh := producerClient.Publish(ctx)
 
 go func() {
-	case err, ok := <-errChP:
-		if ok {
+	case err:= <-errChP:
+		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -187,8 +187,8 @@ subscribeCh, errCh := consumerClient.Subscribe(ctx, startOffset)
 
 go func() {
 	select {
-	case err, ok := <-errCh:
-		if ok {
+	case err := <-errCh:
+		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}

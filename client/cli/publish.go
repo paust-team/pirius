@@ -40,8 +40,8 @@ func NewPublishCmd() *cobra.Command {
 
 			handlePublishError := func(errCh <-chan error) {
 				select {
-				case err, ok := <-errCh:
-					if ok {
+				case err := <-errCh:
+					if err != nil {
 						fmt.Println("received error:", err)
 						os.Exit(1)
 					}
