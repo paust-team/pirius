@@ -17,7 +17,6 @@ import (
 )
 
 type Consumer struct {
-	connected     bool
 	mu            *sync.Mutex
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -38,7 +37,6 @@ func NewConsumer(zkHost string) *Consumer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Consumer{
-		connected: false,
 		mu: &sync.Mutex{},
 		ctx: 		ctx,
 		cancel:		cancel,
@@ -143,6 +141,13 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 }
 
 func (c *Consumer) Connect(ctx context.Context, topicName string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.client != nil && c.client.Connected {
+		return errors.New("already connected")
+	}
+
 	c.zkClient = c.zkClient.WithLogger(c.logger)
 	if err := c.zkClient.Connect(); err != nil {
 		c.logger.Error(err)
@@ -172,7 +177,6 @@ func (c *Consumer) Connect(ctx context.Context, topicName string) error {
 	}
 
 	c.logger.Info("consumer is connected")
-	c.connected = true
 	return nil
 }
 
@@ -180,8 +184,7 @@ func (c *Consumer) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.connected {
-		c.connected = false
+	if c.client != nil && c.client.Connected {
 
 		c.cancel()
 		c.zkClient.Close()

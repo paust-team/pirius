@@ -18,7 +18,6 @@ import (
 )
 
 type Producer struct {
-	connected     bool
 	mu            *sync.Mutex
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -36,7 +35,6 @@ func NewProducer(zkHost string) *Producer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	producer := &Producer{
-		connected: false,
 		mu: &sync.Mutex{},
 		ctx: 		ctx,
 		cancel:		cancel,
@@ -158,6 +156,13 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 }
 
 func (p *Producer) Connect(ctx context.Context, topicName string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.client != nil && p.client.Connected {
+		return errors.New("already connected")
+	}
+
 	p.zkClient = p.zkClient.WithLogger(p.logger)
 	if err := p.zkClient.Connect(); err != nil {
 		p.logger.Error(err)
@@ -195,23 +200,22 @@ func (p *Producer) Connect(ctx context.Context, topicName string) error {
 	brokerEndpoint := fmt.Sprintf("%s:%d", brokerAddr, p.brokerPort)
 	p.client = client.NewStreamClient(brokerEndpoint, paustqproto.SessionType_PUBLISHER)
 
-	if err = p.client.Connect(ctx, topicName); err != nil {
+	if err := p.client.Connect(ctx, topicName); err != nil {
 		p.logger.Error(err)
 		p.zkClient.Close()
 		return err
 	}
 
 	p.logger.Info("producer is connected")
-	p.connected = true
 	return nil
 }
 
 func (p *Producer) Close() error {
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.connected {
-		p.connected = false
+	if p.client != nil && p.client.Connected {
 
 		p.cancel()
 		p.zkClient.Close()

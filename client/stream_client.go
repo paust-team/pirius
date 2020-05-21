@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 type ReceivedData struct {
@@ -15,6 +16,7 @@ type ReceivedData struct {
 }
 
 type StreamClient struct {
+	mu            *sync.Mutex
 	streamClient  paustqproto.StreamService_FlowClient
 	sockContainer *common.StreamSocketContainer
 	SessionType   paustqproto.SessionType
@@ -24,10 +26,16 @@ type StreamClient struct {
 }
 
 func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl}
+	return &StreamClient{
+		mu: &sync.Mutex{},
+		SessionType: sessionType,
+		ServerUrl: serverUrl,
+	}
 }
 
 func (client *StreamClient) ContinuousRead() (<-chan common.Result, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if client.Connected {
 		return client.sockContainer.ContinuousRead(), nil
 	}
@@ -35,6 +43,8 @@ func (client *StreamClient) ContinuousRead() (<-chan common.Result, error) {
 }
 
 func (client *StreamClient) Receive() (*message.QMessage, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if client.Connected {
 		return client.sockContainer.Read()
 	}
@@ -42,6 +52,8 @@ func (client *StreamClient) Receive() (*message.QMessage, error) {
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if client.Connected {
 		return client.sockContainer.Write(msg)
 	}
@@ -49,7 +61,8 @@ func (client *StreamClient) Send(msg *message.QMessage) error {
 }
 
 func (client *StreamClient) Connect(ctx context.Context, topicName string) error {
-
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if client.Connected {
 		return errors.New("already connected")
 	}
@@ -102,6 +115,8 @@ func (client *StreamClient) Connect(ctx context.Context, topicName string) error
 }
 
 func (client *StreamClient) Close() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	client.Connected = false
 	client.streamClient.CloseSend()
 	return client.conn.Close()
