@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 type ReceivedData struct {
@@ -15,29 +16,62 @@ type ReceivedData struct {
 }
 
 type StreamClient struct {
+	mu            *sync.Mutex
 	streamClient  paustqproto.StreamService_FlowClient
 	sockContainer *common.StreamSocketContainer
 	SessionType   paustqproto.SessionType
 	conn          *grpc.ClientConn
 	ServerUrl     string
 	Connected     bool
-	MaxBufferSize uint32
 }
 
 func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *StreamClient {
-	return &StreamClient{SessionType: sessionType, ServerUrl: serverUrl, MaxBufferSize: 1024}
+	return &StreamClient{
+		mu: &sync.Mutex{},
+		SessionType: sessionType,
+		ServerUrl: serverUrl,
+	}
+}
+
+func (client *StreamClient) ContinuousWrite(writeCh <- chan *message.QMessage) (<-chan error, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.Connected {
+		return client.sockContainer.ContinuousWrite(writeCh), nil
+	}
+	return nil, errors.New("not connected")
+}
+
+func (client *StreamClient) ContinuousRead() (<-chan common.Result, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.Connected {
+		return client.sockContainer.ContinuousRead(), nil
+	}
+	return nil, errors.New("not connected")
 }
 
 func (client *StreamClient) Receive() (*message.QMessage, error) {
-	return client.sockContainer.Read()
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.Connected {
+		return client.sockContainer.Read()
+	}
+	return nil, errors.New("not connected")
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
-	return client.sockContainer.Write(msg, client.MaxBufferSize)
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.Connected {
+		return client.sockContainer.Write(msg)
+	}
+	return errors.New("not connected")
 }
 
 func (client *StreamClient) Connect(ctx context.Context, topicName string) error {
-
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	if client.Connected {
 		return errors.New("already connected")
 	}
@@ -64,7 +98,7 @@ func (client *StreamClient) Connect(ctx context.Context, topicName string) error
 		return err
 	}
 
-	if err := sockContainer.Write(reqMsg, client.MaxBufferSize); err != nil {
+	if err := sockContainer.Write(reqMsg); err != nil {
 		conn.Close()
 		return err
 	}
@@ -90,6 +124,9 @@ func (client *StreamClient) Connect(ctx context.Context, topicName string) error
 }
 
 func (client *StreamClient) Close() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.Connected = false
 	client.streamClient.CloseSend()
 	return client.conn.Close()
 }

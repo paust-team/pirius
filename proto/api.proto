@@ -147,20 +147,9 @@ message ShutdownBrokerRequest {
 
 message ShutdownBrokerResponse {}
 
-// stream
-message Header {
-    uint64 chunk_id = 1;
-    uint32 total_chunk_count = 2;
-    uint32 current_chunk_idx = 3;
-}
-
-message Body {
-    bytes data = 1;
-}
 
 message Data {
-    Header header = 1;
-    Body body = 2;
+    bytes msgData = 1;
 }
 
 message PutRequest {

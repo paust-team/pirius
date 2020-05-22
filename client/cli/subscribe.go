@@ -21,6 +21,11 @@ func NewSubscribeCmd() *cobra.Command {
 		Use:   "subscribe",
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
+
+			sigCh := make(chan os.Signal, 1)
+			defer close(sigCh)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
 			ctx := context.Background()
 			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.Error)
 
@@ -30,28 +35,26 @@ func NewSubscribeCmd() *cobra.Command {
 			}
 
 			defer client.Close()
-
-			subscribeChan, err := client.Subscribe(ctx, startOffset)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-
-			sigCh := make(chan os.Signal, 1)
-			defer close(sigCh)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
 			defer fmt.Println("done subscribe")
+
+			subscribeCh, errCh := client.Subscribe(ctx, startOffset)
+			go func() {
+				select {
+				case err := <-errCh:
+					if err != nil {
+						fmt.Println(err)
+						os.Exit(1)
+					}
+					return
+				case <-ctx.Done():
+					return
+				}
+			}()
 
 			for {
 				select {
-				case response := <-subscribeChan:
-					if response.Error != nil {
-						fmt.Println(response.Error)
-						os.Exit(1)
-					} else {
-						fmt.Println("received topic data:", response.Data)
-					}
+				case response:= <- subscribeCh:
+					fmt.Println("received topic data:", response.Data)
 				case sig := <-sigCh:
 					fmt.Println("received signal:", sig)
 					return
