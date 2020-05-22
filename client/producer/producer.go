@@ -83,9 +83,7 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		defer p.logger.Info("end publish")
 		defer close(errCh)
 
-		doneRecvCh := make(chan bool)
-		defer close(doneRecvCh)
-
+		// continuous read
 		recvCh, err := p.client.ContinuousRead()
 		if err != nil {
 			p.logger.Error(err)
@@ -105,6 +103,16 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 			p.logger.Error(err)
 		})
 
+		// continuous write
+		sendCh := make(chan *message.QMessage)
+		defer close(sendCh)
+		sendErrCh, err := p.client.ContinuousWrite(sendCh)
+		if err != nil {
+			p.logger.Error(err)
+			errCh <- err
+			return
+		}
+
 		for {
 			select {
 			case sourceData, ok := <- sourceCh:
@@ -118,11 +126,7 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 					errCh <- err
 					return
 				}
-				if err = p.client.Send(reqMsg); err != nil {
-					p.logger.Error(err)
-					errCh <- err
-					return
-				}
+				sendCh <- reqMsg
 				p.logger.Debug("sent publish request:", reqMsg)
 
 			case msg := <- recvCh:
@@ -138,7 +142,8 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 				} else if err := msgHandler.Handle(msg.Msg); err != nil {
 					errCh <- err
 				}
-
+			case err := <- sendErrCh:
+				errCh <- err
 			case <-p.ctx.Done():
 				p.logger.Debug("producer closed. stop publish")
 				return

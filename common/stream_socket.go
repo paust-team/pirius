@@ -83,8 +83,10 @@ func (sc *StreamSocketContainer) ContinuousRead() <-chan Result {
 	return resultCh
 }
 
-func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessage, errCh chan error) {
+func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessage) <- chan error {
+	errCh := make(chan error)
 	go func() {
+		defer close(errCh)
 		for msgToWrite := range writeCh {
 			err := sc.Write(msgToWrite)
 			if err != nil {
@@ -97,6 +99,8 @@ func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessag
 			}
 		}
 	}()
+
+	return errCh
 }
 
 func (sc *StreamSocketContainer) Close() {

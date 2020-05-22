@@ -33,6 +33,15 @@ func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *Str
 	}
 }
 
+func (client *StreamClient) ContinuousWrite(writeCh <- chan *message.QMessage) (<-chan error, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.Connected {
+		return client.sockContainer.ContinuousWrite(writeCh), nil
+	}
+	return nil, errors.New("not connected")
+}
+
 func (client *StreamClient) ContinuousRead() (<-chan common.Result, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()

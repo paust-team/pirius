@@ -56,9 +56,6 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 
 	var wg sync.WaitGroup
 
-	internalErrCh := make(chan error)
-	defer close(internalErrCh)
-
 	readChan := sock.ContinuousRead()
 
 	wg.Add(1)
@@ -84,7 +81,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	s.broadcaster.AddChannel(writeChan)
 	defer s.broadcaster.RemoveChannel(writeChan)
 
-	sock.ContinuousWrite(writeChan, internalErrCh)
+	internalErrCh := sock.ContinuousWrite(writeChan)
 	msgStream := pl.Take(ctx, 0, 0)
 
 	wg.Add(1)
