@@ -28,7 +28,7 @@ service APIService {
 }
 
 service StreamService {
-    rpc Flow(stream StreamData) returns (stream StreamData) {}
+    rpc Flow(stream Data) returns (stream Data) {}
 }
 
 // Config
@@ -148,7 +148,7 @@ message ShutdownBrokerRequest {
 message ShutdownBrokerResponse {}
 
 
-message StreamData {
+message Data {
     bytes msgData = 1;
 }
 

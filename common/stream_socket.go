@@ -10,8 +10,8 @@ import (
 )
 
 type StreamSocket interface {
-	Send(data *paustqproto.StreamData) error
-	Recv() (*paustqproto.StreamData, error)
+	Send(data *paustqproto.Data) error
+	Recv() (*paustqproto.Data, error)
 }
 
 type StreamSocketContainer struct {
@@ -38,7 +38,7 @@ func (sc *StreamSocketContainer) Open() {
 
 func (sc *StreamSocketContainer) Write(msg *message.QMessage) error {
 
-	if err := sc.socket.Send(&paustqproto.StreamData{MsgData: msg.Data}); err != nil {
+	if err := sc.socket.Send(&paustqproto.Data{MsgData: msg.Data}); err != nil {
 		if err == io.EOF {
 			return pqerror.SocketClosedError{}
 		}
