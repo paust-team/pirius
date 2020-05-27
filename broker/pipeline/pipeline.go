@@ -7,10 +7,11 @@ import (
 )
 
 type Pipeline struct {
-	Wg          *sync.WaitGroup
-	inlets      []chan interface{}
-	outlets     []<-chan interface{}
-	ErrChannels []<-chan error
+	PipeGroup    *sync.WaitGroup
+	FlowingGroup *sync.WaitGroup
+	Inlets       []chan interface{}
+	outlets      []<-chan interface{}
+	ErrChannels  []<-chan error
 }
 
 type pipe struct {
@@ -53,6 +54,7 @@ func (p pipe) Name() string {
 func NewPipeline(inlets ...chan interface{}) *Pipeline {
 	return &Pipeline{
 		&sync.WaitGroup{},
+		&sync.WaitGroup{},
 		inlets,
 		nil,
 		nil,
@@ -74,7 +76,7 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan int
 	}
 	switch (*additive.internal).(type) {
 	case SelectorPipe:
-		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(ctx, inlets[0], p.Wg)
+		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(ctx, inlets[0], p.PipeGroup)
 		if err != nil {
 			return err
 		}
@@ -84,7 +86,7 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan int
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case MergePipe:
-		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(ctx, inlets, p.Wg)
+		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(ctx, inlets, p.PipeGroup)
 		if err != nil {
 			return err
 		}
@@ -95,7 +97,7 @@ func (p *Pipeline) Add(ctx context.Context, additive *pipe, inlets ...<-chan int
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case VersatilePipe:
-		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(ctx, inlets[0], p.Wg)
+		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(ctx, inlets[0], p.PipeGroup)
 		if err != nil {
 			return err
 		}
@@ -121,7 +123,7 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 		case err := <-errCh:
 			if err != nil {
 				// guarantee all pipes are done if an error occurred
-				p.Wg.Wait()
+				p.PipeGroup.Wait()
 				return err
 			}
 		}
@@ -155,12 +157,14 @@ func (p *Pipeline) Take(ctx context.Context, outletIndex int, num int) <-chan in
 }
 
 func (p *Pipeline) Flow(ctx context.Context, inletIndex int, data ...interface{}) {
+	p.FlowingGroup.Add(1)
 	go func() {
+		defer p.FlowingGroup.Done()
 		for _, datum := range data {
 			select {
 			case <-ctx.Done():
 				return
-			case p.inlets[inletIndex] <- datum:
+			case p.Inlets[inletIndex] <- datum:
 			}
 		}
 	}()

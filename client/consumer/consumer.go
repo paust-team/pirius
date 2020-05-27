@@ -9,7 +9,6 @@ import (
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"sync"
@@ -77,12 +76,7 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 		doneRecvCh := make(chan bool)
 		defer close(doneRecvCh)
 
-		recvCh, err := c.client.ContinuousRead()
-		if err != nil {
-			c.logger.Error(err)
-			errCh <- err
-			return
-		}
+		recvCh, recvErrCh := c.client.ContinuousRead()
 
 		msgHandler := message.Handler{}
 		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
@@ -112,19 +106,13 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 		for {
 			select {
 			case msg := <-recvCh:
-				if msg.Err != nil {
-					var e pqerror.SocketClosedError
-					if errors.As(err, &e) {
-						c.logger.Debug("subscribe stream finished.")
-						c.Close()
-					} else {
+				if msg != nil {
+					if err := msgHandler.Handle(msg); err != nil {
 						errCh <- err
 					}
-					return
-				} else if err := msgHandler.Handle(msg.Msg); err != nil {
-					errCh <- err
 				}
-
+			case err := <-recvErrCh:
+				errCh <- err
 			case <-c.ctx.Done():
 				c.logger.Debug("consumer closed. stop subscribe")
 				return

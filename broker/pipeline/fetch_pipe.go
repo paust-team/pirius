@@ -43,6 +43,7 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
+	once := sync.Once{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -50,16 +51,16 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 		defer close(errCh)
 
 		for in := range inStream {
-
 			topic := f.session.Topic()
-
-			if f.session.State() != network.ON_SUBSCRIBE {
-				err := f.session.SetState(network.ON_SUBSCRIBE)
-				if err != nil {
-					errCh <- err
-					return
+			once.Do(func() {
+				if f.session.State() != network.ON_SUBSCRIBE {
+					err := f.session.SetState(network.ON_SUBSCRIBE)
+					if err != nil {
+						errCh <- err
+						return
+					}
 				}
-			}
+			})
 
 			req := in.(*paustq_proto.FetchRequest)
 			var fetchRes paustq_proto.FetchResponse
