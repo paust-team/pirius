@@ -2,142 +2,144 @@ syntax = "proto3";
 package paustq.proto;
 import "data.proto";
 
-service APIService {
-
-    rpc Heartbeat(Ping) returns (Pong) {}
-    rpc ShutdownBroker(ShutdownBrokerRequest) returns (ShutdownBrokerResponse) {}
-
-    // Topic related RPCs
-    rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse) {}
-    rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse) {}
-
-    // Partition related RPCs
-    rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionResponse) {}
-
-    // Config related RPCs
-    rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
-    rpc AlterConfig(AlterConfigRequest) returns (AlterConfigResponse) {}
-    rpc ShowConfig(ShowConfigRequest) returns (ShowConfigResponse) {}
-
-    // Group related RPCs
-    rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse) {}
-    rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {}
-    rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {}
-    rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {}
-    rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse) {}
-}
-
-service StreamService {
-    rpc Flow(stream Data) returns (stream Data) {}
-}
-
 // Config
 message SetConfigRequest {
-    bytes config = 1;
+    int32 magic = 1;
+    bytes config = 2;
 }
 
 message SetConfigResponse {
-    bytes config = 1;
-    int32 error_code = 2;
+    int32 magic = 1;
+    bytes config = 2;
+    int32 error_code = 3;
 }
 
 message AlterConfigRequest {
-    bytes config = 1;
+    int32 magic = 1;
+    bytes config = 2;
 }
 
 message AlterConfigResponse {
-    bytes config = 1;
+    int32 magic = 1;
+    bytes config = 2;
 }
 
-message ShowConfigRequest {}
+message ShowConfigRequest {
+    int32 magic = 1;
+}
 
 message ShowConfigResponse {
-    bytes config = 1;
-    int32 error_code = 2;
+    int32 magic = 1;
+    bytes config = 2;
+    int32 error_code = 3;
 }
 
 message CreateTopicRequest {
-    Topic topic = 1;
+    int32 magic = 1;
+    Topic topic = 2;
 }
 
-message CreateTopicResponse {}
+message CreateTopicResponse {
+    int32 magic = 1;
+}
 
 message DeleteTopicRequest {
-    string topic_name = 1;
+    int32 magic = 1;
+    string topic_name = 2;
 }
 
-message DeleteTopicResponse {}
+message DeleteTopicResponse {
+    int32 magic = 1;
+}
 
 // partition
 message CreatePartitionRequest {
-    string topic_name = 1;
-    uint32 count = 2;
+    int32 magic = 1;
+    string topic_name = 2;
+    uint32 count = 3;
 }
 
 message CreatePartitionResponse {
-    Partition partition = 1;
+    int32 magic = 1;
+    Partition partition = 2;
 }
 
 // group
 message CreateGroupRequest {
-    string group_name = 1;
-    string description = 2;
+    int32 magic = 1;
+    string group_name = 2;
+    string description = 3;
 }
 
 message CreateGroupResponse {
-    Group group = 1;
+    int32 magic = 1;
+    Group group = 2;
 }
 
-message ListGroupsRequest {}
+message ListGroupsRequest {
+    int32 magic = 1;
+}
 
 message ListGroupsResponse {
-    repeated Group group = 1;
+    int32 magic = 1;
+    repeated Group group = 2;
 }
 
 // Consumer can join only one group
 message JoinGroupRequest {
-    uint64 group_id = 1;
+    int32 magic = 1;
+    uint64 group_id = 2;
 }
 
 message JoinGroupResponse {
-    Group group = 1;
+    int32 magic = 1;
+    Group group = 2;
 }
 
 message LeaveGroupRequest {
-    uint64 group_id = 1;
+    int32 magic = 1;
+    uint64 group_id = 2;
 }
 
 message LeaveGroupResponse {
-    Group group = 1;
+    int32 magic = 1;
+    Group group = 2;
 }
 
 // Note:: Only group owner can delete group
 message DeleteGroupRequest {
-    uint64 group_id = 1;
+    int32 magic = 1;
+    uint64 group_id = 2;
 }
 
 message DeleteGroupResponse {
-    Group group = 1;
+    int32 magic = 1;
+    Group group = 2;
 }
 
 // connection
 
 message ConnectRequest {
-    SessionType session_type = 1;
-    string topic_name = 2;
+    int32 magic = 1;
+    SessionType session_type = 2;
+    string topic_name = 3;
 }
 
-message ConnectResponse {}
+message ConnectResponse {
+    int32 magic = 1;
+}
 
 message Ping {
-    string echo = 1;
-    uint64 broker_id = 2;
+    int32 magic = 1;
+    string echo = 2;
+    uint64 broker_id = 3;
 }
 
 message Pong {
-    string echo = 1;
-    uint32 server_version = 2;
-    uint64 server_time = 3; //nanosec
+    int32 magic = 1;
+    string echo = 2;
+    uint32 server_version = 3;
+    uint64 server_time = 4; //nanosec
 }
 
 message ShutdownBrokerRequest {
@@ -145,34 +147,46 @@ message ShutdownBrokerRequest {
     uint64 broker_id = 2;
 }
 
-message ShutdownBrokerResponse {}
+message ShutdownBrokerResponse {
+    int32 magic = 1;
+}
 
 
 message Data {
-    bytes msgData = 1;
+    int32 magic = 1;
+    bytes msgData = 2;
 }
 
 message PutRequest {
-    bytes data = 1;
+    int32 magic = 1;
+    bytes data = 2;
 }
 
 message PutResponse {
-    Partition partition = 1;
+    int32 magic = 1;
+    Partition partition = 2;
 }
 
 message FetchRequest {
-    uint64 start_offset = 1;
+    int32 magic = 1;
+    uint64 start_offset = 2;
 }
 
 message FetchResponse {
-    bytes data = 1;
-    Partition partition = 2;
-    uint64 last_offset = 3;
-    uint64 offset = 4;
-    bool publishing = 5;
+    int32 magic = 1;
+    bytes data = 2;
+    Partition partition = 3;
+    uint64 last_offset = 4;
+    uint64 offset = 5;
+    bool publishing = 6;
 }
 
 message Ack {
-    uint32 code = 1;
-    string msg = 2;
+    int32 magic = 1;
+    uint32 code = 2;
+    string msg = 3;
+}
+
+message Close {
+    int32 magic = 1;
 }

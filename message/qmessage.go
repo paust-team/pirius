@@ -8,11 +8,12 @@ import (
 )
 
 type QMessage struct {
-	Data []byte
+	msgType uint16
+	Data    []byte
 }
 
-func NewQMessage(data []byte) *QMessage {
-	return &QMessage{Data: data}
+func NewQMessage(msgType uint16, data []byte) *QMessage {
+	return &QMessage{msgType: msgType, Data: data}
 }
 
 func NewQMessageFromMsg(msg proto.Message) (*QMessage, error) {
@@ -22,6 +23,10 @@ func NewQMessageFromMsg(msg proto.Message) (*QMessage, error) {
 	}
 
 	return qMessage, nil
+}
+
+func (q *QMessage) Type() uint16 {
+	return q.msgType
 }
 
 func (q *QMessage) Is(msg proto.Message) bool {
@@ -45,9 +50,6 @@ func (q *QMessage) UnpackTo(msg proto.Message) error {
 	anyMsg, err := q.Any()
 	if err != nil {
 		return err
-	}
-	if err := proto.Unmarshal(q.Data, anyMsg); err != nil {
-		return pqerror.UnmarshalFailedError{}
 	}
 
 	if ptypes.Is(anyMsg, msg) {
@@ -87,7 +89,7 @@ func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
 	h.messageMap[msg] = f
 }
 
-func (h*Handler) Handle(qMsg *QMessage) error {
+func (h *Handler) Handle(qMsg *QMessage) error {
 	for msg, fn := range h.messageMap {
 		if qMsg.Is(msg) {
 			newMsg := msg

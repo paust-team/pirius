@@ -34,7 +34,7 @@ PROTOFILE_DIR := $(abspath proto)
 
 compile-protobuf:
 	rm $(PROTOFILE_DIR)/*.go
-	protoc --proto_path=$(PROTOFILE_DIR) --go_out=plugins=grpc:$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
+	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
 
 .PHONY: rebuild-rocksdb build-rocksdb
 rebuild-rocksdb:
