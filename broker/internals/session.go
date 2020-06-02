@@ -1,15 +1,17 @@
-package network
+package internals
 
 import (
-	"github.com/paust-team/paustq/broker/internals"
+	"context"
+	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/network"
 	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
+	"net"
 	"sync"
-	"time"
 )
 
 type SessionState struct {
-	sync.Mutex
+	sync.RWMutex
 	stType SessionStateType
 }
 
@@ -45,17 +47,25 @@ var stateTransition = map[SessionStateType][]SessionStateType{
 }
 
 type Session struct {
+	sock     *network.Socket
 	state    SessionState
 	sessType paustq_proto.SessionType
-	topic    *internals.Topic
-	rTimeout time.Duration
-	wTimeout time.Duration
+	topic    *Topic
+	rTimeout int64
+	wTimeout int64
 }
 
-func NewSession() *Session {
+const (
+	// default time outs (second)
+	DEFAULT_READ_TIMEOUT  int64 = 5
+	DEFAULT_WRITE_TIMEOUT int64 = 5
+)
+
+func NewSession(conn net.Conn) *Session {
 	return &Session{
+		sock: network.NewSocket(conn, DEFAULT_READ_TIMEOUT, DEFAULT_WRITE_TIMEOUT),
 		state: SessionState{
-			sync.Mutex{}, NONE,
+			sync.RWMutex{}, NONE,
 		},
 		topic: nil,
 	}
@@ -66,7 +76,17 @@ func (s *Session) WithType(sessType paustq_proto.SessionType) *Session {
 	return s
 }
 
-func (s *Session) SetTopic(topic *internals.Topic) {
+func (s *Session) WithReadTimeout(rTimeout int64) *Session {
+	s.sock.SetReadTimeout(rTimeout)
+	return s
+}
+
+func (s *Session) WithWriteTimeout(wTimeout int64) *Session {
+	s.sock.SetWriteTimeout(wTimeout)
+	return s
+}
+
+func (s *Session) SetTopic(topic *Topic) {
 	s.topic = topic
 }
 
@@ -78,11 +98,28 @@ func (s *Session) SetType(sessType paustq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s Session) Topic() *internals.Topic {
+func (s Session) Topic() *Topic {
 	return s.topic
 }
 
+func (s *Session) State() SessionStateType {
+	s.state.Lock()
+	defer s.state.Unlock()
+	return s.state.stType
+}
+
+func (s *Session) Open() {
+	s.SetState(READY)
+}
+
+func (s *Session) Close() {
+	s.SetState(NONE)
+	s.sock.Close()
+}
+
 func (s Session) IsClosed() bool {
+	s.state.RLock()
+	defer s.state.RUnlock()
 	return s.State() == NONE
 }
 
@@ -106,8 +143,20 @@ func (s *Session) SetState(nextState SessionStateType) error {
 	}
 }
 
-func (s *Session) State() SessionStateType {
-	s.state.Lock()
-	defer s.state.Unlock()
-	return s.state.stType
+func (s *Session) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, <-chan error, error) {
+	if s.IsClosed() {
+		return nil, nil, pqerror.SocketClosedError{}
+	}
+
+	msgCh, errCh := s.sock.ContinuousRead(ctx)
+	return msgCh, errCh, nil
+}
+
+func (s *Session) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMessage) (chan error, error) {
+	if s.IsClosed() {
+		return nil, pqerror.SocketClosedError{}
+	}
+
+	errCh := s.sock.ContinuousWrite(ctx, msgCh)
+	return errCh, nil
 }

@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"github.com/paust-team/paustq/broker/network"
+	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
@@ -13,7 +13,7 @@ import (
 )
 
 type PutPipe struct {
-	session     *network.Session
+	session     *internals.Session
 	db          *storage.QRocksDB
 	zkClient    *zookeeper.ZKClient
 	host        string
@@ -24,7 +24,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	casted := true
 	var ok bool
 
-	session, ok := in[0].(*network.Session)
+	session, ok := in[0].(*internals.Session)
 	casted = casted && ok
 
 	db, ok := in[1].(*storage.QRocksDB)
@@ -62,8 +62,8 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 		for in := range inStream {
 			topic := p.session.Topic()
-			if p.session.State() != network.ON_PUBLISH {
-				err := p.session.SetState(network.ON_PUBLISH)
+			if p.session.State() != internals.ON_PUBLISH {
+				err := p.session.SetState(internals.ON_PUBLISH)
 				if err != nil {
 					errCh <- err
 					return

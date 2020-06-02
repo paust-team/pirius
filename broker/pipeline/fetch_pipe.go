@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
@@ -13,7 +12,7 @@ import (
 )
 
 type FetchPipe struct {
-	session  *network.Session
+	session  *internals.Session
 	db       *storage.QRocksDB
 	notifier *internals.Notifier
 }
@@ -22,7 +21,7 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted := true
 	var ok bool
 
-	f.session, ok = in[0].(*network.Session)
+	f.session, ok = in[0].(*internals.Session)
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
@@ -53,8 +52,8 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 
 			topic := f.session.Topic()
 
-			if f.session.State() != network.ON_SUBSCRIBE {
-				err := f.session.SetState(network.ON_SUBSCRIBE)
+			if f.session.State() != internals.ON_SUBSCRIBE {
+				err := f.session.SetState(internals.ON_SUBSCRIBE)
 				if err != nil {
 					errCh <- err
 					return

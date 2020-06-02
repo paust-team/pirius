@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	pipeline "github.com/paust-team/paustq/broker/pipeline"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/common"
@@ -37,7 +36,7 @@ func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier, 
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
-	sess := network.NewSession()
+	sess := internals.NewSession()
 	sock := common.NewSocketContainer(stream)
 
 	sock.Open()
@@ -106,7 +105,7 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	return nil
 }
 
-func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
+func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *internals.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
@@ -167,7 +166,7 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	return nil, pl
 }
 
-func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketContainer) {
+func HandleConnectionClose(sess *internals.Session, sock *common.StreamSocketContainer) {
 	switch sess.Type() {
 	case paustqproto.SessionType_PUBLISHER:
 		if atomic.LoadInt64(&sess.Topic().NumPubs) > 0 {
@@ -180,7 +179,7 @@ func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketConta
 	}
 
 	sock.Close()
-	sess.SetState(network.NONE)
+	sess.SetState(internals.NONE)
 }
 
 func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, serverCtx context.Context,

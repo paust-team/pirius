@@ -23,6 +23,18 @@ func NewSocket(conn net.Conn, rTimeout int64, wTimeout int64) *Socket {
 	return &Socket{conn: conn, rTimeout: rTimeout, wTimeout: wTimeout}
 }
 
+func (s *Socket) SetReadTimeout(rTimeout int64) {
+	s.rTimeout = rTimeout
+}
+
+func (s *Socket) SetWriteTimeout(wTimeout int64) {
+	s.wTimeout = wTimeout
+}
+
+func (s *Socket) Close() {
+	s.conn.Close()
+}
+
 func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, <-chan error) {
 	msgStream := make(chan *message.QMessage)
 	errCh := make(chan error)
