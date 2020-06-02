@@ -54,6 +54,7 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
+	once := sync.Once{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -62,13 +63,15 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 
 		for in := range inStream {
 			topic := p.session.Topic()
-			if p.session.State() != internals.ON_PUBLISH {
-				err := p.session.SetState(internals.ON_PUBLISH)
-				if err != nil {
-					errCh <- err
-					return
+			once.Do(func() {
+				if p.session.State() != internals.ON_PUBLISH {
+					err := p.session.SetState(internals.ON_PUBLISH)
+					if err != nil {
+						errCh <- err
+						return
+					}
 				}
-			}
+			})
 
 			req := in.(*paustq_proto.PutRequest)
 			if !p.brokerAdded {
@@ -80,8 +83,8 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 				p.brokerAdded = true
 			}
 
-			savedOffset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
-			err := p.db.PutRecord(topic.Name(), savedOffset, req.Data)
+			offset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
+			err := p.db.PutRecord(topic.Name(), offset, req.Data)
 			if err != nil {
 				errCh <- err
 				return

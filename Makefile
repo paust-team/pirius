@@ -33,7 +33,7 @@ $(PROTOC_GEN_GO):
 PROTOFILE_DIR := $(abspath proto)
 
 compile-protobuf:
-	rm $(PROTOFILE_DIR)/*.go
+	rm-f  $(PROTOFILE_DIR)/*.go
 	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
 
 .PHONY: rebuild-rocksdb build-rocksdb
@@ -61,7 +61,14 @@ else
 	@echo RocksDB is already built. Run make rebuild-rocksdb to remove existing one and rebuild it.
 endif
 
-.PHONY: build rebuild test
+.PHONY: build-broker build-client
+build-broker:
+	cd broker/cmd/paustq && go build
+
+build-client:
+	cd client/cmd/paustq-client && go build
+
+.PHONY: build rebuild install test
 build:
 	if [ -d $(GIT_DIR) ]; then \
 		git submodule update --init --recursive; \
@@ -69,6 +76,9 @@ build:
 	make build-protobuf
 	make compile-protobuf
 	make build-rocksdb
+	dep ensure
+	make build-broker
+	make build-client
 rebuild:
 	if [ -d $(GIT_DIR) ]; then \
 		git submodule update --init --recursive; \
@@ -76,5 +86,16 @@ rebuild:
 	make rebuild-protobuf
 	make compile-protobuf
 	make rebuild-rocksdb
+install:
+	cp broker/cmd/paustq/paustq /usr/local/bin/
+	cp client/cmd/paustq-client/paustq-client /usr/local/bin/
+clean:
+	rm -f /usr/local/bin/paustq
+	rm -f /usr/local/bin/paustq-client
+	if [ -d $(ROCKSDB_BUILD_DIR) ]; then \
+		cd $(ROCKSDB_BUILD_DIR) && make clean; \
+	fi
+	rm -rf $(ROCKSDB_BUILD_DIR)
+	rm -f $(PROTOFILE_DIR)/*.go
 test:
 	@go test -v
