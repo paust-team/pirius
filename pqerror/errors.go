@@ -167,13 +167,13 @@ func NewTopicNotExistError(topic string) TopicNotExistError {
 type InvalidChecksumError struct{}
 
 func (e InvalidChecksumError) Error() string {
-	return fmt.Sprintf("checksum of data body does not match specified checksum")
+	return "checksum of data body does not match specified checksum"
 }
 
 type NotEnoughBufferError struct{}
 
 func (e NotEnoughBufferError) Error() string {
-	return fmt.Sprintf("size of data to serialize is smaller than size of header")
+	return "size of data to serialize is smaller than size of header"
 }
 
 //socket
@@ -222,6 +222,10 @@ type UnhandledError struct {
 
 func (e UnhandledError) Error() string {
 	return "unhandled error : " + e.ErrStr
+}
+
+func (e UnhandledError) Code() PQCode {
+	return ErrInternal
 }
 
 // message encode/decode error
