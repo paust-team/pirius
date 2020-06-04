@@ -151,12 +151,6 @@ message ShutdownBrokerResponse {
     int32 magic = 1;
 }
 
-
-message Data {
-    int32 magic = 1;
-    bytes msgData = 2;
-}
-
 message PutRequest {
     int32 magic = 1;
     bytes data = 2;
