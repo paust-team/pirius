@@ -68,16 +68,10 @@ func TestStreamClient_Connect(t *testing.T) {
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
 
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	go func() {
 		defer bwg.Done()
-		err := brokerInstance.Start(brokerCtx)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
+		defer brokerInstance.Stop()
+		brokerInstance.Start()
 	}()
 
 	Sleep(1)
@@ -131,16 +125,10 @@ func TestPubSub(t *testing.T) {
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
 
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	go func() {
 		defer bwg.Done()
-		err := brokerInstance.Start(brokerCtx)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
+		defer brokerInstance.Stop()
+		brokerInstance.Start()
 	}()
 
 	Sleep(1)
@@ -265,16 +253,10 @@ func TestMultiClient(t *testing.T) {
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
 
-	brokerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	go func() {
 		defer bwg.Done()
-		err := brokerInstance.Start(brokerCtx)
-		if err != nil {
-			t.Error(err)
-			os.Exit(1)
-		}
+		defer brokerInstance.Stop()
+		brokerInstance.Start()
 	}()
 
 	Sleep(1)

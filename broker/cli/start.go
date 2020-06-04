@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/common"
@@ -82,15 +81,11 @@ func NewStartCmd() *cobra.Command {
 				defer close(sigCh)
 				signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-				brokerCtx, cancel := context.WithCancel(context.Background())
 				done := make(chan bool)
 				defer close(done)
 
 				go func() {
-					if err := brokerInstance.Start(brokerCtx); err != nil {
-						done <- true
-						fmt.Println(err)
-					}
+					brokerInstance.Start()
 					done <- true
 				}()
 
@@ -101,7 +96,7 @@ func NewStartCmd() *cobra.Command {
 						return
 					case sig := <-sigCh:
 						fmt.Println("received signal:", sig)
-						cancel()
+						brokerInstance.Stop()
 					}
 				}
 			}
