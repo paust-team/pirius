@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
@@ -49,7 +48,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
+func (p *PutPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
@@ -96,13 +95,8 @@ func (p *PutPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sy
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-				return
-			case outStream <- out:
-			}
+			outStream <- out
 		}
-
 	}()
 
 	return outStream, errCh, nil
