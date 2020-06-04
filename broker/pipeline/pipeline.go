@@ -3,11 +3,9 @@ package pipeline
 import (
 	"context"
 	"github.com/paust-team/paustq/pqerror"
-	"sync"
 )
 
 type Pipeline struct {
-	PipeGroup   *sync.WaitGroup
 	Inlets      []chan interface{}
 	outlets     []<-chan interface{}
 	ErrChannels []<-chan error
@@ -25,18 +23,15 @@ type Pipe interface {
 
 type SelectorPipe interface {
 	AddCase(caseFn func(input interface{}) (output interface{}, ok bool))
-	Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-		outStreams []<-chan interface{}, errCh <-chan error, err error)
+	Ready(inStream <-chan interface{}) (outStreams []<-chan interface{}, errCh <-chan error, err error)
 }
 
 type VersatilePipe interface {
-	Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-		outStream <-chan interface{}, errCh <-chan error, err error)
+	Ready(inStream <-chan interface{}) (outStream <-chan interface{}, errCh <-chan error, err error)
 }
 
 type MergePipe interface {
-	Ready(inStreams []<-chan interface{}, wg *sync.WaitGroup) (
-		outStream <-chan interface{}, errCh <-chan error, err error)
+	Ready(inStreams []<-chan interface{}) (outStream <-chan interface{}, errCh <-chan error, err error)
 }
 
 func NewPipe(name string, internal *Pipe) *pipe {
@@ -52,7 +47,6 @@ func (p pipe) Name() string {
 
 func NewPipeline(inlets ...chan interface{}) *Pipeline {
 	return &Pipeline{
-		&sync.WaitGroup{},
 		inlets,
 		nil,
 		nil,
@@ -74,7 +68,7 @@ func (p *Pipeline) Add(additive *pipe, inlets ...<-chan interface{}) error {
 	}
 	switch (*additive.internal).(type) {
 	case SelectorPipe:
-		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(inlets[0], p.PipeGroup)
+		additive.Outlets, errCh, err = (*additive.internal).(SelectorPipe).Ready(inlets[0])
 		if err != nil {
 			return err
 		}
@@ -84,7 +78,7 @@ func (p *Pipeline) Add(additive *pipe, inlets ...<-chan interface{}) error {
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case MergePipe:
-		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(inlets, p.PipeGroup)
+		outlet, errCh, err = (*additive.internal).(MergePipe).Ready(inlets)
 		if err != nil {
 			return err
 		}
@@ -95,7 +89,7 @@ func (p *Pipeline) Add(additive *pipe, inlets ...<-chan interface{}) error {
 		}
 		p.outlets = append(p.outlets, additive.Outlets...)
 	case VersatilePipe:
-		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(inlets[0], p.PipeGroup)
+		outlet, errCh, err = (*additive.internal).(VersatilePipe).Ready(inlets[0])
 		if err != nil {
 			return err
 		}
@@ -118,10 +112,12 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case err := <-errCh:
+		case err, ok := <-errCh:
+			if !ok {
+				return nil
+			}
 			if err != nil {
 				// guarantee all pipes are done if an error occurred
-				p.PipeGroup.Wait()
 				return err
 			}
 		}

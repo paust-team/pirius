@@ -4,7 +4,6 @@ import (
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
-	"sync"
 )
 
 func IsConnectRequest(data interface{}) (interface{}, bool) {
@@ -68,8 +67,7 @@ func (d *DispatchPipe) AddCase(caseFn func(input interface{}) (output interface{
 	d.cases = append(d.cases, caseFn)
 }
 
-func (d *DispatchPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-	[]<-chan interface{}, <-chan error, error) {
+func (d *DispatchPipe) Ready(inStream <-chan interface{}) ([]<-chan interface{}, <-chan error, error) {
 
 	if len(d.cases) != d.caseCount {
 		return nil, nil, pqerror.InvalidCaseFnCountError{NumCaseFn: len(d.cases), CaseCount: d.caseCount}
@@ -82,9 +80,7 @@ func (d *DispatchPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
 		outStreams[i] = make(chan interface{})
 	}
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(errCh)
 		defer func() {
 			for _, outStream := range outStreams {

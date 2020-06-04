@@ -5,7 +5,6 @@ import (
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
-	"sync"
 	"sync/atomic"
 )
 
@@ -32,14 +31,11 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (c *ConnectPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-	<-chan interface{}, <-chan error, error) {
+func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
 
