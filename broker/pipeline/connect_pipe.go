@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
@@ -33,7 +32,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
+func (c *ConnectPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
@@ -78,11 +77,7 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-				return
-			case outStream <- out:
-			}
+			outStream <- out
 		}
 	}()
 

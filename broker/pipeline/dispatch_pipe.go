@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
@@ -69,8 +68,7 @@ func (d *DispatchPipe) AddCase(caseFn func(input interface{}) (output interface{
 	d.cases = append(d.cases, caseFn)
 }
 
-func (d *DispatchPipe) Ready(ctx context.Context,
-	inStream <-chan interface{}, wg *sync.WaitGroup) (
+func (d *DispatchPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
 	[]<-chan interface{}, <-chan error, error) {
 
 	if len(d.cases) != d.caseCount {
@@ -108,12 +106,6 @@ func (d *DispatchPipe) Ready(ctx context.Context,
 			if !done {
 				errCh <- pqerror.NoCaseFnMatchError{}
 				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			default:
 			}
 		}
 	}()

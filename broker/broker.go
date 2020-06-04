@@ -4,16 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/rpc"
+	"github.com/paust-team/paustq/broker/service"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/log"
-	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/zookeeper"
-	"google.golang.org/grpc"
 	"net"
 	"os"
-	"time"
 )
 
 var (
@@ -24,16 +22,17 @@ var (
 )
 
 type Broker struct {
-	Port        uint16
-	host        string
-	grpcServer  *grpc.Server
-	db          *storage.QRocksDB
-	notifier    *internals.Notifier
-	zkClient    *zookeeper.ZKClient
-	broadcaster *internals.Broadcaster
-	logDir      string
-	dataDir     string
-	logger      *logger.QLogger
+	Port            uint16
+	host            string
+	listener        net.Listener
+	streamService   *service.StreamService
+	db              *storage.QRocksDB
+	notifier        *internals.Notifier
+	zkClient        *zookeeper.ZKClient
+	logDir          string
+	dataDir         string
+	logger          *logger.QLogger
+	cancelBrokerCtx context.CancelFunc
 }
 
 func NewBroker(zkAddr string) *Broker {
@@ -41,16 +40,14 @@ func NewBroker(zkAddr string) *Broker {
 	notifier := internals.NewNotifier()
 	l := logger.NewQLogger("Broker", DefaultLogLevel)
 	zkClient := zookeeper.NewZKClient(zkAddr)
-	broadcaster := &internals.Broadcaster{}
 
 	return &Broker{
-		Port:        common.DefaultBrokerPort,
-		notifier:    notifier,
-		zkClient:    zkClient,
-		broadcaster: broadcaster,
-		logDir:      DefaultLogDir,
-		dataDir:     DefaultDataDir,
-		logger:      l,
+		Port:     common.DefaultBrokerPort,
+		notifier: notifier,
+		zkClient: zkClient,
+		logDir:   DefaultLogDir,
+		dataDir:  DefaultDataDir,
+		logger:   l,
 	}
 }
 
@@ -74,35 +71,110 @@ func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
 	return b
 }
 
-func (b *Broker) Start(ctx context.Context) error {
-	defer b.Stop()
+func (b *Broker) Start() {
+	brokerCtx, cancelFunc := context.WithCancel(context.Background())
+	b.cancelBrokerCtx = cancelFunc
 
-	errCh := make(chan error)
-	defer close(errCh)
+	if err := b.createDirs(); err != nil {
+		b.logger.Fatal(err)
+	}
 
-	// create directories for log and db
+	b.logger = b.logger.WithFile(b.logDir)
+
+	if err := b.connectToRocksDB(); err != nil {
+		b.logger.Fatalf("error occurred while connecting to rocksdb : %v", err)
+	}
+	b.logger.Info("connected to rocksdb")
+
+	if err := b.setUpZookeeper(); err != nil {
+		b.logger.Fatalf("error occurred while setting up zookeeper : %v", err)
+	}
+	b.logger.Info("connected to zookeeper")
+
+	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:"+string(b.Port))
+	if err != nil {
+		b.logger.Fatalf("failed to resolve tcp address", err)
+	}
+
+	listener, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		b.logger.Fatalf("fail to bind address to 1101 : %v", err)
+	}
+	b.listener = listener
+
+	sessionCh, acceptErrCh := b.handleNewConnections(brokerCtx)
+	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host)
+	brokerStoppableErrCh, sessionCloseableErrCh, sustainableErrCh := b.streamService.HandleNewSessions(brokerCtx, sessionCh)
+
+	b.logger.Infof("start broker with port: %d", b.Port)
+
+	for {
+		select {
+		case <-brokerCtx.Done():
+			return
+		case <-notiErrorCh:
+			return
+		case <-acceptErrCh:
+			return
+		case errMsg := <-brokerStoppableErrCh:
+			if errMsg.Broadcastable {
+				b.streamService.BroadcastMsg(message.NewErrorAckMsg(errMsg.Err.Code(), errMsg.Err.Error()))
+			}
+			return
+		case errMsg := <-sessionCloseableErrCh:
+			if errMsg.ClientVisible {
+				errMsg.Session.Write(message.NewErrorAckMsg(errMsg.Err.Code(), errMsg.Err.Error()))
+			}
+			errMsg.CancelSession()
+		case errMsg := <-sustainableErrCh:
+			if errMsg.Broadcastable {
+				b.streamService.BroadcastMsg(message.NewErrorAckMsg(errMsg.Err.Code(), errMsg.Err.Error()))
+			} else if errMsg.ClientVisible {
+				errMsg.Session.Write(message.NewErrorAckMsg(errMsg.Err.Code(), errMsg.Err.Error()))
+			}
+		}
+	}
+}
+
+func (b *Broker) Stop() {
+	b.listener.Close()
+	b.db.Close()
+	b.tearDownZookeeper()
+	b.cancelBrokerCtx()
+	b.logger.Info("broker stopped")
+	b.logger.Close()
+}
+
+func (b *Broker) Clean() {
+	b.logger.Info("clean broker")
+	_ = b.db.Destroy()
+	b.tearDownZookeeper()
+	os.RemoveAll(b.logDir)
+	os.RemoveAll(b.dataDir)
+}
+
+func (b *Broker) createDirs() error {
 	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
-		b.logger.Error(err)
 		return err
 	}
 	if err := os.MkdirAll(b.logDir, os.ModePerm); err != nil {
-		b.logger.Error(err)
 		return err
 	}
+	return nil
+}
 
-	b.logger = b.logger.WithFile(DefaultLogDir)
-	defer b.logger.Close()
-
-	db, err := storage.NewQRocksDB(fmt.Sprintf("qstore-%d", time.Now().UnixNano()), b.dataDir)
+func (b *Broker) connectToRocksDB() error {
+	db, err := storage.NewQRocksDB("shapleq-store", b.dataDir)
 	if err != nil {
-		b.logger.Error(err)
 		return err
 	}
 	b.db = db
-	b.logger.Info("connected to rocksdb")
+	return nil
+}
 
-	// start grpc server
-	b.grpcServer = grpc.NewServer()
+func (b *Broker) setUpZookeeper() error {
 	host, err := zookeeper.GetOutboundIP()
 	if err != nil {
 		b.logger.Error(err)
@@ -115,56 +187,21 @@ func (b *Broker) Start(ctx context.Context) error {
 	b.host = host.String()
 	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
-		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
-		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
 	if err := b.zkClient.AddBroker(b.host); err != nil {
-		b.logger.Errorf("zk error: %v", err)
 		return err
 	}
 
-	paustqproto.RegisterAPIServiceServer(b.grpcServer, rpc.NewAPIServiceServer(b.db, b.zkClient))
-	paustqproto.RegisterStreamServiceServer(b.grpcServer,
-		rpc.NewStreamServiceServer(b.db, b.notifier, b.zkClient, b.host, b.broadcaster, errCh))
-
-	b.notifier.NotifyNews(ctx, errCh)
-
-	startGrpcServer := func(server *grpc.Server, port uint16) {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		if err = server.Serve(lis); err != nil {
-			errCh <- err
-			return
-		}
-	}
-
-	go startGrpcServer(b.grpcServer, b.Port)
-
-	b.logger.Infof("start broker with port: %d", b.Port)
-
-	select {
-	case <-ctx.Done():
-		b.logger.Info("received context done")
-		return nil
-	case err := <-errCh:
-		b.logger.Error(err)
-		return err
-	}
+	return nil
 }
 
-func (b *Broker) Stop() {
-	b.grpcServer.GracefulStop()
-	b.db.Close()
+func (b *Broker) tearDownZookeeper() {
 	if err := b.zkClient.RemoveBroker(b.host); err != nil {
 		b.logger.Error(err)
 	}
@@ -175,12 +212,37 @@ func (b *Broker) Stop() {
 		}
 	}
 	b.zkClient.Close()
-	b.logger.Info("broker stopped")
 }
 
-func (b *Broker) Clean() {
-	b.logger.Info("clean broker")
-	_ = b.db.Destroy()
-	os.RemoveAll(b.logDir)
-	os.RemoveAll(b.dataDir)
+func (b *Broker) handleNewConnections(ctx context.Context) (<-chan *internals.Session, <-chan error) {
+	sessionCh := make(chan *internals.Session)
+	errCh := make(chan error)
+
+	go func() {
+		defer close(sessionCh)
+		defer close(errCh)
+		for {
+			conn, err := b.listener.Accept()
+			if err != nil {
+				if ne, ok := err.(net.Error); ok {
+					if ne.Temporary() {
+						b.logger.Infof("temporary error occurred while accepting new connections : %v", err)
+						continue
+					}
+				}
+				b.logger.Errorf("error occured while accepting new connections : %v", err)
+				errCh <- err
+				return
+			}
+
+			select {
+			case sessionCh <- internals.NewSession(conn):
+				b.logger.Infof("new connection created")
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return sessionCh, errCh
 }

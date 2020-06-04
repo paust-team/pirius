@@ -133,3 +133,25 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 
 	return errCh
 }
+
+func (s *Socket) Write(msg *message.QMessage) error {
+	err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
+	if err != nil {
+		return err
+	}
+
+	data, err := Serialize(msg)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.conn.Write(data); err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return pqerror.WriteTimeOutError{}
+		} else {
+			return pqerror.SocketWriteError{ErrStr: err.Error()}
+		}
+	}
+
+	return nil
+}

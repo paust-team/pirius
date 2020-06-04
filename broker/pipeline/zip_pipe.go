@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"sync"
 )
 
@@ -12,7 +11,7 @@ func (z *ZipPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (z *ZipPipe) Ready(ctx context.Context, inStreams []<-chan interface{}, wg *sync.WaitGroup) (
+func (z *ZipPipe) Ready(inStreams []<-chan interface{}, wg *sync.WaitGroup) (
 	<-chan interface{}, <-chan error, error) {
 	var waitGroup sync.WaitGroup
 	outStream := make(chan interface{}, len(inStreams))
@@ -21,11 +20,7 @@ func (z *ZipPipe) Ready(ctx context.Context, inStreams []<-chan interface{}, wg 
 	multiplex := func(inStream <-chan interface{}) {
 		defer waitGroup.Done()
 		for in := range inStream {
-			select {
-			case <-ctx.Done():
-				return
-			case outStream <- in:
-			}
+			outStream <- in
 		}
 	}
 

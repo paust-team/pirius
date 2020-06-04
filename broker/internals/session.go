@@ -8,6 +8,7 @@ import (
 	paustq_proto "github.com/paust-team/paustq/proto"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
 type SessionState struct {
@@ -115,6 +116,17 @@ func (s *Session) Open() {
 func (s *Session) Close() {
 	s.SetState(NONE)
 	s.sock.Close()
+
+	switch s.Type() {
+	case paustq_proto.SessionType_PUBLISHER:
+		if atomic.LoadInt64(&s.Topic().NumPubs) > 0 {
+			atomic.AddInt64(&s.Topic().NumPubs, -1)
+		}
+	case paustq_proto.SessionType_SUBSCRIBER:
+		if atomic.LoadInt64(&s.Topic().NumSubs) > 0 {
+			atomic.AddInt64(&s.Topic().NumSubs, -1)
+		}
+	}
 }
 
 func (s Session) IsClosed() bool {
@@ -159,4 +171,11 @@ func (s *Session) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMe
 
 	errCh := s.sock.ContinuousWrite(ctx, msgCh)
 	return errCh, nil
+}
+
+func (s *Session) Write(msg *message.QMessage) error {
+	if s.IsClosed() {
+		return pqerror.SocketClosedError{}
+	}
+	return s.sock.Write(msg)
 }
