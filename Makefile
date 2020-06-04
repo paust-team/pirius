@@ -33,7 +33,7 @@ $(PROTOC_GEN_GO):
 PROTOFILE_DIR := $(abspath proto)
 
 compile-protobuf:
-	rm-f  $(PROTOFILE_DIR)/*.go
+	rm -f $(PROTOFILE_DIR)/*.go
 	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
 
 .PHONY: rebuild-rocksdb build-rocksdb
