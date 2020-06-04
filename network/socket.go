@@ -91,7 +91,6 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 					msgStream <- msg
 					processed = binary.Size(&Header{}) + len(msg.Data)
 					data = data[processed:]
-					processed = 0
 				}
 			}
 		}
@@ -103,7 +102,7 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
-		for {
+		for msg := range msgCh {
 			err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
 			if err != nil {
 				errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
@@ -113,7 +112,7 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 			select {
 			case <-ctx.Done():
 				return
-			case msg := <-msgCh:
+			default:
 				data, err := Serialize(msg)
 				if err != nil {
 					errCh <- err
