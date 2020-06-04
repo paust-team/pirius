@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	pipeline "github.com/paust-team/paustq/broker/pipeline"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/common"
@@ -37,7 +36,7 @@ func NewStreamServiceServer(db *storage.QRocksDB, notifier *internals.Notifier, 
 }
 
 func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) error {
-	sess := network.NewSession()
+	sess := internals.NewSession()
 	sock := common.NewSocketContainer(stream)
 
 	sock.Open()
@@ -47,41 +46,42 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 	defer cancelFunc()
 
 	inlet := make(chan interface{})
-	defer close(inlet)
-
 	err, pl := s.NewPipelineBase(ctx, sess, inlet)
+	defer func() {
+		// close inlet after all of the Flow functions are done
+		pl.FlowingGroup.Wait()
+		close(inlet)
+	}()
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
 
-	readChan := sock.ContinuousRead()
+	msgCh, readErrCh := sock.ContinuousRead()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for {
 			select {
-			case <-stream.Context().Done():
-				return
 			case <-ctx.Done():
 				return
-			case result := <-readChan:
-				if result.Msg != nil {
-					pl.Flow(ctx, 0, result.Msg)
+			case msg := <-msgCh:
+				if msg != nil {
+					pl.Flow(ctx, 0, msg)
 				}
 			}
 		}
 	}()
 
-	writeChan := make(chan *message.QMessage)
-	defer close(writeChan)
+	writeCh := make(chan *message.QMessage)
+	defer close(writeCh)
 
-	s.broadcaster.AddChannel(writeChan)
-	defer s.broadcaster.RemoveChannel(writeChan)
+	s.broadcaster.AddChannel(writeCh)
+	defer s.broadcaster.RemoveChannel(writeCh)
 
-	internalErrCh := sock.ContinuousWrite(writeChan)
+	writeErrCh := sock.ContinuousWrite(writeCh)
 	msgStream := pl.Take(ctx, 0, 0)
 
 	wg.Add(1)
@@ -89,24 +89,22 @@ func (s *StreamServiceServer) Flow(stream paustqproto.StreamService_FlowServer) 
 		defer wg.Done()
 		for {
 			select {
-			case <-stream.Context().Done():
-				return
 			case <-ctx.Done():
 				return
 			case msg := <-msgStream:
-				writeChan <- msg.(*message.QMessage)
+				writeCh <- msg.(*message.QMessage)
 			}
 		}
 	}()
 
-	sessionErrChs := append(pl.ErrChannels, internalErrCh)
-	HandleErrors(ctx, cancelFunc, stream.Context(), writeChan, sessionErrChs, s.brokerErrCh, s.broadcaster, pl.Wg)
+	sessionErrChs := append(pl.ErrChannels, readErrCh, writeErrCh)
+	HandleErrors(ctx, cancelFunc, writeCh, sessionErrChs, s.brokerErrCh, s.broadcaster, pl.PipeGroup)
 
 	wg.Wait()
 	return nil
 }
 
-func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
+func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *internals.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
@@ -167,7 +165,7 @@ func (s *StreamServiceServer) NewPipelineBase(ctx context.Context, sess *network
 	return nil, pl
 }
 
-func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketContainer) {
+func HandleConnectionClose(sess *internals.Session, sock *common.StreamSocketContainer) {
 	switch sess.Type() {
 	case paustqproto.SessionType_PUBLISHER:
 		if atomic.LoadInt64(&sess.Topic().NumPubs) > 0 {
@@ -180,24 +178,21 @@ func HandleConnectionClose(sess *network.Session, sock *common.StreamSocketConta
 	}
 
 	sock.Close()
-	sess.SetState(network.NONE)
+	sess.SetState(internals.NONE)
 }
 
-func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, serverCtx context.Context,
+func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc,
 	writeChan chan *message.QMessage, errChannels []<-chan error, brokerErrCh chan error,
-	broadcaster *internals.Broadcaster, pipelineWg *sync.WaitGroup) {
+	broadcaster *internals.Broadcaster, pipeGroup *sync.WaitGroup) {
 	errCh := pqerror.MergeErrors(errChannels...)
 
 	go func() {
 		for {
 			select {
-			case <-serverCtx.Done():
-				return
 			case <-sessionCtx.Done():
 				return
 			case err := <-errCh:
 				if err != nil {
-
 					switch err.(type) {
 					case pqerror.IsClientVisible:
 						pqErr, ok := err.(pqerror.PQError)
@@ -221,7 +216,7 @@ func HandleErrors(sessionCtx context.Context, cancelFunc context.CancelFunc, ser
 					case pqerror.IsSessionCloseable:
 						cancelFunc()
 						// guarantee all pipes are closed after context done
-						pipelineWg.Wait()
+						pipeGroup.Wait()
 						return
 					case pqerror.IsBrokerStoppable:
 						brokerErrCh <- err

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
@@ -13,7 +12,7 @@ import (
 )
 
 type FetchPipe struct {
-	session  *network.Session
+	session  *internals.Session
 	db       *storage.QRocksDB
 	notifier *internals.Notifier
 }
@@ -22,7 +21,7 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted := true
 	var ok bool
 
-	f.session, ok = in[0].(*network.Session)
+	f.session, ok = in[0].(*internals.Session)
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
@@ -43,6 +42,7 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
+	once := sync.Once{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -50,16 +50,16 @@ func (f *FetchPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *
 		defer close(errCh)
 
 		for in := range inStream {
-
 			topic := f.session.Topic()
-
-			if f.session.State() != network.ON_SUBSCRIBE {
-				err := f.session.SetState(network.ON_SUBSCRIBE)
-				if err != nil {
-					errCh <- err
-					return
+			once.Do(func() {
+				if f.session.State() != internals.ON_SUBSCRIBE {
+					err := f.session.SetState(internals.ON_SUBSCRIBE)
+					if err != nil {
+						errCh <- err
+						return
+					}
 				}
-			}
+			})
 
 			req := in.(*paustq_proto.FetchRequest)
 			var fetchRes paustq_proto.FetchResponse

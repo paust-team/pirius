@@ -162,8 +162,35 @@ func NewTopicNotExistError(topic string) TopicNotExistError {
 	return e
 }
 
+// serialize / deserialize
+
+type InvalidChecksumError struct{}
+
+func (e InvalidChecksumError) Error() string {
+	return "checksum of data body does not match specified checksum"
+}
+
+type NotEnoughBufferError struct{}
+
+func (e NotEnoughBufferError) Error() string {
+	return "size of data to serialize is smaller than size of header"
+}
+
 //socket
 // May be retryable
+
+type ReadTimeOutError struct{}
+
+func (e ReadTimeOutError) Error() string {
+	return "read timed out"
+}
+
+type WriteTimeOutError struct{}
+
+func (e WriteTimeOutError) Error() string {
+	return "write timed out"
+}
+
 type SocketReadError struct {
 	ErrStr string
 }
@@ -195,6 +222,10 @@ type UnhandledError struct {
 
 func (e UnhandledError) Error() string {
 	return "unhandled error : " + e.ErrStr
+}
+
+func (e UnhandledError) Code() PQCode {
+	return ErrInternal
 }
 
 // message encode/decode error

@@ -65,22 +65,28 @@ type Result struct {
 	Err error
 }
 
-func (sc *StreamSocketContainer) ContinuousRead() <-chan Result {
-	resultCh := make(chan Result)
+func (sc *StreamSocketContainer) ContinuousRead() (<-chan *message.QMessage, <-chan error) {
+	msgCh := make(chan *message.QMessage)
+	errCh := make(chan error)
 	go func() {
-		defer close(resultCh)
+		defer close(msgCh)
+		defer close(errCh)
+
 		for {
 			msg, err := sc.Read()
-			resultCh <- Result{msg, err}
-
-			var e pqerror.SocketClosedError
-			if errors.As(err, &e) {
-				return
+			if err != nil {
+				errCh <- err
+				var e pqerror.SocketClosedError
+				if errors.As(err, &e) {
+					return
+				}
 			}
+
+			msgCh <- msg
 		}
 	}()
 
-	return resultCh
+	return msgCh, errCh
 }
 
 func (sc *StreamSocketContainer) ContinuousWrite(writeCh <-chan *message.QMessage) <- chan error {

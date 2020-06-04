@@ -5,16 +5,18 @@ import (
 	paustqproto "github.com/paust-team/paustq/proto"
 )
 
+const MAGIC_NUM int32 = 1101
+
 func NewCreateTopicRequestMsg(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) *paustqproto.CreateTopicRequest {
 	topic := &paustqproto.Topic{
 		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
 	}
 
-	return &paustqproto.CreateTopicRequest{Topic: topic}
+	return &paustqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
 }
 
 func NewCreateTopicResponseMsg() *paustqproto.CreateTopicResponse {
-	return &paustqproto.CreateTopicResponse{}
+	return &paustqproto.CreateTopicResponse{Magic: MAGIC_NUM}
 }
 
 func NewTopicMsg(topicName string, topicMeta string, numPartition uint32, replicationFactor uint32) *paustqproto.Topic {
@@ -23,23 +25,23 @@ func NewTopicMsg(topicName string, topicMeta string, numPartition uint32, replic
 }
 
 func NewDeleteTopicRequestMsg(topicName string) *paustqproto.DeleteTopicRequest {
-	return &paustqproto.DeleteTopicRequest{TopicName: topicName}
+	return &paustqproto.DeleteTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
 func NewDeleteTopicResponseMsg() *paustqproto.DeleteTopicResponse {
-	return &paustqproto.DeleteTopicResponse{}
+	return &paustqproto.DeleteTopicResponse{Magic: MAGIC_NUM}
 }
 
 func NewConnectRequestMsg(sessionType paustqproto.SessionType, topicName string) *paustqproto.ConnectRequest {
-	return &paustqproto.ConnectRequest{SessionType: sessionType, TopicName: topicName}
+	return &paustqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName}
 }
 
 func NewConnectResponseMsg() *paustqproto.ConnectResponse {
-	return &paustqproto.ConnectResponse{}
+	return &paustqproto.ConnectResponse{Magic: MAGIC_NUM}
 }
 
 func NewPutRequestMsg(data []byte) *paustqproto.PutRequest {
-	return &paustqproto.PutRequest{Data: data}
+	return &paustqproto.PutRequest{Magic: MAGIC_NUM, Data: data}
 }
 
 func NewPutResponseMsg() *paustqproto.PutResponse {
@@ -47,11 +49,11 @@ func NewPutResponseMsg() *paustqproto.PutResponse {
 		PartitionId: 1, Offset: 0,
 	}
 
-	return &paustqproto.PutResponse{Partition: partition}
+	return &paustqproto.PutResponse{Magic: MAGIC_NUM, Partition: partition}
 }
 
 func NewFetchRequestMsg(startOffset uint64) *paustqproto.FetchRequest {
-	return &paustqproto.FetchRequest{StartOffset: startOffset}
+	return &paustqproto.FetchRequest{Magic: MAGIC_NUM, StartOffset: startOffset}
 }
 
 func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *paustqproto.FetchResponse {
@@ -59,27 +61,27 @@ func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *paustqp
 		PartitionId: 1, Offset: 0,
 	}
 
-	return &paustqproto.FetchResponse{Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
+	return &paustqproto.FetchResponse{Magic: MAGIC_NUM, Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
 }
 
 func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {
-	return &paustqproto.Ping{Echo: msg, BrokerId: brokerId}
+	return &paustqproto.Ping{Magic: MAGIC_NUM, Echo: msg, BrokerId: brokerId}
 }
 
 func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong {
-	return &paustqproto.Pong{Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
+	return &paustqproto.Pong{Magic: MAGIC_NUM, Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
 }
 
 func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerRequest {
-	return &paustqproto.ShutdownBrokerRequest{BrokerId: brokerId}
+	return &paustqproto.ShutdownBrokerRequest{Magic: MAGIC_NUM, BrokerId: brokerId}
 }
 
 func NewShutdownBrokerResponseMsg() *paustqproto.ShutdownBrokerResponse {
-	return &paustqproto.ShutdownBrokerResponse{}
+	return &paustqproto.ShutdownBrokerResponse{Magic: MAGIC_NUM}
 }
 
 func NewAckMsg(code uint32, msg string) *paustqproto.Ack {
-	return &paustqproto.Ack{Code: code, Msg: msg}
+	return &paustqproto.Ack{Magic: MAGIC_NUM, Code: code, Msg: msg}
 }
 
 func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {

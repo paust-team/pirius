@@ -9,7 +9,6 @@ import (
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 	"math/rand"
@@ -84,12 +83,7 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		defer close(errCh)
 
 		// continuous read
-		recvCh, err := p.client.ContinuousRead()
-		if err != nil {
-			p.logger.Error(err)
-			errCh <- err
-			return
-		}
+		recvCh, recvErrCh := p.client.ContinuousRead()
 
 		msgHandler := message.Handler{}
 		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
@@ -106,12 +100,7 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		// continuous write
 		sendCh := make(chan *message.QMessage)
 		defer close(sendCh)
-		sendErrCh, err := p.client.ContinuousWrite(sendCh)
-		if err != nil {
-			p.logger.Error(err)
-			errCh <- err
-			return
-		}
+		sendErrCh := p.client.ContinuousWrite(sendCh)
 
 		for {
 			select {
@@ -130,18 +119,13 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 				p.logger.Debug("sent publish request:", reqMsg)
 
 			case msg := <- recvCh:
-				if msg.Err != nil {
-					var e pqerror.SocketClosedError
-					if errors.As(err, &e) {
-						p.logger.Debug("publish stream finished.")
-						p.Close()
-					} else {
+				if msg != nil {
+					if err := msgHandler.Handle(msg); err != nil {
 						errCh <- err
 					}
-					return
-				} else if err := msgHandler.Handle(msg.Msg); err != nil {
-					errCh <- err
 				}
+			case err := <- recvErrCh:
+				errCh <- err
 			case err := <- sendErrCh:
 				errCh <- err
 			case <-p.ctx.Done():
@@ -153,7 +137,6 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 				p.Close()
 				return
 			}
-			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 

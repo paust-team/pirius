@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
@@ -12,13 +11,13 @@ import (
 )
 
 type ConnectPipe struct {
-	session  *network.Session
+	session  *internals.Session
 	notifier *internals.Notifier
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
 	casted := true
-	session, ok := in[0].(*network.Session)
+	session, ok := in[0].(*internals.Session)
 	casted = casted && ok
 
 	notifier, ok := in[1].(*internals.Notifier)
@@ -48,8 +47,8 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 		for in := range inStream {
 			req := in.(*paustq_proto.ConnectRequest)
 
-			if c.session.State() != network.READY {
-				err := c.session.SetState(network.READY)
+			if c.session.State() != internals.READY {
+				err := c.session.SetState(internals.READY)
 				if err != nil {
 					errCh <- err
 					return
