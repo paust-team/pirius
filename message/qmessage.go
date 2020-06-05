@@ -1,6 +1,7 @@
 package message
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -90,6 +91,7 @@ func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
 }
 
 func (h *Handler) Handle(qMsg *QMessage, args ...interface{}) error {
+	isHandled := false
 	for msg, fn := range h.messageMap {
 		if qMsg.Is(msg) {
 			newMsg := msg
@@ -97,8 +99,12 @@ func (h *Handler) Handle(qMsg *QMessage, args ...interface{}) error {
 				return err
 			}
 			fn(newMsg, args...)
+			isHandled = true
 			break
 		}
+	}
+	if !isHandled {
+		return pqerror.UnhandledError{ErrStr: fmt.Sprintf("no handler exists for %s", qMsg.Data)}
 	}
 	return nil
 }
