@@ -17,6 +17,7 @@ type APIServiceServer struct {
 }
 
 func NewAPIServiceServer(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *APIServiceServer {
+
 	return &APIServiceServer{
 		NewTopicRPCService(db, zkClient),
 		NewPartitionRPCService(db, zkClient),

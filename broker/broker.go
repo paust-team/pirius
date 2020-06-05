@@ -29,6 +29,7 @@ type Broker struct {
 	listener        net.Listener
 	streamService   *service.StreamService
 	sessionMgr      *internals.SessionManager
+	txService   	*service.TransactionService
 	db              *storage.QRocksDB
 	notifier        *internals.Notifier
 	zkClient        *zookeeper.ZKClient
@@ -110,16 +111,22 @@ func (b *Broker) Start() {
 	b.sessionMgr = internals.NewSessionManager()
 	sessionAndContextCh, acceptErrCh := b.handleNewConnections(brokerCtx)
 	//Need to implement transaction service
-	_, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
+	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
 	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host)
+	b.txService = service.NewTransactionService(b.db, b.zkClient)
+
 	sessionErrCh = pqerror.MergeSessionErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
+	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
 
 	b.logger.Infof("start broker with port: %d", b.Port)
 
 	for {
 		select {
 		case <-brokerCtx.Done():
+			return
+		case err := <- txErrCh:
+			b.logger.Errorf("error occurred on transaction service: %s", err)
 			return
 		case <-notiErrorCh:
 			return
