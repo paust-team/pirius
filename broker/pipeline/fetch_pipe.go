@@ -36,16 +36,13 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (f *FetchPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-	<-chan interface{}, <-chan error, error) {
+func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 	inStreamClosed := make(chan struct{})
 
 	once := sync.Once{}
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
 		defer close(inStreamClosed)

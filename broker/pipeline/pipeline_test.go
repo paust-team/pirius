@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"github.com/paust-team/paustq/pqerror"
-	"sync"
 	"testing"
 	"time"
 )
@@ -56,8 +55,7 @@ func (e *EvenOrOddPipe) AddCase(caseFn func(input interface{}) (output interface
 	e.cases = append(e.cases, caseFn)
 }
 
-func (e *EvenOrOddPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-	[]<-chan interface{}, <-chan error, error) {
+func (e *EvenOrOddPipe) Ready(inStream <-chan interface{}) ([]<-chan interface{}, <-chan error, error) {
 
 	if len(e.cases) != e.caseCount {
 		return nil, nil, pqerror.InvalidCaseFnCountError{NumCaseFn: len(e.cases), CaseCount: e.caseCount}
@@ -70,9 +68,7 @@ func (e *EvenOrOddPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
 		outStreams[i] = make(chan interface{})
 	}
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(errCh)
 		defer func() {
 			for _, outStream := range outStreams {
@@ -120,14 +116,11 @@ func (a *AddPipe) Build(in ...interface{}) error {
 	return nil
 }
 
-func (a *AddPipe) Ready(inStream <-chan interface{}, wg *sync.WaitGroup) (
-	<-chan interface{}, <-chan error, error) {
+func (a *AddPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
 
@@ -217,6 +210,5 @@ func TestPipeline_Flow(t *testing.T) {
 	err = pipeline.Wait(ctx)
 	if err != nil {
 		t.Error("Error occurred during flow", err)
-		cancelFunc()
 	}
 }
