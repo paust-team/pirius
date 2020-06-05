@@ -76,7 +76,7 @@ func (q *QMessage) PackFrom(msg proto.Message) error {
 	return nil
 }
 
-type fn func(msg proto.Message)
+type fn func(msg proto.Message, args ...interface{})
 type Handler struct {
 	messageMap map[proto.Message]fn
 }
@@ -89,14 +89,14 @@ func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
 	h.messageMap[msg] = f
 }
 
-func (h *Handler) Handle(qMsg *QMessage) error {
+func (h *Handler) Handle(qMsg *QMessage, args ...interface{}) error {
 	for msg, fn := range h.messageMap {
 		if qMsg.Is(msg) {
 			newMsg := msg
 			if err := qMsg.UnpackTo(newMsg); err != nil {
 				return err
 			}
-			fn(newMsg)
+			fn(newMsg, args...)
 			break
 		}
 	}

@@ -79,13 +79,13 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 		recvCh, recvErrCh := c.client.ContinuousRead()
 
 		msgHandler := message.Handler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message, _ ...interface{}) {
 			res := msg.(*paustqproto.FetchResponse)
 			sinkCh <- FetchData{res.Data, res.Offset, res.LastOffset}
 			c.logger.Debug("subscribe data ->", res.Data, "offset ->", res.Offset, "last offset ->", res.LastOffset)
 
 		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message, _ ...interface{}) {
 			ack := msg.(*paustqproto.Ack)
 			err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", ack.Code))
 			errCh <- err
