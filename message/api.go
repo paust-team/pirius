@@ -7,6 +7,7 @@ import (
 
 const MAGIC_NUM int32 = 1101
 
+// API messages
 func NewCreateTopicRequestMsg(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) *paustqproto.CreateTopicRequest {
 	topic := &paustqproto.Topic{
 		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
@@ -15,8 +16,13 @@ func NewCreateTopicRequestMsg(topicName string, topicMeta string, numPartitions 
 	return &paustqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
 }
 
-func NewCreateTopicResponseMsg() *paustqproto.CreateTopicResponse {
-	return &paustqproto.CreateTopicResponse{Magic: MAGIC_NUM}
+func NewCreateTopicResponseMsg(err pqerror.PQError) *paustqproto.CreateTopicResponse {
+	response := &paustqproto.CreateTopicResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	}
+	return response
 }
 
 func NewTopicMsg(topicName string, topicMeta string, numPartition uint32, replicationFactor uint32) *paustqproto.Topic {
@@ -28,10 +34,37 @@ func NewDeleteTopicRequestMsg(topicName string) *paustqproto.DeleteTopicRequest 
 	return &paustqproto.DeleteTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDeleteTopicResponseMsg() *paustqproto.DeleteTopicResponse {
-	return &paustqproto.DeleteTopicResponse{Magic: MAGIC_NUM}
+func NewDeleteTopicResponseMsg(err pqerror.PQError) *paustqproto.DeleteTopicResponse {
+	response := &paustqproto.DeleteTopicResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	}
+	return response
 }
 
+func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {
+	return &paustqproto.Ping{Magic: MAGIC_NUM, Echo: msg, BrokerId: brokerId}
+}
+
+func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong {
+	return &paustqproto.Pong{Magic: MAGIC_NUM, Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
+}
+
+func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerRequest {
+	return &paustqproto.ShutdownBrokerRequest{Magic: MAGIC_NUM, BrokerId: brokerId}
+}
+
+func NewShutdownBrokerResponseMsg(err pqerror.PQError) *paustqproto.ShutdownBrokerResponse {
+	response := &paustqproto.ShutdownBrokerResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	}
+	return response
+}
+
+// Stream messages
 func NewConnectRequestMsg(sessionType paustqproto.SessionType, topicName string) *paustqproto.ConnectRequest {
 	return &paustqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName}
 }
@@ -62,22 +95,6 @@ func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *paustqp
 	}
 
 	return &paustqproto.FetchResponse{Magic: MAGIC_NUM, Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
-}
-
-func NewPingMsg(msg string, brokerId uint64) *paustqproto.Ping {
-	return &paustqproto.Ping{Magic: MAGIC_NUM, Echo: msg, BrokerId: brokerId}
-}
-
-func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqproto.Pong {
-	return &paustqproto.Pong{Magic: MAGIC_NUM, Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
-}
-
-func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerRequest {
-	return &paustqproto.ShutdownBrokerRequest{Magic: MAGIC_NUM, BrokerId: brokerId}
-}
-
-func NewShutdownBrokerResponseMsg() *paustqproto.ShutdownBrokerResponse {
-	return &paustqproto.ShutdownBrokerResponse{Magic: MAGIC_NUM}
 }
 
 func NewAckMsg(code uint32, msg string) *paustqproto.Ack {

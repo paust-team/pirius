@@ -108,6 +108,9 @@ type ZKTargetAlreadyExistsError struct {
 func (e ZKTargetAlreadyExistsError) Error() string {
 	return fmt.Sprintf("target %s already exists", e.Target)
 }
+func (e ZKTargetAlreadyExistsError) Code() PQCode {
+	return ErrZKTargetAlreadyExists
+}
 
 //func (e ZKTargetAlreadyExistsError) IsSessionCloseable() {}
 
@@ -145,6 +148,18 @@ func (e ZKNothingToRemoveError) Error() string {
 }
 
 func (e ZKNothingToRemoveError) IsSessionCloseable() {}
+
+type ZKOperateError struct{
+	ErrStr string
+}
+
+func (e ZKOperateError) Error() string {
+	return "zk operate error : " + e.ErrStr
+}
+
+func (e ZKOperateError) Code() PQCode {
+	return ErrZKOperate
+}
 
 // notifier
 type TopicNotExistError struct {
@@ -272,3 +287,16 @@ func (e InvalidMsgTypeToUnpackError) Error() string {
 }
 
 func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
+
+// DBError
+type QRocksOperateError struct {
+	ErrStr string
+}
+
+func (e QRocksOperateError) Error() string {
+	return "rocksdb operate error : " + e.ErrStr
+}
+
+func (e QRocksOperateError) Code() PQCode {
+	return ErrDBOperate
+}
