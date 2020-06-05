@@ -26,7 +26,7 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 	return &topicRPCService{db, zkClient}
 }
 
-func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.CreateTopicRequest) (
+func (s topicRPCService) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) (
 	*paustqproto.CreateTopicResponse, error) {
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
@@ -42,24 +42,18 @@ func (s topicRPCService) CreateTopic(ctx context.Context, request *paustqproto.C
 		return nil, err
 	}
 
-	if ctx.Err() == context.Canceled {
-		return nil, status.Error(codes.Canceled, "client canceled the request")
-	}
 	return message.NewCreateTopicResponseMsg(), nil
 }
 
-func (s topicRPCService) DeleteTopic(ctx context.Context, request *paustqproto.DeleteTopicRequest) (
+func (s topicRPCService) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) (
 	*paustqproto.DeleteTopicResponse, error) {
+
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return nil, err
 	}
-
 	if err := s.zkClient.RemoveTopic(request.TopicName); err != nil {
 		return nil, err
 	}
 
-	if ctx.Err() == context.Canceled {
-		return nil, status.Error(codes.Canceled, "client canceled the request")
-	}
 	return message.NewDeleteTopicResponseMsg(), nil
 }

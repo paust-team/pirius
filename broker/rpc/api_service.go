@@ -28,7 +28,6 @@ func NewAPIServiceServer(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *AP
 }
 
 func (service *APIServiceServer) Heartbeat(ctx context.Context, request *paustqproto.Ping) (*paustqproto.Pong, error) {
-
 	serverTime := time.Now().Nanosecond()
 
 	if ctx.Err() == context.Canceled {
