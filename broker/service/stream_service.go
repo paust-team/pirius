@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
+	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/pipeline"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/paust-team/paustq/zookeeper"
-	"sync"
 )
 
 type StreamService struct {
@@ -16,33 +16,6 @@ type StreamService struct {
 	Notifier *internals.Notifier
 	zKClient *zookeeper.ZKClient
 	host     string
-	sessions Sessions
-}
-
-type Sessions struct {
-	sync.Mutex
-	ss []*internals.Session
-}
-
-type BrokerStoppableErrMsg struct {
-	Err           pqerror.PQError
-	ClientVisible bool
-	Broadcastable bool
-}
-
-type SessionCloseableErrMsg struct {
-	Err           pqerror.PQError
-	CancelSession context.CancelFunc
-	Session       *internals.Session
-	ClientVisible bool
-	Broadcastable bool
-}
-
-type SustainableErrMsg struct {
-	Err           pqerror.PQError
-	Session       *internals.Session
-	ClientVisible bool
-	Broadcastable bool
 }
 
 func NewStreamService(DB *storage.QRocksDB, notifier *internals.Notifier, zKClient *zookeeper.ZKClient,
@@ -50,73 +23,37 @@ func NewStreamService(DB *storage.QRocksDB, notifier *internals.Notifier, zKClie
 	return &StreamService{DB: DB, Notifier: notifier, zKClient: zKClient, host: host}
 }
 
-func (s *StreamService) HandleNewSessions(brokerCtx context.Context, sessionCh <-chan *internals.Session) (
-	chan BrokerStoppableErrMsg,
-	chan SessionCloseableErrMsg,
-	chan SustainableErrMsg) {
-
-	brokerStoppableErrCh := make(chan BrokerStoppableErrMsg)
-	sessionCloseableErrCh := make(chan SessionCloseableErrMsg)
-	sustainableErrCh := make(chan SustainableErrMsg)
+func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
+	eventStreams <-chan broker.EventStream) <-chan pqerror.SessionError {
+	sessionErrCh := make(chan pqerror.SessionError)
 
 	go func() {
-		defer close(brokerStoppableErrCh)
-		defer close(sessionCloseableErrCh)
-		defer close(sustainableErrCh)
+		defer close(sessionErrCh)
 
-		for session := range sessionCh {
-			go s.handleNewSession(brokerCtx, session, brokerStoppableErrCh, sessionCloseableErrCh, sustainableErrCh)
+		for {
+			select {
+			case <-brokerCtx.Done():
+				return
+			case eventStream := <-eventStreams:
+				go s.handleEventStream(eventStream, sessionErrCh)
+
+			}
 		}
 	}()
 
-	return brokerStoppableErrCh, sessionCloseableErrCh, sustainableErrCh
+	return sessionErrCh
 }
 
-func (s *StreamService) addSession(session *internals.Session) {
-	s.sessions.Lock()
-	defer s.sessions.Unlock()
-	s.sessions.ss = append(s.sessions.ss, session)
-}
+func (s *StreamService) handleEventStream(eventStream broker.EventStream, sessionErrCh chan pqerror.SessionError) {
+	session := eventStream.Session
+	msgCh := eventStream.MsgCh
+	sessionCtx := eventStream.Ctx
+	cancelSession := eventStream.CancelSession
 
-func (s *StreamService) removeSession(session *internals.Session) {
-	s.sessions.Lock()
-	defer s.sessions.Unlock()
-	for i, ss := range s.sessions.ss {
-		if ss == session {
-			s.sessions.ss = append(s.sessions.ss[:i], s.sessions.ss[i+1:]...)
-			break
-		}
-	}
-}
-
-func (s *StreamService) BroadcastMsg(msg *message.QMessage) {
-	s.sessions.Lock()
-	defer s.sessions.Unlock()
-
-	for _, ss := range s.sessions.ss {
-		ss.Write(msg)
-	}
-}
-
-func (s *StreamService) handleNewSession(brokerCtx context.Context, session *internals.Session,
-	brokerStoppableErrCh chan BrokerStoppableErrMsg,
-	sessionCloseableErrCh chan SessionCloseableErrMsg,
-	sustainableErrCh chan SustainableErrMsg) {
 	session.Open()
 	defer session.Close()
 
-	s.addSession(session)
-	defer s.removeSession(session)
-
-	sessionCtx, cancelSession := context.WithCancel(context.Background())
-	defer cancelSession()
-
-	readCh, readErrCh, err := session.ContinuousRead(sessionCtx)
-	if err != nil {
-		return
-	}
-
-	err, pl := s.newPipelineBase(sessionCtx, session, convertToInterfaceChan(readCh))
+	err, pl := s.newPipelineBase(session, convertToInterfaceChan(msgCh))
 
 	writeErrCh, err := session.ContinuousWrite(sessionCtx,
 		convertToQMessageChan(pl.Take(0, 0)))
@@ -124,17 +61,26 @@ func (s *StreamService) handleNewSession(brokerCtx context.Context, session *int
 		return
 	}
 
-	sessionErrChs := append(pl.ErrChannels, readErrCh, writeErrCh)
+	sessionErrChs := append(pl.ErrChannels, writeErrCh)
 	errCh := pqerror.MergeErrors(sessionErrChs...)
 
 	for {
 		select {
-		case <-brokerCtx.Done():
-			return
 		case <-sessionCtx.Done():
 			return
 		case err := <-errCh:
-			distinguishError(err, brokerStoppableErrCh, sessionCloseableErrCh, sustainableErrCh, session, cancelSession)
+			pqErr, ok := err.(pqerror.PQError)
+			if !ok {
+				sessionErrCh <- pqerror.SessionError{
+					Err:           pqerror.UnhandledError{ErrStr: err.Error()},
+					Session:       session,
+					CancelSession: cancelSession}
+			} else {
+				sessionErrCh <- pqerror.SessionError{
+					Err:           pqErr,
+					Session:       session,
+					CancelSession: cancelSession}
+			}
 		}
 	}
 }
@@ -165,7 +111,7 @@ func convertToQMessageChan(from <-chan interface{}) <-chan *message.QMessage {
 	return to
 }
 
-func (s *StreamService) newPipelineBase(ctx context.Context, sess *internals.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
+func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
 	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
 	var err error
@@ -224,59 +170,4 @@ func (s *StreamService) newPipelineBase(ctx context.Context, sess *internals.Ses
 	}
 
 	return nil, pl
-}
-
-func distinguishError(err error,
-	brokerStoppableErrCh chan BrokerStoppableErrMsg,
-	sessionCloseableErrCh chan SessionCloseableErrMsg,
-	sustainableErrCh chan SustainableErrMsg,
-	session *internals.Session, cancelSession context.CancelFunc) {
-	var (
-		ok            = false
-		broadcastable = false
-		clientVisible = false
-		pqErr         pqerror.PQError
-	)
-
-	pqErr, ok = err.(pqerror.PQError)
-	if !ok {
-		brokerStoppableErrCh <- BrokerStoppableErrMsg{
-			Err:           pqerror.UnhandledError{ErrStr: err.Error()},
-			ClientVisible: false,
-			Broadcastable: false,
-		}
-		return
-	}
-
-	switch err.(type) {
-	case pqerror.IsClientVisible:
-		clientVisible = true
-	case pqerror.IsBroadcastable:
-		broadcastable = true
-	default:
-	}
-
-	switch err.(type) {
-	case pqerror.IsSessionCloseable:
-		sessionCloseableErrCh <- SessionCloseableErrMsg{
-			Err:           pqErr,
-			CancelSession: cancelSession,
-			Session:       session,
-			ClientVisible: clientVisible,
-			Broadcastable: broadcastable,
-		}
-	case pqerror.IsBrokerStoppable:
-		brokerStoppableErrCh <- BrokerStoppableErrMsg{
-			Err:           pqErr,
-			ClientVisible: clientVisible,
-			Broadcastable: broadcastable,
-		}
-	default:
-		sustainableErrCh <- SustainableErrMsg{
-			Err:           pqErr,
-			Session:       session,
-			ClientVisible: clientVisible,
-			Broadcastable: broadcastable,
-		}
-	}
 }
