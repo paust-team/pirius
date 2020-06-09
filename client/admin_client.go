@@ -57,7 +57,7 @@ func (client *AdminClient) Close() {
 	client.socket.Close()
 }
 
-func (client *AdminClient) call(requestMsg proto.Message, responseMsgContainer proto.Message) error {
+func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsgContainer proto.Message) error {
 
 	sendMsg, err := message.NewQMessageFromMsg(requestMsg)
 	if err != nil {
@@ -90,15 +90,15 @@ func (client *AdminClient) CreateTopic(topicName string, topicMeta string, numPa
 	}
 
 	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
-	response := &paustqproto.CreateTopicResponse{}
+	willResponse := &paustqproto.CreateTopicResponse{}
 
-	err := client.call(request, response)
+	err := client.callAndUnpackTo(request, willResponse)
 	if err != nil {
 		client.logger.Error(err)
 		return err
 	}
 
-	if response.ErrorCode != 0 {
+	if willResponse.ErrorCode != 0 {
 		client.logger.Error()
 		return err
 	}
@@ -112,15 +112,15 @@ func (client *AdminClient) DeleteTopic(topicName string) error {
 	}
 
 	request := message.NewDeleteTopicRequestMsg(topicName)
-	response := &paustqproto.DeleteTopicResponse{}
+	willResponse := &paustqproto.DeleteTopicResponse{}
 
-	err := client.call(request, response)
+	err := client.callAndUnpackTo(request, willResponse)
 	if err != nil {
 		client.logger.Error(err)
 		return err
 	}
 
-	if response.ErrorCode != 0 {
+	if willResponse.ErrorCode != 0 {
 		client.logger.Error()
 		return err
 	}
@@ -134,19 +134,19 @@ func (client *AdminClient) DescribeTopic(topicName string) (*paustqproto.Describ
 	}
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
-	response := &paustqproto.DescribeTopicResponse{}
+	willResponse := &paustqproto.DescribeTopicResponse{}
 
-	err := client.call(request, response)
+	err := client.callAndUnpackTo(request, willResponse)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	if response.ErrorCode != 0 {
+	if willResponse.ErrorCode != 0 {
 		client.logger.Error()
 		return nil, err
 	}
-	return response, nil
+	return willResponse, nil
 }
 
 func (client *AdminClient) ListTopic() (*paustqproto.ListTopicResponse, error) {
@@ -156,19 +156,19 @@ func (client *AdminClient) ListTopic() (*paustqproto.ListTopicResponse, error) {
 	}
 
 	request := message.NewListTopicRequestMsg()
-	response := &paustqproto.ListTopicResponse{}
+	willResponse := &paustqproto.ListTopicResponse{}
 
-	err := client.call(request, response)
+	err := client.callAndUnpackTo(request, willResponse)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	if response.ErrorCode != 0 {
+	if willResponse.ErrorCode != 0 {
 		client.logger.Error()
 		return nil, err
 	}
-	return response, nil
+	return willResponse, nil
 }
 
 func (client *AdminClient) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
@@ -178,13 +178,13 @@ func (client *AdminClient) Heartbeat(msg string, brokerId uint64) (*paustqproto.
 	}
 
 	request := message.NewPingMsg(msg, brokerId)
-	response := &paustqproto.Pong{}
+	willResponse := &paustqproto.Pong{}
 
-	err := client.call(request, response)
+	err := client.callAndUnpackTo(request, willResponse)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	return response, nil
+	return willResponse, nil
 }
