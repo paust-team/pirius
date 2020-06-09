@@ -77,7 +77,6 @@ func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
 func (b *Broker) Start() {
 	brokerCtx, cancelFunc := context.WithCancel(context.Background())
 	b.cancelBrokerCtx = cancelFunc
-	defer b.Stop()
 
 	if err := b.createDirs(); err != nil {
 		b.logger.Fatal(err)
