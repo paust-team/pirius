@@ -15,19 +15,19 @@ import (
 type Socket struct {
 	sync.Mutex
 	conn     net.Conn
-	rTimeout int64
-	wTimeout int64
+	rTimeout uint
+	wTimeout uint
 }
 
-func NewSocket(conn net.Conn, rTimeout int64, wTimeout int64) *Socket {
+func NewSocket(conn net.Conn, rTimeout uint, wTimeout uint) *Socket {
 	return &Socket{conn: conn, rTimeout: rTimeout, wTimeout: wTimeout}
 }
 
-func (s *Socket) SetReadTimeout(rTimeout int64) {
+func (s *Socket) SetReadTimeout(rTimeout uint) {
 	s.rTimeout = rTimeout
 }
 
-func (s *Socket) SetWriteTimeout(wTimeout int64) {
+func (s *Socket) SetWriteTimeout(wTimeout uint) {
 	s.wTimeout = wTimeout
 }
 
@@ -77,15 +77,13 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 				data = append(data, recvBuf[:n]...)
 				for {
 					msg, err := Deserialize(data)
-					if errors.As(err, &pqerror.NotEnoughBufferError{}) {
-						break
-					}
 
 					if err != nil {
-						if errors.As(err, &pqerror.InvalidChecksumError{}) {
-							errCh <- err
-							return
+						if errors.As(err, &pqerror.NotEnoughBufferError{}) {
+							break
 						}
+						errCh <- err
+						return
 					}
 
 					msgStream <- msg
@@ -154,4 +152,42 @@ func (s *Socket) Write(msg *message.QMessage) error {
 	}
 
 	return nil
+}
+
+func (s *Socket) Read() (*message.QMessage, error) {
+
+	var data []byte
+	recvBuf := make([]byte, 4*1024)
+
+	for {
+		err := s.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(s.rTimeout)))
+		if err != nil {
+			return nil, pqerror.SocketReadError{ErrStr: err.Error()}
+		}
+
+		n, err := s.conn.Read(recvBuf[0:])
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil, pqerror.ReadTimeOutError{}
+			} else if err != io.EOF {
+				return nil, pqerror.SocketClosedError{}
+			} else {
+				return nil, pqerror.SocketReadError{ErrStr: err.Error()}
+			}
+		}
+
+		if n > 0 {
+			data = append(data, recvBuf[:n]...)
+			for {
+				msg, err := Deserialize(data)
+				if err != nil {
+					if errors.As(err, &pqerror.NotEnoughBufferError{}) {
+						break
+					}
+					return nil, err
+				}
+				return msg, nil
+			}
+		}
+	}
 }
