@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/paust-team/paustq/zookeeper"
+	"sync"
 )
 
 type StreamService struct {
@@ -27,16 +28,20 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 	eventStreams <-chan broker.EventStream) <-chan pqerror.SessionError {
 	sessionErrCh := make(chan pqerror.SessionError)
 
+	var wg sync.WaitGroup
 	go func() {
-		defer close(sessionErrCh)
+		defer func() {
+			wg.Wait()
+			close(sessionErrCh)
+		}()
 
 		for {
 			select {
 			case <-brokerCtx.Done():
 				return
 			case eventStream := <-eventStreams:
-				go s.handleEventStream(eventStream, sessionErrCh)
-
+				wg.Add(1)
+				go s.handleEventStream(eventStream, sessionErrCh, &wg)
 			}
 		}
 	}()
@@ -44,7 +49,8 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 	return sessionErrCh
 }
 
-func (s *StreamService) handleEventStream(eventStream broker.EventStream, sessionErrCh chan pqerror.SessionError) {
+func (s *StreamService) handleEventStream(eventStream broker.EventStream, sessionErrCh chan pqerror.SessionError, wg *sync.WaitGroup) {
+	defer wg.Done()
 	session := eventStream.Session
 	msgCh := eventStream.MsgCh
 	sessionCtx := eventStream.Ctx
