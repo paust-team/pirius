@@ -25,7 +25,7 @@ func NewPublishCmd() *cobra.Command {
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
-			client := producer.NewProducer(zkAddr).WithTimeout(time.Duration(timeout)).WithLogLevel(logger.Error)
+			client := producer.NewProducer(brokerAddr).WithTimeout(time.Duration(timeout)).WithLogLevel(logger.Error)
 
 			if cmd.Flags().Changed("chunk") {
 				client = client.WithChunkSize(chunkSize)
