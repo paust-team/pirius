@@ -128,8 +128,11 @@ func (b *Broker) Start() {
 		case sessionErr := <-sessionErrCh:
 			pqErr, ok := sessionErr.Err.(pqerror.PQError)
 			if !ok {
+				b.logger.Errorf("unhandled error occurred : %v", sessionErr.Err)
 				return
 			}
+			b.logger.Errorf("error occurred from session : %v", pqErr)
+
 			switch pqErr.(type) {
 			case pqerror.IsClientVisible:
 				sessionErr.Session.Write(message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
