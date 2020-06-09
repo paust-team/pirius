@@ -38,6 +38,29 @@ message ShowConfigResponse {
     string error_message = 4;
 }
 
+message ListTopicRequest {
+    int32 magic = 1;
+}
+
+message ListTopicResponse {
+    int32 magic = 1;
+    repeated string topics = 2;
+    int32 error_code = 3;
+    string error_message = 4;
+}
+
+message DescribeTopicRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+}
+
+message DescribeTopicResponse {
+    int32 magic = 1;
+    Topic topic = 2;
+    int32 error_code = 3;
+    string error_message = 4;
+}
+
 message CreateTopicRequest {
     int32 magic = 1;
     Topic topic = 2;

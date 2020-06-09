@@ -53,3 +53,19 @@ func (s topicRPCService) DeleteTopic(request *paustqproto.DeleteTopicRequest) *p
 
 	return message.NewDeleteTopicResponseMsg(nil)
 }
+
+func (s topicRPCService) ListTopic(_ *paustqproto.ListTopicRequest) *paustqproto.ListTopicResponse {
+
+	topics, err := s.zkClient.GetTopics()
+	if err != nil {
+		return message.NewListTopicResponseMsg(nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
+	}
+
+	return message.NewListTopicResponseMsg(topics, nil)
+}
+
+func (s topicRPCService) DescribeTopic(request *paustqproto.DescribeTopicRequest) *paustqproto.DescribeTopicResponse {
+
+	// Temporary
+	return message.NewDescribeTopicResponseMsg(request.TopicName, "", 0, 0, nil)
+}

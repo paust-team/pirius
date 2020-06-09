@@ -8,6 +8,44 @@ import (
 const MAGIC_NUM int32 = 1101
 
 // API messages
+
+func NewListTopicRequestMsg() *paustqproto.ListTopicRequest {
+	return &paustqproto.ListTopicRequest{Magic: MAGIC_NUM}
+}
+
+func NewListTopicResponseMsg(topics []string, err pqerror.PQError) *paustqproto.ListTopicResponse {
+
+	response := &paustqproto.ListTopicResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+		return response
+	}
+
+	response.Topics = topics
+	return response
+}
+
+func NewDescribeTopicRequestMsg(topicName string) *paustqproto.DescribeTopicRequest {
+	return &paustqproto.DescribeTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
+}
+
+func NewDescribeTopicResponseMsg(topicName, topicMeta string, numPartitions, replicationFactor uint32, err pqerror.PQError) *paustqproto.DescribeTopicResponse {
+
+	response := &paustqproto.DescribeTopicResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+		return response
+	}
+
+	topic := &paustqproto.Topic{
+		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
+	}
+	response.Topic = topic
+	return response
+}
+
 func NewCreateTopicRequestMsg(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) *paustqproto.CreateTopicRequest {
 	topic := &paustqproto.Topic{
 		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
