@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
-	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/service/rpc"
 	"github.com/paust-team/paustq/broker/storage"
@@ -21,9 +20,9 @@ func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *
 	return &TransactionService{rpc.NewAPIServiceServer(db, zkClient)}
 }
 
-func (service *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan broker.EventStream) <- chan error {
+func (service *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan internals.EventStream) <- chan error {
 	errCh := make(chan error)
-	msgHandler, msgHandlerErrCh := service.registerMessageHandles(brokerCtx)
+	msgHandler, msgHandlerErrCh := service.registerMessageHandles()
 
 	go func() {
 		select {
@@ -50,7 +49,7 @@ func (service *TransactionService) HandleEventStreams(brokerCtx context.Context,
 	return errCh
 }
 
-func (service *TransactionService) registerMessageHandles(brokerCtx context.Context) (*message.Handler, <- chan error) {
+func (service *TransactionService) registerMessageHandles() (*message.Handler, <- chan error) {
 
 	msgHandler := &message.Handler{}
 	handleErrCh := make(chan error)
@@ -61,7 +60,7 @@ func (service *TransactionService) registerMessageHandles(brokerCtx context.Cont
 			handleErrCh <- pqerror.UnhandledError{ErrStr: "session argument required"}
 			return
 		}
-		res := service.apiService.CreateTopic(brokerCtx, msg.(*paustqproto.CreateTopicRequest))
+		res := service.apiService.CreateTopic(msg.(*paustqproto.CreateTopicRequest))
 		qMsg, err := message.NewQMessageFromMsg(res)
 
 		if err != nil {
@@ -79,7 +78,7 @@ func (service *TransactionService) registerMessageHandles(brokerCtx context.Cont
 			handleErrCh <- pqerror.UnhandledError{ErrStr: "session argument required"}
 			return
 		}
-		res := service.apiService.DeleteTopic(brokerCtx, msg.(*paustqproto.DeleteTopicRequest))
+		res := service.apiService.DeleteTopic(msg.(*paustqproto.DeleteTopicRequest))
 		qMsg, err := message.NewQMessageFromMsg(res)
 
 		if err != nil {

@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"context"
 	"errors"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
@@ -11,8 +10,8 @@ import (
 )
 
 type TopicRPCService interface {
-	CreateTopic(context.Context, *paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse
-	DeleteTopic(context.Context, *paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse
+	CreateTopic(*paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse
+	DeleteTopic(*paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse
 }
 
 type topicRPCService struct {
@@ -24,7 +23,7 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 	return &topicRPCService{db, zkClient}
 }
 
-func (s topicRPCService) CreateTopic(_ context.Context, request *paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse {
+func (s topicRPCService) CreateTopic(request *paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse {
 
 	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
 		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
@@ -43,7 +42,7 @@ func (s topicRPCService) CreateTopic(_ context.Context, request *paustqproto.Cre
 	return message.NewCreateTopicResponseMsg(nil)
 }
 
-func (s topicRPCService) DeleteTopic(_ context.Context, request *paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse {
+func (s topicRPCService) DeleteTopic(request *paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse {
 
 	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
 		return message.NewDeleteTopicResponseMsg(&pqerror.QRocksOperateError{ErrStr: err.Error()})
