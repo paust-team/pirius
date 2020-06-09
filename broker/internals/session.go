@@ -11,9 +11,22 @@ import (
 	"sync/atomic"
 )
 
+type EventStream struct {
+	Session       *Session
+	MsgCh         <-chan *message.QMessage
+	Ctx           context.Context
+	CancelSession context.CancelFunc
+}
+
 type SessionState struct {
 	sync.RWMutex
 	stType SessionStateType
+}
+
+type SessionError struct {
+	pqerror.PQError
+	Session       *Session
+	CancelSession context.CancelFunc
 }
 
 type SessionStateType uint8
