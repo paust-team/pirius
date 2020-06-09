@@ -12,6 +12,8 @@ import (
 type TopicRPCService interface {
 	CreateTopic(*paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse
 	DeleteTopic(*paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse
+	ListTopic(*paustqproto.ListTopicRequest) *paustqproto.ListTopicResponse
+	DescribeTopic(*paustqproto.DescribeTopicRequest) *paustqproto.DescribeTopicResponse
 }
 
 type topicRPCService struct {
