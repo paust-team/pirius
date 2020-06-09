@@ -52,14 +52,14 @@ type Session struct {
 	state    SessionState
 	sessType paustq_proto.SessionType
 	topic    *Topic
-	rTimeout int64
-	wTimeout int64
+	rTimeout uint
+	wTimeout uint
 }
 
 const (
 	// default time outs (second)
-	DEFAULT_READ_TIMEOUT  int64 = 5
-	DEFAULT_WRITE_TIMEOUT int64 = 5
+	DEFAULT_READ_TIMEOUT  uint = 5
+	DEFAULT_WRITE_TIMEOUT uint = 5
 )
 
 func NewSession(conn net.Conn) *Session {
@@ -77,12 +77,12 @@ func (s *Session) WithType(sessType paustq_proto.SessionType) *Session {
 	return s
 }
 
-func (s *Session) WithReadTimeout(rTimeout int64) *Session {
+func (s *Session) WithReadTimeout(rTimeout uint) *Session {
 	s.sock.SetReadTimeout(rTimeout)
 	return s
 }
 
-func (s *Session) WithWriteTimeout(wTimeout int64) *Session {
+func (s *Session) WithWriteTimeout(wTimeout uint) *Session {
 	s.sock.SetWriteTimeout(wTimeout)
 	return s
 }
