@@ -228,6 +228,8 @@ func (e UnhandledError) Code() PQCode {
 	return ErrInternal
 }
 
+func (e UnhandledError) IsBrokerStoppable() {}
+
 // message encode/decode error
 type MarshalAnyFailedError struct{}
 
