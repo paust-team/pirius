@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-type AdminClient struct {
+type Admin struct {
 	socket *network.Socket
 	brokerAddr string
 	timeout uint
@@ -20,11 +20,11 @@ type AdminClient struct {
 	logger *logger.QLogger
 }
 
-func NewAdminClient(brokerAddr string) *AdminClient {
+func NewAdmin(brokerAddr string) *Admin {
 	var defaultTimeout uint = 3 // second
 	l := logger.NewQLogger("Admin-client", logger.Info)
 
-	return &AdminClient{
+	return &Admin{
 		timeout:    defaultTimeout,
 		connected:  false,
 		brokerAddr: brokerAddr,
@@ -33,17 +33,17 @@ func NewAdminClient(brokerAddr string) *AdminClient {
 	}
 }
 
-func (client *AdminClient) WithTimeout(timeout uint) *AdminClient {
+func (client *Admin) WithTimeout(timeout uint) *Admin {
 	client.timeout = timeout
 	return client
 }
 
-func (client *AdminClient) WithLogLevel(level logger.LogLevel) *AdminClient {
+func (client *Admin) WithLogLevel(level logger.LogLevel) *Admin {
 	client.logger.SetLogLevel(level)
 	return client
 }
 
-func (client *AdminClient) Connect() error {
+func (client *Admin) Connect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	conn, err := net.Dial("tcp", client.brokerAddr)
@@ -57,14 +57,14 @@ func (client *AdminClient) Connect() error {
 	return nil
 }
 
-func (client *AdminClient) Close() {
+func (client *Admin) Close() {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.connected = false
 	client.socket.Close()
 }
 
-func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
+func (client *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 
@@ -96,7 +96,7 @@ func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg
 	return nil
 }
 
-func (client *AdminClient) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+func (client *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
 	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
 	response := &paustqproto.CreateTopicResponse{}
@@ -114,7 +114,7 @@ func (client *AdminClient) CreateTopic(topicName string, topicMeta string, numPa
 	return nil
 }
 
-func (client *AdminClient) DeleteTopic(topicName string) error {
+func (client *Admin) DeleteTopic(topicName string) error {
 
 	request := message.NewDeleteTopicRequestMsg(topicName)
 	response := &paustqproto.DeleteTopicResponse{}
@@ -132,7 +132,7 @@ func (client *AdminClient) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (client *AdminClient) DescribeTopic(topicName string) (*paustqproto.DescribeTopicResponse, error) {
+func (client *Admin) DescribeTopic(topicName string) (*paustqproto.DescribeTopicResponse, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &paustqproto.DescribeTopicResponse{}
@@ -150,7 +150,7 @@ func (client *AdminClient) DescribeTopic(topicName string) (*paustqproto.Describ
 	return response, nil
 }
 
-func (client *AdminClient) ListTopic() (*paustqproto.ListTopicResponse, error) {
+func (client *Admin) ListTopic() (*paustqproto.ListTopicResponse, error) {
 
 	request := message.NewListTopicRequestMsg()
 	response := &paustqproto.ListTopicResponse{}
@@ -168,7 +168,7 @@ func (client *AdminClient) ListTopic() (*paustqproto.ListTopicResponse, error) {
 	return response, nil
 }
 
-func (client *AdminClient) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
+func (client *Admin) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
 
 	request := message.NewPingMsg(msg, brokerId)
 	response := &paustqproto.Pong{}
