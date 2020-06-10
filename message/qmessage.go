@@ -77,21 +77,24 @@ func (q *QMessage) PackFrom(msg proto.Message) error {
 	return nil
 }
 
-type fn func(msg proto.Message, args ...interface{})
-type Handler struct {
-	messageMap map[proto.Message]fn
+type Handler interface {
+	Handle(*QMessage, ...interface{}) error
 }
 
-func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
-	if h.messageMap == nil {
-		h.messageMap = make(map[proto.Message]fn)
-	}
+type callbackFn func(msg proto.Message, args ...interface{})
+type BaseHandler struct {
+	messageMap map[proto.Message]callbackFn
+}
 
+func (h *BaseHandler) RegisterMsgHandle(msg proto.Message, f callbackFn) {
+	if h.messageMap == nil {
+		h.messageMap = make(map[proto.Message]callbackFn)
+	}
 	h.messageMap[msg] = f
 }
 
-func (h *Handler) Handle(qMsg *QMessage, args ...interface{}) error {
-	isHandled := false
+func (h *BaseHandler) Handle(qMsg *QMessage, args ...interface{}) error {
+	handled := false
 	for msg, fn := range h.messageMap {
 		if qMsg.Is(msg) {
 			newMsg := msg
@@ -99,11 +102,11 @@ func (h *Handler) Handle(qMsg *QMessage, args ...interface{}) error {
 				return err
 			}
 			fn(newMsg, args...)
-			isHandled = true
+			handled = true
 			break
 		}
 	}
-	if !isHandled {
+	if !handled {
 		return pqerror.UnhandledError{ErrStr: fmt.Sprintf("no handler exists for %s", qMsg.Data)}
 	}
 	return nil

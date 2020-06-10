@@ -85,12 +85,12 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		// continuous read
 		recvCh, recvErrCh := p.client.ContinuousRead()
 
-		msgHandler := message.Handler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message, _ ...interface{}) {
+		msgHandler := client.MessageHandler{}
+		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
 			res := msg.(*paustqproto.PutResponse)
 			p.logger.Debug("received response: ", res)
 		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message, _ ...interface{}) {
+		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
 			ack := msg.(*paustqproto.Ack)
 			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
 			errCh <- err

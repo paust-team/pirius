@@ -7,13 +7,28 @@ import (
 	"github.com/paust-team/paustq/broker/service/rpc"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
 )
 
 type TransactionService struct {
 	apiService *rpc.APIServiceServer
+}
+
+type SessionMessageHandler struct {
+	*message.BaseHandler
+}
+
+func (h *SessionMessageHandler) RegisterMsgHandle(msg proto.Message, f func(msg proto.Message, session *internals.Session)) {
+	wrappedFn := func(msg proto.Message, args ...interface{}) {
+		if len(args) == 1 {
+			sess, ok := args[0].(*internals.Session)
+			if ok {
+				f(msg, sess)
+			}
+		}
+	}
+	h.BaseHandler.RegisterMsgHandle(msg, wrappedFn)
 }
 
 func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *TransactionService {
@@ -49,22 +64,12 @@ func (service *TransactionService) HandleEventStreams(brokerCtx context.Context,
 	return errCh
 }
 
-func (service *TransactionService) registerMessageHandles() (*message.Handler, <- chan error) {
+func (service *TransactionService) registerMessageHandles() (message.Handler, <- chan error) {
 
-	msgHandler := &message.Handler{}
+	msgHandler := &SessionMessageHandler{}
 	handleErrCh := make(chan error)
 
-	handleSessionMsg := func(responseMsg proto.Message, args ...interface{}) {
-		if len(args) == 0 {
-			handleErrCh <- pqerror.UnhandledError{ErrStr: "session argument required"}
-			return
-		}
-
-		session, ok := args[0].(*internals.Session)
-		if !ok {
-			handleErrCh <- pqerror.UnhandledError{ErrStr: "session argument required"}
-			return
-		}
+	handleSessionMsg := func(responseMsg proto.Message, session *internals.Session) {
 
 		qMsg, err := message.NewQMessageFromMsg(responseMsg)
 
@@ -77,24 +82,24 @@ func (service *TransactionService) registerMessageHandles() (*message.Handler, <
 		}
 	}
 
-	msgHandler.RegisterMsgHandle(&paustqproto.CreateTopicRequest{}, func(msg proto.Message, args ...interface{}) {
-		handleSessionMsg(service.apiService.CreateTopic(msg.(*paustqproto.CreateTopicRequest)), args...)
+	msgHandler.RegisterMsgHandle(&paustqproto.CreateTopicRequest{}, func(msg proto.Message, session *internals.Session) {
+		handleSessionMsg(service.apiService.CreateTopic(msg.(*paustqproto.CreateTopicRequest)), session)
 	})
 
-	msgHandler.RegisterMsgHandle(&paustqproto.DeleteTopicRequest{}, func(msg proto.Message, args ...interface{}) {
-		handleSessionMsg(service.apiService.DeleteTopic(msg.(*paustqproto.DeleteTopicRequest)), args...)
+	msgHandler.RegisterMsgHandle(&paustqproto.DeleteTopicRequest{}, func(msg proto.Message, session *internals.Session) {
+		handleSessionMsg(service.apiService.DeleteTopic(msg.(*paustqproto.DeleteTopicRequest)), session)
 	})
 
-	msgHandler.RegisterMsgHandle(&paustqproto.ListTopicRequest{}, func(msg proto.Message, args ...interface{}) {
-		handleSessionMsg(service.apiService.ListTopic(msg.(*paustqproto.ListTopicRequest)), args...)
+	msgHandler.RegisterMsgHandle(&paustqproto.ListTopicRequest{}, func(msg proto.Message, session *internals.Session) {
+		handleSessionMsg(service.apiService.ListTopic(msg.(*paustqproto.ListTopicRequest)), session)
 	})
 
-	msgHandler.RegisterMsgHandle(&paustqproto.DescribeTopicRequest{}, func(msg proto.Message, args ...interface{}) {
-		handleSessionMsg(service.apiService.DescribeTopic(msg.(*paustqproto.DescribeTopicRequest)), args...)
+	msgHandler.RegisterMsgHandle(&paustqproto.DescribeTopicRequest{}, func(msg proto.Message, session *internals.Session) {
+		handleSessionMsg(service.apiService.DescribeTopic(msg.(*paustqproto.DescribeTopicRequest)), session)
 	})
 
-	msgHandler.RegisterMsgHandle(&paustqproto.Ping{}, func(msg proto.Message, args ...interface{}) {
-		handleSessionMsg(service.apiService.Heartbeat(msg.(*paustqproto.Ping)), args...)
+	msgHandler.RegisterMsgHandle(&paustqproto.Ping{}, func(msg proto.Message, session *internals.Session) {
+		handleSessionMsg(service.apiService.Heartbeat(msg.(*paustqproto.Ping)), session)
 	})
 
 	return msgHandler, handleErrCh
