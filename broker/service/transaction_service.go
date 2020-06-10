@@ -11,8 +11,16 @@ import (
 	"github.com/paust-team/paustq/zookeeper"
 )
 
+type RPCService struct {
+	rpc.TopicRPCService
+	rpc.PartitionRPCService
+	rpc.ConfigRPCService
+	rpc.GroupRPCService
+	rpc.HeartBeatRPCService
+}
+
 type TransactionService struct {
-	apiService *rpc.APIServiceServer
+	rpcService *RPCService
 }
 
 type SessionMessageHandler struct {
@@ -32,12 +40,19 @@ func (h *SessionMessageHandler) RegisterMsgHandle(msg proto.Message, f func(msg 
 }
 
 func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *TransactionService {
-	return &TransactionService{rpc.NewAPIServiceServer(db, zkClient)}
+	return &TransactionService{&RPCService{
+			rpc.NewTopicRPCService(db, zkClient),
+			rpc.NewPartitionRPCService(db, zkClient),
+			rpc.NewConfigRPCService(),
+			rpc.NewGroupRPCService(),
+			rpc.NewHeartbeatService(),
+		},
+	}
 }
 
-func (service *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan internals.EventStream) <- chan error {
+func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan internals.EventStream) <- chan error {
 	errCh := make(chan error)
-	msgHandler, msgHandlerErrCh := service.registerMessageHandles()
+	msgHandler, msgHandlerErrCh := s.registerMessageHandles()
 
 	go func() {
 		select {
@@ -64,7 +79,7 @@ func (service *TransactionService) HandleEventStreams(brokerCtx context.Context,
 	return errCh
 }
 
-func (service *TransactionService) registerMessageHandles() (message.Handler, <- chan error) {
+func (s *TransactionService) registerMessageHandles() (message.Handler, <- chan error) {
 
 	msgHandler := &SessionMessageHandler{}
 	handleErrCh := make(chan error)
@@ -83,23 +98,23 @@ func (service *TransactionService) registerMessageHandles() (message.Handler, <-
 	}
 
 	msgHandler.RegisterMsgHandle(&paustqproto.CreateTopicRequest{}, func(msg proto.Message, session *internals.Session) {
-		handleSessionMsg(service.apiService.CreateTopic(msg.(*paustqproto.CreateTopicRequest)), session)
+		handleSessionMsg(s.rpcService.CreateTopic(msg.(*paustqproto.CreateTopicRequest)), session)
 	})
 
 	msgHandler.RegisterMsgHandle(&paustqproto.DeleteTopicRequest{}, func(msg proto.Message, session *internals.Session) {
-		handleSessionMsg(service.apiService.DeleteTopic(msg.(*paustqproto.DeleteTopicRequest)), session)
+		handleSessionMsg(s.rpcService.DeleteTopic(msg.(*paustqproto.DeleteTopicRequest)), session)
 	})
 
 	msgHandler.RegisterMsgHandle(&paustqproto.ListTopicRequest{}, func(msg proto.Message, session *internals.Session) {
-		handleSessionMsg(service.apiService.ListTopic(msg.(*paustqproto.ListTopicRequest)), session)
+		handleSessionMsg(s.rpcService.ListTopic(msg.(*paustqproto.ListTopicRequest)), session)
 	})
 
 	msgHandler.RegisterMsgHandle(&paustqproto.DescribeTopicRequest{}, func(msg proto.Message, session *internals.Session) {
-		handleSessionMsg(service.apiService.DescribeTopic(msg.(*paustqproto.DescribeTopicRequest)), session)
+		handleSessionMsg(s.rpcService.DescribeTopic(msg.(*paustqproto.DescribeTopicRequest)), session)
 	})
 
 	msgHandler.RegisterMsgHandle(&paustqproto.Ping{}, func(msg proto.Message, session *internals.Session) {
-		handleSessionMsg(service.apiService.Heartbeat(msg.(*paustqproto.Ping)), session)
+		handleSessionMsg(s.rpcService.Heartbeat(msg.(*paustqproto.Ping)), session)
 	})
 
 	return msgHandler, handleErrCh
