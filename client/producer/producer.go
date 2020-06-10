@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"
@@ -85,18 +84,6 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 		// continuous read
 		recvCh, recvErrCh := p.client.ContinuousRead()
 
-		msgHandler := client.MessageHandler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.PutResponse{}, func(msg proto.Message) {
-			res := msg.(*paustqproto.PutResponse)
-			p.logger.Debug("received response: ", res)
-		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
-			ack := msg.(*paustqproto.Ack)
-			err := errors.New(fmt.Sprintf("received publish ack with error code %d", ack.Code))
-			errCh <- err
-			p.logger.Error(err)
-		})
-
 		// continuous write
 		sendCh := make(chan *message.QMessage)
 		defer close(sendCh)
@@ -120,8 +107,15 @@ func (p *Producer) Publish(ctx context.Context, sourceCh <- chan []byte) <- chan
 
 			case msg := <- recvCh:
 				if msg != nil {
-					if err := msgHandler.Handle(msg); err != nil {
+					if resMsg, err := msg.UnpackAs(&paustqproto.PutResponse{}); err == nil {
+						p.logger.Debug("received response: ", resMsg.(*paustqproto.PutResponse))
+
+					} else if resMsg, err := msg.UnpackAs(&paustqproto.Ack{}); err == nil{
+						err := errors.New(fmt.Sprintf("received publish ack with error code %d", resMsg.(*paustqproto.Ack).Code))
 						errCh <- err
+						p.logger.Error(err)
+					} else {
+						errCh <- errors.New("invalid message to handle")
 					}
 				}
 			case err := <- recvErrCh:

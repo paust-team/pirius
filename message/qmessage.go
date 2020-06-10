@@ -1,7 +1,6 @@
 package message
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -64,6 +63,23 @@ func (q *QMessage) UnpackTo(msg proto.Message) error {
 	return nil
 }
 
+func (q *QMessage) UnpackAs(msg proto.Message) (proto.Message, error) {
+	anyMsg, err := q.Any()
+	if err != nil {
+		return nil, err
+	}
+
+	if ptypes.Is(anyMsg, msg) {
+		err := ptypes.UnmarshalAny(anyMsg, msg)
+		if err != nil {
+			return nil, pqerror.UnmarshalAnyFailedError{}
+		}
+	} else {
+		return nil, pqerror.InvalidMsgTypeToUnpackError{Type: anyMsg.TypeUrl}
+	}
+	return msg, nil
+}
+
 func (q *QMessage) PackFrom(msg proto.Message) error {
 	anyMsg, err := ptypes.MarshalAny(msg)
 	if err != nil {
@@ -74,40 +90,5 @@ func (q *QMessage) PackFrom(msg proto.Message) error {
 		return pqerror.MarshalFailedError{}
 	}
 	q.Data = data
-	return nil
-}
-
-type Handler interface {
-	Handle(*QMessage, ...interface{}) error
-}
-
-type callbackFn func(msg proto.Message, args ...interface{})
-type BaseHandler struct {
-	messageMap map[proto.Message]callbackFn
-}
-
-func (h *BaseHandler) RegisterMsgHandle(msg proto.Message, f callbackFn) {
-	if h.messageMap == nil {
-		h.messageMap = make(map[proto.Message]callbackFn)
-	}
-	h.messageMap[msg] = f
-}
-
-func (h *BaseHandler) Handle(qMsg *QMessage, args ...interface{}) error {
-	handled := false
-	for msg, fn := range h.messageMap {
-		if qMsg.Is(msg) {
-			newMsg := msg
-			if err := qMsg.UnpackTo(newMsg); err != nil {
-				return err
-			}
-			fn(newMsg, args...)
-			handled = true
-			break
-		}
-	}
-	if !handled {
-		return pqerror.UnhandledError{ErrStr: fmt.Sprintf("no handler exists for %s", qMsg.Data)}
-	}
 	return nil
 }

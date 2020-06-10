@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/golang/protobuf/proto"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc"
@@ -13,16 +12,6 @@ import (
 type ReceivedData struct {
 	Error error
 	Msg   *message.QMessage
-}
-type MessageHandler struct {
-	*message.BaseHandler
-}
-
-func (h *MessageHandler) RegisterMsgHandle(msg proto.Message, f func(msg proto.Message)) {
-	wrappedFn := func(msg proto.Message, args ...interface{}) {
-		f(msg)
-	}
-	h.BaseHandler.RegisterMsgHandle(msg, wrappedFn)
 }
 
 type StreamClient struct {
