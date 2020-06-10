@@ -10,6 +10,7 @@ import (
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
+	"sync"
 )
 
 type RPCService struct {
@@ -38,15 +39,23 @@ func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *
 func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan internals.EventStream) <- chan error {
 	errCh := make(chan error)
 
+	var wg sync.WaitGroup
 	go func() {
+		defer func() {
+			wg.Wait()
+			close(errCh)
+		}()
 		select {
 		case <-brokerCtx.Done():
 			return
 		case eventStream := <- eventStreamCh:
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				for {
 					select {
 					case msg := <- eventStream.MsgCh:
+
 						if msg == nil {
 							return
 						}
