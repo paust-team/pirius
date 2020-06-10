@@ -57,7 +57,11 @@ func (client *AdminClient) Close() {
 	client.socket.Close()
 }
 
-func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsgContainer proto.Message) error {
+func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
+
+	if !client.Connected {
+		return errors.New("admin client is not connected to broker")
+	}
 
 	sendMsg, err := message.NewQMessageFromMsg(requestMsg)
 	if err != nil {
@@ -75,7 +79,7 @@ func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg
 		return err
 	}
 
-	if err := receivedMsg.UnpackTo(responseMsgContainer); err != nil {
+	if err := receivedMsg.UnpackTo(responseMsg); err != nil {
 		err = errors.New("unhandled error occurred")
 		client.logger.Error(err)
 		return err
@@ -85,20 +89,16 @@ func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg
 
 func (client *AdminClient) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
-	if !client.Connected {
-		return errors.New("admin client is not connected to broker")
-	}
-
 	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
-	willResponse := &paustqproto.CreateTopicResponse{}
+	response := &paustqproto.CreateTopicResponse{}
 
-	err := client.callAndUnpackTo(request, willResponse)
+	err := client.callAndUnpackTo(request, response)
 	if err != nil {
 		client.logger.Error(err)
 		return err
 	}
 
-	if willResponse.ErrorCode != 0 {
+	if response.ErrorCode != 0 {
 		client.logger.Error()
 		return err
 	}
@@ -107,20 +107,16 @@ func (client *AdminClient) CreateTopic(topicName string, topicMeta string, numPa
 
 func (client *AdminClient) DeleteTopic(topicName string) error {
 
-	if !client.Connected {
-		return errors.New("admin client is not connected to broker")
-	}
-
 	request := message.NewDeleteTopicRequestMsg(topicName)
-	willResponse := &paustqproto.DeleteTopicResponse{}
+	response := &paustqproto.DeleteTopicResponse{}
 
-	err := client.callAndUnpackTo(request, willResponse)
+	err := client.callAndUnpackTo(request, response)
 	if err != nil {
 		client.logger.Error(err)
 		return err
 	}
 
-	if willResponse.ErrorCode != 0 {
+	if response.ErrorCode != 0 {
 		client.logger.Error()
 		return err
 	}
@@ -134,57 +130,49 @@ func (client *AdminClient) DescribeTopic(topicName string) (*paustqproto.Describ
 	}
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
-	willResponse := &paustqproto.DescribeTopicResponse{}
+	response := &paustqproto.DescribeTopicResponse{}
 
-	err := client.callAndUnpackTo(request, willResponse)
+	err := client.callAndUnpackTo(request, response)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	if willResponse.ErrorCode != 0 {
+	if response.ErrorCode != 0 {
 		client.logger.Error()
 		return nil, err
 	}
-	return willResponse, nil
+	return response, nil
 }
 
 func (client *AdminClient) ListTopic() (*paustqproto.ListTopicResponse, error) {
 
-	if !client.Connected {
-		return nil, errors.New("admin client is not connected to broker")
-	}
-
 	request := message.NewListTopicRequestMsg()
-	willResponse := &paustqproto.ListTopicResponse{}
+	response := &paustqproto.ListTopicResponse{}
 
-	err := client.callAndUnpackTo(request, willResponse)
+	err := client.callAndUnpackTo(request, response)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	if willResponse.ErrorCode != 0 {
+	if response.ErrorCode != 0 {
 		client.logger.Error()
 		return nil, err
 	}
-	return willResponse, nil
+	return response, nil
 }
 
 func (client *AdminClient) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
 
-	if !client.Connected {
-		return nil, errors.New("admin client is not connected to broker")
-	}
-
 	request := message.NewPingMsg(msg, brokerId)
-	willResponse := &paustqproto.Pong{}
+	response := &paustqproto.Pong{}
 
-	err := client.callAndUnpackTo(request, willResponse)
+	err := client.callAndUnpackTo(request, response)
 	if err != nil {
 		client.logger.Error(err)
 		return nil, err
 	}
 
-	return willResponse, nil
+	return response, nil
 }
