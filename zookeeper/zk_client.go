@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/paust-team/paustq/broker/internals"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/samuel/go-zookeeper/zk"
@@ -90,7 +91,7 @@ func topicLockPath(topic string) string {
 	return fmt.Sprintf("/topics-%s-lock", topic)
 }
 
-func (z *ZKClient) AddTopic(topic string) error {
+func (z *ZKClient) AddTopic(topic string, topicValue *internals.TopicValue) error {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -100,7 +101,7 @@ func (z *ZKClient) AddTopic(topic string) error {
 		return err
 	}
 
-	_, err = z.conn.Create(topicPath(topic), nil, 0, zk.WorldACL(zk.PermAll))
+	_, err = z.conn.Create(topicPath(topic), topicValue.Data(), 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
 			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
@@ -111,6 +112,30 @@ func (z *ZKClient) AddTopic(topic string) error {
 		return err
 	}
 	return nil
+}
+
+func (z *ZKClient) GetTopic(topic string) (*internals.TopicValue, error) {
+	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
+	err := tLock.Lock()
+	defer tLock.Unlock()
+	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath: TOPICS_LOCK.string(), ZKErrStr: err.Error()}
+		z.logger.Error(err)
+		return nil, err
+	}
+
+	topicBytes, _, err := z.conn.Get(topicPath(topic))
+	if err != nil {
+		if err == zk.ErrNodeExists {
+			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		}
+		z.logger.Error(err)
+		return nil, err
+	}
+
+	return internals.NewTopicValue(topicBytes), nil
 }
 
 func (z *ZKClient) GetTopics() ([]string, error) {

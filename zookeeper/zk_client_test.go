@@ -2,6 +2,7 @@ package zookeeper
 
 import (
 	"fmt"
+	"github.com/paust-team/paustq/broker/internals"
 	"os"
 	"testing"
 )
@@ -51,8 +52,13 @@ func TestZKClient_AddBroker(t *testing.T) {
 }
 
 func TestZKClient_AddTopic(t *testing.T) {
-	expected := "topic1"
-	err := zkClient.AddTopic(expected)
+	expectedTopic := "topic1"
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumPartitions uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+
+	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Error(err)
 	}
@@ -62,29 +68,37 @@ func TestZKClient_AddTopic(t *testing.T) {
 		t.Error(err)
 	}
 
-	if topics[len(topics)-1] != expected {
-		t.Error("failed to add topic ", expected)
+	if topics[len(topics)-1] != expectedTopic {
+		t.Error("failed to add topic ", expectedTopic)
 	}
 
-	expected = "topic2"
-	err = zkClient.AddTopic(expected)
+	targetTopicValue, err := zkClient.GetTopic(expectedTopic)
 	if err != nil {
 		t.Error(err)
 	}
 
-	topics, err = zkClient.GetTopics()
-	if err != nil {
-		t.Error(err)
+	if targetTopicValue.TopicMeta() != expectedTopicMeta {
+		t.Error("topic meta not matched ", expectedTopicMeta, targetTopicValue.TopicMeta())
 	}
 
-	if topics[len(topics)-1] != expected {
-		t.Error("failed to add topic ", expected)
+	if targetTopicValue.NumPartitions() != expectedNumPartitions {
+		t.Error("num partition not matched ", expectedNumPartitions, targetTopicValue.NumPartitions())
 	}
+
+	if targetTopicValue.ReplicationFactor() != expectedReplicationFactor {
+		t.Error("replication factor not matched ", expectedReplicationFactor, targetTopicValue.ReplicationFactor())
+	}
+
 }
 
 func TestZKClient_AddTopicBroker(t *testing.T) {
-	expected := "topic3"
-	err := zkClient.AddTopic(expected)
+	expectedTopic := "topic3"
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumPartitions uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+
+	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,8 +108,8 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Error(err)
 	}
 
-	if topics[len(topics)-1] != expected {
-		t.Error("failed to add topic ", expected)
+	if topics[len(topics)-1] != expectedTopic {
+		t.Error("failed to add topic ", expectedTopic)
 	}
 
 	host, err := GetOutboundIP()
@@ -103,12 +117,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = zkClient.AddTopicBroker(expected, host.String())
+	err = zkClient.AddTopicBroker(expectedTopic, host.String())
 	if err != nil {
 		t.Error(err)
 	}
 
-	brokers, err := zkClient.GetTopicBrokers(expected)
+	brokers, err := zkClient.GetTopicBrokers(expectedTopic)
 	if err != nil {
 		t.Error(err)
 	}
@@ -120,7 +134,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 
 func TestZKClient_RemoveTopic(t *testing.T) {
 	topic := "topic5"
-	err := zkClient.AddTopic(topic)
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumPartitions uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+
+	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Error(err)
 	}
@@ -165,7 +184,12 @@ func TestZKClient_RemoveBroker(t *testing.T) {
 
 func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	topic := "topic4"
-	err := zkClient.AddTopic(topic)
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumPartitions uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+
+	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Error(err)
 	}
