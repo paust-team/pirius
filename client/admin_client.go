@@ -8,13 +8,15 @@ import (
 	"github.com/paust-team/paustq/network"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"net"
+	"sync"
 )
 
 type AdminClient struct {
 	socket *network.Socket
 	brokerAddr string
 	timeout uint
-	Connected bool
+	mu sync.Mutex
+	connected bool
 	logger *logger.QLogger
 }
 
@@ -24,9 +26,10 @@ func NewAdminClient(brokerAddr string) *AdminClient {
 
 	return &AdminClient{
 		timeout:    defaultTimeout,
-		Connected:  false,
+		connected:  false,
 		brokerAddr: brokerAddr,
 		logger:     l,
+		mu: sync.Mutex{},
 	}
 }
 
@@ -41,6 +44,8 @@ func (client *AdminClient) WithLogLevel(level logger.LogLevel) *AdminClient {
 }
 
 func (client *AdminClient) Connect() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	conn, err := net.Dial("tcp", client.brokerAddr)
 	if err != nil {
 		client.logger.Error(err)
@@ -48,18 +53,22 @@ func (client *AdminClient) Connect() error {
 	}
 
 	client.socket = network.NewSocket(conn, client.timeout, client.timeout)
-	client.Connected = true
+	client.connected = true
 	return nil
 }
 
 func (client *AdminClient) Close() {
-	client.Connected = false
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.connected = false
 	client.socket.Close()
 }
 
 func (client *AdminClient) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 
-	if !client.Connected {
+	if !client.connected {
 		return errors.New("admin client is not connected to broker")
 	}
 
@@ -124,10 +133,6 @@ func (client *AdminClient) DeleteTopic(topicName string) error {
 }
 
 func (client *AdminClient) DescribeTopic(topicName string) (*paustqproto.DescribeTopicResponse, error) {
-
-	if !client.Connected {
-		return nil, errors.New("admin client is not connected to broker")
-	}
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &paustqproto.DescribeTopicResponse{}
