@@ -143,7 +143,9 @@ func (s *Session) Close() {
 }
 
 func (s *Session) IsClosed() bool {
-	return s.State() == NONE
+	s.state.RLock()
+	defer s.state.RUnlock()
+	return s.state.stType == NONE
 }
 
 func (s *Session) SetState(nextState SessionStateType) error {
