@@ -100,7 +100,7 @@ func (d *DispatchPipe) Ready(inStream <-chan interface{}) ([]<-chan interface{},
 			}
 
 			if !done {
-				errCh <- pqerror.InvalidMsgTypeError{}
+				errCh <- pqerror.InvalidMsgTypeToUnpackError{}
 				return
 			}
 		}
