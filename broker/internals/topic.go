@@ -27,42 +27,42 @@ func (t *Topic) LastOffset() uint64 {
 	return uint64(size - 1)
 }
 
-type TopicValue struct {
+type TopicMeta struct {
 	data    []byte
 }
 
-func NewTopicValue(data []byte) *TopicValue {
-	return &TopicValue{data: data}
+func NewTopicMeta(data []byte) *TopicMeta {
+	return &TopicMeta{data: data}
 }
 
-func NewTopicValueFromValues(topicMeta string, numPartitions uint32, replicationFactor uint32) *TopicValue {
-	data := make([]byte, len(topicMeta)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
-	copy(data, topicMeta)
-	binary.BigEndian.PutUint32(data[len(topicMeta):], numPartitions)
-	binary.BigEndian.PutUint32(data[len(topicMeta)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
+func NewTopicMetaFromValues(description string, numPartitions uint32, replicationFactor uint32) *TopicMeta {
+	data := make([]byte, len(description)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
+	copy(data, description)
+	binary.BigEndian.PutUint32(data[len(description):], numPartitions)
+	binary.BigEndian.PutUint32(data[len(description)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
 
-	return &TopicValue{data: data}
+	return &TopicMeta{data: data}
 }
 
-func (key TopicValue) Data() []byte {
+func (key TopicMeta) Data() []byte {
 	return key.data
 }
 
-func (key TopicValue) Size() int {
+func (key TopicMeta) Size() int {
 	return len(key.data)
 }
 
-func (key TopicValue) TopicMeta() string {
+func (key TopicMeta) TopicMeta() string {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
 	return string(key.Data()[:key.Size()-uint32Len*2])
 }
 
-func (key TopicValue) NumPartitions() uint32 {
+func (key TopicMeta) NumPartitions() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
 	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len*2 : key.Size()-uint32Len])
 }
 
-func (key TopicValue) ReplicationFactor() uint32 {
+func (key TopicMeta) ReplicationFactor() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
 	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len:])
 }

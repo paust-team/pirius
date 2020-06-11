@@ -28,8 +28,8 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 
 func (s topicRPCService) CreateTopic(request *paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse {
 
-	topicValue := internals.NewTopicValueFromValues(request.Topic.TopicMeta, request.Topic.NumPartitions, request.Topic.ReplicationFactor)
-	err := s.zkClient.AddTopic(request.Topic.TopicName, topicValue)
+	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor)
+	err := s.zkClient.AddTopic(request.Topic.Name, topicValue)
 	if err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if errors.As(err, &e) {

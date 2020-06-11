@@ -93,7 +93,7 @@ func topicLockPath(topic string) string {
 	return fmt.Sprintf("/topics-%s-lock", topic)
 }
 
-func (z *ZKClient) AddTopic(topic string, topicValue *internals.TopicValue) error {
+func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -103,7 +103,7 @@ func (z *ZKClient) AddTopic(topic string, topicValue *internals.TopicValue) erro
 		return err
 	}
 
-	_, err = z.conn.Create(topicPath(topic), topicValue.Data(), 0, zk.WorldACL(zk.PermAll))
+	_, err = z.conn.Create(topicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
 			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
@@ -116,7 +116,7 @@ func (z *ZKClient) AddTopic(topic string, topicValue *internals.TopicValue) erro
 	return nil
 }
 
-func (z *ZKClient) GetTopic(topic string) (*internals.TopicValue, error) {
+func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -137,7 +137,7 @@ func (z *ZKClient) GetTopic(topic string) (*internals.TopicValue, error) {
 		return nil, err
 	}
 
-	return internals.NewTopicValue(topicBytes), nil
+	return internals.NewTopicMeta(topicBytes), nil
 }
 
 func (z *ZKClient) GetTopics() ([]string, error) {

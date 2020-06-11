@@ -30,7 +30,7 @@ func NewDescribeTopicRequestMsg(topicName string) *paustqproto.DescribeTopicRequ
 	return &paustqproto.DescribeTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDescribeTopicResponseMsg(topicName, topicMeta string, numPartitions, replicationFactor uint32, err pqerror.PQError) *paustqproto.DescribeTopicResponse {
+func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, replicationFactor uint32, err pqerror.PQError) *paustqproto.DescribeTopicResponse {
 
 	response := &paustqproto.DescribeTopicResponse{Magic: MAGIC_NUM}
 	if err != nil {
@@ -40,15 +40,15 @@ func NewDescribeTopicResponseMsg(topicName, topicMeta string, numPartitions, rep
 	}
 
 	topic := &paustqproto.Topic{
-		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
+		Name: topicName, Description: description, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
 	}
 	response.Topic = topic
 	return response
 }
 
-func NewCreateTopicRequestMsg(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) *paustqproto.CreateTopicRequest {
+func NewCreateTopicRequestMsg(topicName string, description string, numPartitions uint32, replicationFactor uint32) *paustqproto.CreateTopicRequest {
 	topic := &paustqproto.Topic{
-		TopicName: topicName, TopicMeta: topicMeta, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
+		Name: topicName, Description: description, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
 	}
 
 	return &paustqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
@@ -63,8 +63,8 @@ func NewCreateTopicResponseMsg(err pqerror.PQError) *paustqproto.CreateTopicResp
 	return response
 }
 
-func NewTopicMsg(topicName string, topicMeta string, numPartition uint32, replicationFactor uint32) *paustqproto.Topic {
-	return &paustqproto.Topic{TopicName: topicName, TopicMeta: topicMeta,
+func NewTopicMsg(topicName string, description string, numPartition uint32, replicationFactor uint32) *paustqproto.Topic {
+	return &paustqproto.Topic{Name: topicName, Description: description,
 		NumPartitions: numPartition, ReplicationFactor: replicationFactor}
 }
 
