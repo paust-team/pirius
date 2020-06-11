@@ -51,7 +51,7 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 		case eventStream := <- eventStreamCh:
 			wg.Add(1)
 			go func() {
-				wg.Done()
+				defer wg.Done()
 				for {
 					select {
 					case msg := <- eventStream.MsgCh:

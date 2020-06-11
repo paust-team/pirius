@@ -30,7 +30,7 @@ func TestHeartBeat(t *testing.T) {
 
 	Sleep(1)
 
-	adminClient := client.NewAdminClient(brokerAddr)
+	adminClient := client.NewAdmin(brokerAddr)
 
 	defer adminClient.Close()
 
