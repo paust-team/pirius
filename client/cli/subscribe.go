@@ -27,7 +27,7 @@ func NewSubscribeCmd() *cobra.Command {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 			ctx := context.Background()
-			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.Error)
+			client := consumer.NewConsumer(brokerAddr).WithLogLevel(logger.Error)
 
 			if err := client.Connect(ctx, topicName); err != nil {
 				fmt.Println(err)

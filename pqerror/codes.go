@@ -12,6 +12,11 @@ const (
 
 	// 02 - zookeeper related error
 	ErrZKConnectionFail = 0x0200
+	ErrZKTargetAlreadyExists = 0x0201
+	ErrZKOperate = 0x0202
+
+	// 03 - rocksdb related error
+	ErrDBOperate = 0x0300
 
 	// 10 - broker internal error
 	ErrInternal = 0x1000

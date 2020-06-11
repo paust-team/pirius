@@ -12,6 +12,7 @@ message SetConfigResponse {
     int32 magic = 1;
     bytes config = 2;
     int32 error_code = 3;
+    string error_message = 4;
 }
 
 message AlterConfigRequest {
@@ -22,6 +23,8 @@ message AlterConfigRequest {
 message AlterConfigResponse {
     int32 magic = 1;
     bytes config = 2;
+    int32 error_code = 3;
+    string error_message = 4;
 }
 
 message ShowConfigRequest {
@@ -32,6 +35,30 @@ message ShowConfigResponse {
     int32 magic = 1;
     bytes config = 2;
     int32 error_code = 3;
+    string error_message = 4;
+}
+
+message ListTopicRequest {
+    int32 magic = 1;
+}
+
+message ListTopicResponse {
+    int32 magic = 1;
+    repeated string topics = 2;
+    int32 error_code = 3;
+    string error_message = 4;
+}
+
+message DescribeTopicRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+}
+
+message DescribeTopicResponse {
+    int32 magic = 1;
+    Topic topic = 2;
+    int32 error_code = 3;
+    string error_message = 4;
 }
 
 message CreateTopicRequest {
@@ -41,6 +68,8 @@ message CreateTopicRequest {
 
 message CreateTopicResponse {
     int32 magic = 1;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 message DeleteTopicRequest {
@@ -50,6 +79,8 @@ message DeleteTopicRequest {
 
 message DeleteTopicResponse {
     int32 magic = 1;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 // partition
@@ -62,6 +93,8 @@ message CreatePartitionRequest {
 message CreatePartitionResponse {
     int32 magic = 1;
     Partition partition = 2;
+    int32 error_code = 3;
+    string error_message = 4;
 }
 
 // group
@@ -74,6 +107,8 @@ message CreateGroupRequest {
 message CreateGroupResponse {
     int32 magic = 1;
     Group group = 2;
+    int32 error_code = 3;
+    string error_message = 4;
 }
 
 message ListGroupsRequest {
@@ -83,6 +118,8 @@ message ListGroupsRequest {
 message ListGroupsResponse {
     int32 magic = 1;
     repeated Group group = 2;
+    int32 error_code = 3;
+    string error_message = 4;
 }
 
 // Consumer can join only one group
@@ -93,7 +130,8 @@ message JoinGroupRequest {
 
 message JoinGroupResponse {
     int32 magic = 1;
-    Group group = 2;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 message LeaveGroupRequest {
@@ -103,7 +141,8 @@ message LeaveGroupRequest {
 
 message LeaveGroupResponse {
     int32 magic = 1;
-    Group group = 2;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 // Note:: Only group owner can delete group
@@ -114,7 +153,8 @@ message DeleteGroupRequest {
 
 message DeleteGroupResponse {
     int32 magic = 1;
-    Group group = 2;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 // connection
@@ -149,6 +189,8 @@ message ShutdownBrokerRequest {
 
 message ShutdownBrokerResponse {
     int32 magic = 1;
+    int32 error_code = 2;
+    string error_message = 3;
 }
 
 message PutRequest {

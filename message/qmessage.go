@@ -63,6 +63,23 @@ func (q *QMessage) UnpackTo(msg proto.Message) error {
 	return nil
 }
 
+func (q *QMessage) UnpackAs(msg proto.Message) (proto.Message, error) {
+	anyMsg, err := q.Any()
+	if err != nil {
+		return nil, err
+	}
+
+	if ptypes.Is(anyMsg, msg) {
+		err := ptypes.UnmarshalAny(anyMsg, msg)
+		if err != nil {
+			return nil, pqerror.UnmarshalAnyFailedError{}
+		}
+	} else {
+		return nil, pqerror.InvalidMsgTypeToUnpackError{Type: anyMsg.TypeUrl}
+	}
+	return msg, nil
+}
+
 func (q *QMessage) PackFrom(msg proto.Message) error {
 	anyMsg, err := ptypes.MarshalAny(msg)
 	if err != nil {
@@ -73,32 +90,5 @@ func (q *QMessage) PackFrom(msg proto.Message) error {
 		return pqerror.MarshalFailedError{}
 	}
 	q.Data = data
-	return nil
-}
-
-type fn func(msg proto.Message)
-type Handler struct {
-	messageMap map[proto.Message]fn
-}
-
-func (h *Handler) RegisterMsgHandle(msg proto.Message, f fn) {
-	if h.messageMap == nil {
-		h.messageMap = make(map[proto.Message]fn)
-	}
-
-	h.messageMap[msg] = f
-}
-
-func (h *Handler) Handle(qMsg *QMessage) error {
-	for msg, fn := range h.messageMap {
-		if qMsg.Is(msg) {
-			newMsg := msg
-			if err := qMsg.UnpackTo(newMsg); err != nil {
-				return err
-			}
-			fn(newMsg)
-			break
-		}
-	}
 	return nil
 }

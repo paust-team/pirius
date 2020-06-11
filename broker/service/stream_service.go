@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/pipeline"
 	"github.com/paust-team/paustq/broker/storage"
@@ -25,8 +24,8 @@ func NewStreamService(DB *storage.QRocksDB, notifier *internals.Notifier, zKClie
 }
 
 func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
-	eventStreams <-chan broker.EventStream) <-chan pqerror.SessionError {
-	sessionErrCh := make(chan pqerror.SessionError)
+	eventStreams <-chan internals.EventStream) <-chan error {
+	sessionErrCh := make(chan error)
 
 	var wg sync.WaitGroup
 	go func() {
@@ -49,7 +48,7 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 	return sessionErrCh
 }
 
-func (s *StreamService) handleEventStream(eventStream broker.EventStream, sessionErrCh chan pqerror.SessionError, wg *sync.WaitGroup) {
+func (s *StreamService) handleEventStream(eventStream internals.EventStream, sessionErrCh chan error, wg *sync.WaitGroup) {
 	defer wg.Done()
 	session := eventStream.Session
 	msgCh := eventStream.MsgCh
@@ -77,13 +76,13 @@ func (s *StreamService) handleEventStream(eventStream broker.EventStream, sessio
 		case err := <-errCh:
 			pqErr, ok := err.(pqerror.PQError)
 			if !ok {
-				sessionErrCh <- pqerror.SessionError{
-					Err:           pqerror.UnhandledError{ErrStr: err.Error()},
+				sessionErrCh <- internals.SessionError{
+					PQError:           pqerror.UnhandledError{ErrStr: err.Error()},
 					Session:       session,
 					CancelSession: cancelSession}
 			} else {
-				sessionErrCh <- pqerror.SessionError{
-					Err:           pqErr,
+				sessionErrCh <- internals.SessionError{
+					PQError:           pqErr,
 					Session:       session,
 					CancelSession: cancelSession}
 			}

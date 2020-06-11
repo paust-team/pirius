@@ -1,14 +1,11 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"github.com/paust-team/paustq/client"
 	logger "github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/zookeeper"
 	"github.com/spf13/cobra"
 	"os"
-	"time"
 )
 
 var (
@@ -39,17 +36,15 @@ func NewCreateTopicCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := context.Background()
+			adminClient := client.NewAdminClient(brokerAddr).WithLogLevel(logger.Error)
+			defer adminClient.Close()
 
-			rpcClient := client.NewRPCClient(zkAddr).WithLogLevel(logger.Error)
-			defer rpcClient.Close()
-
-			if err := rpcClient.Connect(); err != nil {
+			if err := adminClient.Connect(); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			if err := rpcClient.CreateTopic(ctx, topicName, topicMeta, 1, 1); err != nil {
+			if err := adminClient.CreateTopic(topicName, topicMeta, 1, 1); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
@@ -71,17 +66,15 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := context.Background()
+			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			defer adminClient.Close()
 
-			rpcClient := client.NewRPCClient(zkAddr).WithTimeout(time.Duration(timeout) * time.Second).WithLogLevel(logger.Error)
-			defer rpcClient.Close()
-
-			if err := rpcClient.Connect(); err != nil {
+			if err := adminClient.Connect(); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			if err := rpcClient.DeleteTopic(ctx, topicName); err != nil {
+			if err := adminClient.DeleteTopic(topicName); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
@@ -102,21 +95,21 @@ func NewListTopicCmd() *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(defaultLogger)
-			defer zkClient.Close()
+			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			defer adminClient.Close()
 
-			if err := zkClient.Connect(); err != nil {
+			if err := adminClient.Connect(); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			topics, err := zkClient.GetTopics()
+			response, err := adminClient.ListTopic()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			for _, topic := range topics {
+			for _, topic := range response.Topics {
 				fmt.Printf("%s, %s", topic, "")
 			}
 		},
@@ -132,14 +125,22 @@ func NewDescribeTopicCmd() *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			zkClient := zookeeper.NewZKClient(zkAddr).WithLogger(defaultLogger)
-			brokers, err := zkClient.GetTopicBrokers(topicName)
+			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			defer adminClient.Close()
+
+			if err := adminClient.Connect(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			response, err := adminClient.DescribeTopic(topicName)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			fmt.Printf("Topic: %s, Broker hosts: %s", topicName, brokers)
+			fmt.Printf("Topic: %s, Topic meta: %s, Num partitions: %d, replication factor: %d", response.Topic.TopicName,
+				response.Topic.TopicMeta, response.Topic.NumPartitions, response.Topic.ReplicationFactor)
 		},
 	}
 

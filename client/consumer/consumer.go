@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/paust-team/paustq/client"
 	"github.com/paust-team/paustq/common"
 	logger "github.com/paust-team/paustq/log"
@@ -78,19 +77,6 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 
 		recvCh, recvErrCh := c.client.ContinuousRead()
 
-		msgHandler := message.Handler{}
-		msgHandler.RegisterMsgHandle(&paustqproto.FetchResponse{}, func(msg proto.Message) {
-			res := msg.(*paustqproto.FetchResponse)
-			sinkCh <- FetchData{res.Data, res.Offset, res.LastOffset}
-			c.logger.Debug("subscribe data ->", res.Data, "offset ->", res.Offset, "last offset ->", res.LastOffset)
-
-		})
-		msgHandler.RegisterMsgHandle(&paustqproto.Ack{}, func(msg proto.Message) {
-			ack := msg.(*paustqproto.Ack)
-			err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", ack.Code))
-			errCh <- err
-		})
-
 		reqMsg, err := message.NewQMessageFromMsg(message.NewFetchRequestMsg(startOffset))
 		if err != nil {
 			c.logger.Error(err)
@@ -107,8 +93,18 @@ func (c *Consumer) Subscribe(ctx context.Context, startOffset uint64) (<- chan F
 			select {
 			case msg := <-recvCh:
 				if msg != nil {
-					if err := msgHandler.Handle(msg); err != nil {
+					if resMsg, err := msg.UnpackAs(&paustqproto.FetchResponse{}); err == nil {
+						res := resMsg.(*paustqproto.FetchResponse)
+						c.logger.Debug("received response: ", resMsg.(*paustqproto.FetchResponse))
+						sinkCh <- FetchData{res.Data, res.Offset, res.LastOffset}
+						c.logger.Debug("subscribe data ->", res.Data, "offset ->", res.Offset, "last offset ->", res.LastOffset)
+
+					} else if resMsg, err := msg.UnpackAs(&paustqproto.Ack{}); err == nil{
+						err := errors.New(fmt.Sprintf("received subscribe ack with error code %d", resMsg.(*paustqproto.Ack).Code))
 						errCh <- err
+						c.logger.Error(err)
+					} else {
+						errCh <- errors.New("invalid message to handle")
 					}
 				}
 			case err := <-recvErrCh:

@@ -11,9 +11,22 @@ import (
 	"sync/atomic"
 )
 
+type EventStream struct {
+	Session       *Session
+	MsgCh         <-chan *message.QMessage
+	Ctx           context.Context
+	CancelSession context.CancelFunc
+}
+
 type SessionState struct {
 	sync.RWMutex
 	stType SessionStateType
+}
+
+type SessionError struct {
+	pqerror.PQError
+	Session       *Session
+	CancelSession context.CancelFunc
 }
 
 type SessionStateType uint8
@@ -49,7 +62,7 @@ var stateTransition = map[SessionStateType][]SessionStateType{
 
 type Session struct {
 	sock     *network.Socket
-	state    SessionState
+	state    *SessionState
 	sessType paustq_proto.SessionType
 	topic    *Topic
 	rTimeout uint
@@ -65,7 +78,7 @@ const (
 func NewSession(conn net.Conn) *Session {
 	return &Session{
 		sock: network.NewSocket(conn, DEFAULT_READ_TIMEOUT, DEFAULT_WRITE_TIMEOUT),
-		state: SessionState{
+		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
 		topic: nil,
@@ -91,7 +104,7 @@ func (s *Session) SetTopic(topic *Topic) {
 	s.topic = topic
 }
 
-func (s Session) Type() paustq_proto.SessionType {
+func (s *Session) Type() paustq_proto.SessionType {
 	return s.sessType
 }
 
@@ -99,13 +112,13 @@ func (s *Session) SetType(sessType paustq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s Session) Topic() *Topic {
+func (s *Session) Topic() *Topic {
 	return s.topic
 }
 
 func (s *Session) State() SessionStateType {
-	s.state.Lock()
-	defer s.state.Unlock()
+	s.state.RLock()
+	defer s.state.RUnlock()
 	return s.state.stType
 }
 
@@ -129,10 +142,10 @@ func (s *Session) Close() {
 	}
 }
 
-func (s Session) IsClosed() bool {
+func (s *Session) IsClosed() bool {
 	s.state.RLock()
 	defer s.state.RUnlock()
-	return s.State() == NONE
+	return s.state.stType == NONE
 }
 
 func (s *Session) SetState(nextState SessionStateType) error {
@@ -156,6 +169,7 @@ func (s *Session) SetState(nextState SessionStateType) error {
 }
 
 func (s *Session) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, <-chan error, error) {
+
 	if s.IsClosed() {
 		return nil, nil, pqerror.SocketClosedError{}
 	}

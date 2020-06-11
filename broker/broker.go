@@ -14,6 +14,7 @@ import (
 	"github.com/paust-team/paustq/zookeeper"
 	"net"
 	"os"
+	"sync"
 )
 
 var (
@@ -29,6 +30,7 @@ type Broker struct {
 	listener        net.Listener
 	streamService   *service.StreamService
 	sessionMgr      *internals.SessionManager
+	txService   	*service.TransactionService
 	db              *storage.QRocksDB
 	notifier        *internals.Notifier
 	zkClient        *zookeeper.ZKClient
@@ -36,6 +38,7 @@ type Broker struct {
 	dataDir         string
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
+	closed bool
 }
 
 func NewBroker(zkAddr string) *Broker {
@@ -51,6 +54,7 @@ func NewBroker(zkAddr string) *Broker {
 		logDir:   DefaultLogDir,
 		dataDir:  DefaultDataDir,
 		logger:   l,
+		closed: false,
 	}
 }
 
@@ -95,10 +99,10 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:"+string(b.Port))
+	b.host = fmt.Sprintf("127.0.0.1:%d",b.Port)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", b.host)
 	if err != nil {
-		b.logger.Fatalf("failed to resolve tcp address", err)
+		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
@@ -110,10 +114,13 @@ func (b *Broker) Start() {
 	b.sessionMgr = internals.NewSessionManager()
 	sessionAndContextCh, acceptErrCh := b.handleNewConnections(brokerCtx)
 	//Need to implement transaction service
-	_, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
+	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
 	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host)
-	sessionErrCh = pqerror.MergeSessionErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
+	b.txService = service.NewTransactionService(b.db, b.zkClient)
+
+	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
+	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
 
 	b.logger.Infof("start broker with port: %d", b.Port)
 
@@ -121,38 +128,46 @@ func (b *Broker) Start() {
 		select {
 		case <-brokerCtx.Done():
 			return
+		case err := <- txErrCh:
+			if err != nil {
+				b.logger.Errorf("error occurred on transaction service: %s", err)
+			}
+			return
 		case <-notiErrorCh:
 			return
 		case <-acceptErrCh:
 			return
 		case sessionErr := <-sessionErrCh:
-			pqErr, ok := sessionErr.Err.(pqerror.PQError)
-			if !ok {
-				b.logger.Errorf("unhandled error occurred : %v", sessionErr.Err)
-				return
-			}
-			b.logger.Errorf("error occurred from session : %v", pqErr)
+			if sessionErr != nil {
+				sessErr, ok := sessionErr.(internals.SessionError)
+				if !ok {
+					b.logger.Errorf("unhandled error occurred : %v", sessionErr.Error())
+					return
+				}
+				b.logger.Errorf("error occurred from session : %v", sessErr)
 
-			switch pqErr.(type) {
-			case pqerror.IsClientVisible:
-				sessionErr.Session.Write(message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
-			case pqerror.IsBroadcastable:
-				b.sessionMgr.BroadcastMsg(message.NewErrorAckMsg(pqErr.Code(), pqErr.Error()))
-			default:
-			}
+				switch sessErr.PQError.(type) {
+				case pqerror.IsClientVisible:
+					sessErr.Session.Write(message.NewErrorAckMsg(sessErr.Code(), sessErr.Error()))
+				case pqerror.IsBroadcastable:
+					b.sessionMgr.BroadcastMsg(message.NewErrorAckMsg(sessErr.Code(), sessErr.Error()))
+				default:
+				}
 
-			switch pqErr.(type) {
-			case pqerror.IsBrokerStoppable:
-				return
-			case pqerror.IsSessionCloseable:
-				sessionErr.CancelSession()
-			default:
+				switch sessErr.PQError.(type) {
+				case pqerror.IsBrokerStoppable:
+					return
+				case pqerror.IsSessionCloseable:
+					sessErr.CancelSession()
+				default:
+				}
 			}
 		}
 	}
 }
 
 func (b *Broker) Stop() {
+	b.closed = true
 	b.listener.Close()
 	b.db.Close()
 	b.tearDownZookeeper()
@@ -164,7 +179,6 @@ func (b *Broker) Stop() {
 func (b *Broker) Clean() {
 	b.logger.Info("clean broker")
 	_ = b.db.Destroy()
-	b.tearDownZookeeper()
 	os.RemoveAll(b.logDir)
 	os.RemoveAll(b.dataDir)
 }
@@ -216,14 +230,10 @@ func (b *Broker) setUpZookeeper() error {
 }
 
 func (b *Broker) tearDownZookeeper() {
-	if err := b.zkClient.RemoveBroker(b.host); err != nil {
-		b.logger.Error(err)
-	}
+	_ = b.zkClient.RemoveBroker(b.host)
 	topics, _ := b.zkClient.GetTopics()
 	for _, topic := range topics {
-		if err := b.zkClient.RemoveTopicBroker(topic, b.host); err != nil {
-			b.logger.Error(err)
-		}
+		_ = b.zkClient.RemoveTopicBroker(topic, b.host)
 	}
 	b.zkClient.Close()
 }
@@ -250,8 +260,11 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 						continue
 					}
 				}
-				b.logger.Errorf("error occurred while accepting new connections : %v", err)
-				errCh <- err
+				if !b.closed {
+					b.logger.Errorf("error occurred while accepting new connections : %v", err)
+					errCh <- err
+				}
+
 				return
 			}
 
@@ -260,7 +273,7 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 			select {
 			case sessionCtxCh <- SessionAndContext{internals.NewSession(conn), sessionCtx, cancelSession}:
 
-				b.logger.Infof("new connection created")
+				b.logger.Info("new connection created")
 			case <-brokerCtx.Done():
 				return
 			}
@@ -270,29 +283,27 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 	return sessionCtxCh, errCh
 }
 
-type EventStream struct {
-	Session       *internals.Session
-	MsgCh         <-chan *message.QMessage
-	Ctx           context.Context
-	CancelSession context.CancelFunc
-}
 
-func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan EventStream, <-chan EventStream, <-chan pqerror.SessionError) {
-	transactionalEvents := make(chan EventStream)
-	streamingEvents := make(chan EventStream)
-	sessionErrCh := make(chan pqerror.SessionError)
+func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan internals.EventStream, <-chan internals.EventStream, <-chan error) {
+	transactionalEvents := make(chan internals.EventStream)
+	streamingEvents := make(chan internals.EventStream)
+	sessionErrCh := make(chan error)
+	wg := sync.WaitGroup{}
 
 	go func() {
 		defer close(transactionalEvents)
 		defer close(streamingEvents)
 		defer close(sessionErrCh)
+		defer wg.Wait()
 
 		for sc := range scCh {
 			txMsgCh := make(chan *message.QMessage)
 			streamMsgCh := make(chan *message.QMessage)
+			wg.Add(1)
 			go func() {
 				defer close(txMsgCh)
 				defer close(streamMsgCh)
+				defer wg.Done()
 
 				b.sessionMgr.AddSession(sc.session)
 				defer b.sessionMgr.RemoveSession(sc.session)
@@ -310,30 +321,35 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan Eve
 					case <-sc.ctx.Done():
 						return
 					case msg := <-msgCh:
-						if msg.Type() == network.TRANSACTION {
-							txMsgCh <- msg
-						} else if msg.Type() == network.STREAM {
-							streamMsgCh <- msg
+						if msg != nil {
+							if msg.Type() == network.TRANSACTION {
+								txMsgCh <- msg
+							} else if msg.Type() == network.STREAM {
+								streamMsgCh <- msg
+							}
 						}
+
 					case err := <-errCh:
-						pqErr, ok := err.(pqerror.PQError)
-						if !ok {
-							sessionErrCh <- pqerror.SessionError{
-								Err:           pqerror.UnhandledError{ErrStr: err.Error()},
-								Session:       sc.session,
-								CancelSession: sc.cancelSession}
-						} else {
-							sessionErrCh <- pqerror.SessionError{
-								Err:           pqErr,
-								Session:       sc.session,
-								CancelSession: sc.cancelSession}
+						if err != nil {
+							pqErr, ok := err.(pqerror.PQError)
+							if !ok {
+								sessionErrCh <- internals.SessionError{
+									PQError:       pqerror.UnhandledError{ErrStr: err.Error()},
+									Session:       sc.session,
+									CancelSession: sc.cancelSession}
+							} else {
+								sessionErrCh <- internals.SessionError{
+									PQError:       pqErr,
+									Session:       sc.session,
+									CancelSession: sc.cancelSession}
+							}
 						}
 					}
 				}
 			}()
 
-			transactionalEvents <- EventStream{sc.session, txMsgCh, sc.ctx, sc.cancelSession}
-			streamingEvents <- EventStream{sc.session, streamMsgCh, sc.ctx, sc.cancelSession}
+			transactionalEvents <- internals.EventStream{sc.session, txMsgCh, sc.ctx, sc.cancelSession}
+			streamingEvents <- internals.EventStream{sc.session, streamMsgCh, sc.ctx, sc.cancelSession}
 		}
 	}()
 

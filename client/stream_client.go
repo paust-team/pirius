@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"google.golang.org/grpc"
@@ -17,8 +16,8 @@ type ReceivedData struct {
 
 type StreamClient struct {
 	mu            *sync.Mutex
-	streamClient  paustqproto.StreamService_FlowClient
-	sockContainer *common.StreamSocketContainer
+	//streamClient  paustqproto.StreamService_FlowClient
+	//sockContainer *common.StreamSocketContainer
 	SessionType   paustqproto.SessionType
 	conn          *grpc.ClientConn
 	ServerUrl     string
@@ -34,89 +33,92 @@ func NewStreamClient(serverUrl string, sessionType paustqproto.SessionType) *Str
 }
 
 func (client *StreamClient) ContinuousWrite(writeCh <- chan *message.QMessage) <-chan error {
-	return client.sockContainer.ContinuousWrite(writeCh)
+	//return client.sockContainer.ContinuousWrite(writeCh)
+	return nil
 }
 
 func (client *StreamClient) ContinuousRead() (<-chan *message.QMessage, <-chan error) {
-	return client.sockContainer.ContinuousRead()
+	//return client.sockContainer.ContinuousRead()
+	return nil, nil
 }
 
 func (client *StreamClient) Receive() (*message.QMessage, error) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	if client.Connected {
-		return client.sockContainer.Read()
-	}
+	//client.mu.Lock()
+	//defer client.mu.Unlock()
+	//if client.Connected {
+	//	return client.sockContainer.Read()
+	//}
 	return nil, errors.New("not connected")
 }
 
 func (client *StreamClient) Send(msg *message.QMessage) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	if client.Connected {
-		return client.sockContainer.Write(msg)
-	}
+	//client.mu.Lock()
+	//defer client.mu.Unlock()
+	//if client.Connected {
+	//	return client.sockContainer.Write(msg)
+	//}
 	return errors.New("not connected")
 }
 
 func (client *StreamClient) Connect(ctx context.Context, topicName string) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	if client.Connected {
-		return errors.New("already connected")
-	}
-
-	conn, err := grpc.Dial(client.ServerUrl, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-
-	client.conn = conn
-	client.Connected = true
-
-	stub := paustqproto.NewStreamServiceClient(conn)
-	stream, err := stub.Flow(ctx)
-	if err != nil {
-		conn.Close()
-		return err
-	}
-
-	sockContainer := common.NewSocketContainer(stream)
-	reqMsg, err := message.NewQMessageFromMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
-	if err != nil {
-		conn.Close()
-		return err
-	}
-
-	if err := sockContainer.Write(reqMsg); err != nil {
-		conn.Close()
-		return err
-	}
-
-	respMsg, err := sockContainer.Read()
-	if err != nil {
-		conn.Close()
-		return err
-	}
-
-	connectResponseMsg := &paustqproto.ConnectResponse{}
-	if err := respMsg.UnpackTo(connectResponseMsg); err != nil {
-		conn.Close()
-		return err
-	}
-
-	client.conn = conn
-	client.Connected = true
-	client.streamClient = stream
-	client.sockContainer = sockContainer
+	//client.mu.Lock()
+	//defer client.mu.Unlock()
+	//if client.Connected {
+	//	return errors.New("already connected")
+	//}
+	//
+	//conn, err := grpc.Dial(client.ServerUrl, grpc.WithInsecure())
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//client.conn = conn
+	//client.Connected = true
+	//
+	//stub := paustqproto.NewStreamServiceClient(conn)
+	//stream, err := stub.Flow(ctx)
+	//if err != nil {
+	//	conn.Close()
+	//	return err
+	//}
+	//
+	//sockContainer := common.NewSocketContainer(stream)
+	//reqMsg, err := message.NewQMessageFromMsg(message.NewConnectRequestMsg(client.SessionType, topicName))
+	//if err != nil {
+	//	conn.Close()
+	//	return err
+	//}
+	//
+	//if err := sockContainer.Write(reqMsg); err != nil {
+	//	conn.Close()
+	//	return err
+	//}
+	//
+	//respMsg, err := sockContainer.Read()
+	//if err != nil {
+	//	conn.Close()
+	//	return err
+	//}
+	//
+	//connectResponseMsg := &paustqproto.ConnectResponse{}
+	//if err := respMsg.UnpackTo(connectResponseMsg); err != nil {
+	//	conn.Close()
+	//	return err
+	//}
+	//
+	//client.conn = conn
+	//client.Connected = true
+	//client.streamClient = stream
+	//client.sockContainer = sockContainer
 
 	return nil
 }
 
 func (client *StreamClient) Close() error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	client.Connected = false
-	client.streamClient.CloseSend()
-	return client.conn.Close()
+	//client.mu.Lock()
+	//defer client.mu.Unlock()
+	//client.Connected = false
+	//client.streamClient.CloseSend()
+	//return client.conn.Close()
+	return nil
 }
