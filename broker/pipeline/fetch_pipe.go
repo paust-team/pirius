@@ -104,7 +104,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 							Offset:     keyOffset,
 						}
 
-						out, err := message.NewQMessageFromMsg(&fetchRes)
+						out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
 						if err != nil {
 							errCh <- err
 							return

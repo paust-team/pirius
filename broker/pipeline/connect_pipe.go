@@ -67,7 +67,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			default:
 			}
 
-			out, err := message.NewQMessageFromMsg(message.NewConnectResponseMsg())
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectResponseMsg())
 			if err != nil {
 				errCh <- err
 				return

@@ -7,6 +7,12 @@ import (
 	"github.com/paust-team/paustq/pqerror"
 )
 
+// message type
+const (
+	TRANSACTION uint16 = 0
+	STREAM      uint16 = 1
+)
+
 type QMessage struct {
 	msgType uint16
 	Data    []byte
@@ -16,8 +22,9 @@ func NewQMessage(msgType uint16, data []byte) *QMessage {
 	return &QMessage{msgType: msgType, Data: data}
 }
 
-func NewQMessageFromMsg(msg proto.Message) (*QMessage, error) {
+func NewQMessageFromMsg(msgType uint16, msg proto.Message) (*QMessage, error) {
 	qMessage := &QMessage{}
+	qMessage.msgType = msgType
 	if err := qMessage.PackFrom(msg); err != nil {
 		return nil, err
 	}

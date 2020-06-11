@@ -88,7 +88,7 @@ func (e *EvenOrOddPipe) Ready(inStream <-chan interface{}) ([]<-chan interface{}
 			}
 
 			if !done {
-				errCh <- pqerror.NoCaseFnMatchError{}
+				errCh <- pqerror.InvalidMsgTypeError{}
 				return
 			}
 		}

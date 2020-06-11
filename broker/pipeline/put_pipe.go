@@ -86,7 +86,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 				return
 			}
 
-			out, err := message.NewQMessageFromMsg(message.NewPutResponseMsg())
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg())
 			if err != nil {
 				errCh <- err
 				return

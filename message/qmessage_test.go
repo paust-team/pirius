@@ -9,7 +9,7 @@ import (
 func TestQMessage(t *testing.T) {
 
 	testByte := []byte{1, 2, 3, 4, 5}
-	msg, err := NewQMessageFromMsg(NewPutRequestMsg(testByte))
+	msg, err := NewQMessageFromMsg(STREAM, NewPutRequestMsg(testByte))
 	if err != nil {
 		t.Error(err)
 	}
