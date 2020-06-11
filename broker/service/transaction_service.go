@@ -27,16 +27,16 @@ type TransactionService struct {
 
 func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *TransactionService {
 	return &TransactionService{&RPCService{
-			rpc.NewTopicRPCService(db, zkClient),
-			rpc.NewPartitionRPCService(db, zkClient),
-			rpc.NewConfigRPCService(),
-			rpc.NewGroupRPCService(),
-			rpc.NewHeartbeatService(),
-		},
+		rpc.NewTopicRPCService(db, zkClient),
+		rpc.NewPartitionRPCService(db, zkClient),
+		rpc.NewConfigRPCService(),
+		rpc.NewGroupRPCService(),
+		rpc.NewHeartbeatService(),
+	},
 	}
 }
 
-func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <- chan internals.EventStream) <- chan error {
+func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <-chan internals.EventStream) <-chan error {
 	errCh := make(chan error)
 
 	var wg sync.WaitGroup
@@ -48,13 +48,13 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 		select {
 		case <-brokerCtx.Done():
 			return
-		case eventStream := <- eventStreamCh:
+		case eventStream := <-eventStreamCh:
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for {
 					select {
-					case msg := <- eventStream.MsgCh:
+					case msg := <-eventStream.MsgCh:
 
 						if msg == nil {
 							return
@@ -77,23 +77,23 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 	if reqMsg, err := msg.UnpackAs(&paustqproto.CreateTopicRequest{}); err == nil {
 		resMsg = s.rpcService.CreateTopic(reqMsg.(*paustqproto.CreateTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DeleteTopicRequest{}); err == nil{
+	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DeleteTopicRequest{}); err == nil {
 		resMsg = s.rpcService.DeleteTopic(reqMsg.(*paustqproto.DeleteTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.ListTopicRequest{}); err == nil{
+	} else if reqMsg, err := msg.UnpackAs(&paustqproto.ListTopicRequest{}); err == nil {
 		resMsg = s.rpcService.ListTopic(reqMsg.(*paustqproto.ListTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DescribeTopicRequest{}); err == nil{
+	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DescribeTopicRequest{}); err == nil {
 		resMsg = s.rpcService.DescribeTopic(reqMsg.(*paustqproto.DescribeTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.Ping{}); err == nil{
+	} else if reqMsg, err := msg.UnpackAs(&paustqproto.Ping{}); err == nil {
 		resMsg = s.rpcService.Heartbeat(reqMsg.(*paustqproto.Ping))
 
 	} else {
 		return errors.New("invalid message to handle")
 	}
 
-	qMsg, err := message.NewQMessageFromMsg(resMsg)
+	qMsg, err := message.NewQMessageFromMsg(message.TRANSACTION, resMsg)
 	if err != nil {
 		return err
 	}
@@ -102,4 +102,3 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 	}
 	return nil
 }
-

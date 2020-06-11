@@ -12,12 +12,12 @@ import (
 )
 
 type Admin struct {
-	socket *network.Socket
+	socket     *network.Socket
 	brokerAddr string
-	timeout uint
-	mu sync.Mutex
-	connected bool
-	logger *logger.QLogger
+	timeout    uint
+	mu         sync.Mutex
+	connected  bool
+	logger     *logger.QLogger
 }
 
 func NewAdmin(brokerAddr string) *Admin {
@@ -29,7 +29,7 @@ func NewAdmin(brokerAddr string) *Admin {
 		connected:  false,
 		brokerAddr: brokerAddr,
 		logger:     l,
-		mu: sync.Mutex{},
+		mu:         sync.Mutex{},
 	}
 }
 
@@ -72,7 +72,7 @@ func (client *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto
 		return errors.New("admin client is not connected to broker")
 	}
 
-	sendMsg, err := message.NewQMessageFromMsg(requestMsg)
+	sendMsg, err := message.NewQMessageFromMsg(message.TRANSACTION, requestMsg)
 	if err != nil {
 		client.logger.Error(err)
 		return err

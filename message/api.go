@@ -8,7 +8,6 @@ import (
 const MAGIC_NUM int32 = 1101
 
 // API messages
-
 func NewListTopicRequestMsg() *paustqproto.ListTopicRequest {
 	return &paustqproto.ListTopicRequest{Magic: MAGIC_NUM}
 }
@@ -89,19 +88,6 @@ func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *paustqprot
 	return &paustqproto.Pong{Magic: MAGIC_NUM, Echo: msg, ServerVersion: serverVersion, ServerTime: serverTime}
 }
 
-func NewShutdownBrokerRequestMsg(brokerId uint64) *paustqproto.ShutdownBrokerRequest {
-	return &paustqproto.ShutdownBrokerRequest{Magic: MAGIC_NUM, BrokerId: brokerId}
-}
-
-func NewShutdownBrokerResponseMsg(err pqerror.PQError) *paustqproto.ShutdownBrokerResponse {
-	response := &paustqproto.ShutdownBrokerResponse{Magic: MAGIC_NUM}
-	if err != nil {
-		response.ErrorCode = int32(err.Code())
-		response.ErrorMessage = err.Error()
-	}
-	return response
-}
-
 // Stream messages
 func NewConnectRequestMsg(sessionType paustqproto.SessionType, topicName string) *paustqproto.ConnectRequest {
 	return &paustqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName}
@@ -142,9 +128,17 @@ func NewAckMsg(code uint32, msg string) *paustqproto.Ack {
 func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {
 	var ackMsg *QMessage
 	if code == pqerror.ErrInternal {
-		ackMsg, _ = NewQMessageFromMsg(NewAckMsg(uint32(code), "broker internal error"))
+		ackMsg, _ = NewQMessageFromMsg(STREAM, NewAckMsg(uint32(code), "broker internal error"))
 	} else {
-		ackMsg, _ = NewQMessageFromMsg(NewAckMsg(uint32(code), hint))
+		ackMsg, _ = NewQMessageFromMsg(STREAM, NewAckMsg(uint32(code), hint))
 	}
 	return ackMsg
+}
+
+func NewDiscoverBrokerRequestMsg(topic string) *paustqproto.DiscoverBrokerRequest {
+	return &paustqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, Topic: topic}
+}
+
+func NewDiscoverBrokerResponseMsg(addr string) *paustqproto.DiscoverBrokerResponse {
+	return &paustqproto.DiscoverBrokerResponse{Magic: MAGIC_NUM, Address: addr}
 }

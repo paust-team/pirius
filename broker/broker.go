@@ -9,7 +9,6 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/network"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/paust-team/paustq/zookeeper"
 	"net"
@@ -30,7 +29,7 @@ type Broker struct {
 	listener        net.Listener
 	streamService   *service.StreamService
 	sessionMgr      *internals.SessionManager
-	txService   	*service.TransactionService
+	txService       *service.TransactionService
 	db              *storage.QRocksDB
 	notifier        *internals.Notifier
 	zkClient        *zookeeper.ZKClient
@@ -38,7 +37,7 @@ type Broker struct {
 	dataDir         string
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
-	closed bool
+	closed          bool
 }
 
 func NewBroker(zkAddr string) *Broker {
@@ -54,7 +53,7 @@ func NewBroker(zkAddr string) *Broker {
 		logDir:   DefaultLogDir,
 		dataDir:  DefaultDataDir,
 		logger:   l,
-		closed: false,
+		closed:   false,
 	}
 }
 
@@ -99,7 +98,7 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-	b.host = fmt.Sprintf("127.0.0.1:%d",b.Port)
+	b.host = fmt.Sprintf("127.0.0.1:%d", b.Port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp", b.host)
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
@@ -128,7 +127,7 @@ func (b *Broker) Start() {
 		select {
 		case <-brokerCtx.Done():
 			return
-		case err := <- txErrCh:
+		case err := <-txErrCh:
 			if err != nil {
 				b.logger.Errorf("error occurred on transaction service: %s", err)
 			}
@@ -283,7 +282,6 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 	return sessionCtxCh, errCh
 }
 
-
 func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan internals.EventStream, <-chan internals.EventStream, <-chan error) {
 	transactionalEvents := make(chan internals.EventStream)
 	streamingEvents := make(chan internals.EventStream)
@@ -322,9 +320,9 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 						return
 					case msg := <-msgCh:
 						if msg != nil {
-							if msg.Type() == network.TRANSACTION {
+							if msg.Type() == message.TRANSACTION {
 								txMsgCh <- msg
-							} else if msg.Type() == network.STREAM {
+							} else if msg.Type() == message.STREAM {
 								streamMsgCh <- msg
 							}
 						}

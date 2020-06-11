@@ -13,11 +13,6 @@ type Header struct {
 	msgType  uint16
 }
 
-const (
-	TRANSACTION uint16 = 0
-	STREAM      uint16 = 1
-)
-
 func (h *Header) deserializeFrom(data []byte) error {
 	headerSize := binary.Size(h)
 	if len(data) < headerSize {
