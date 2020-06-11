@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/binary"
-	"errors"
 	"github.com/tecbot/gorocksdb"
 	"path/filepath"
 	"unsafe"
@@ -68,51 +67,6 @@ func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
 	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
-func (db QRocksDB) PutTopicIfNotExists(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
-
-	result, err := db.GetTopic(topic)
-
-	if err != nil {
-		return err
-	}
-
-	if result != nil && result.Exists() {
-		return errors.New("topic already exists")
-	}
-
-	if err := db.PutTopic(topic, topicMeta, numPartitions, replicationFactor); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (db QRocksDB) PutTopic(topic string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
-	value := NewTopicValueFromData(topicMeta, numPartitions, replicationFactor)
-	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic), value.Data())
-}
-
-func (db QRocksDB) GetTopic(topic string) (*gorocksdb.Slice, error) {
-	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
-}
-
-func (db QRocksDB) DeleteTopic(topic string) error {
-	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[TopicCF], []byte(topic))
-}
-
-func (db QRocksDB) GetAllTopics() map[string]TopicValue {
-	iter := db.Scan(TopicCF)
-	iter.SeekToFirst()
-	topics := make(map[string]TopicValue)
-	for iter.Valid() {
-		topicName := string(iter.Key().Data())
-		topicValue := NewTopicValue(iter.Value())
-		topics[topicName] = *topicValue
-		iter.Next()
-	}
-
-	return topics
-}
-
 func (db *QRocksDB) Close() {
 	db.db.Close()
 	db.ro.Destroy()
@@ -172,52 +126,4 @@ func (key RecordKey) Topic() string {
 
 func (key RecordKey) Offset() uint64 {
 	return binary.BigEndian.Uint64(key.Data()[key.Size()-int(unsafe.Sizeof(uint64(0))):])
-}
-
-type TopicValue struct {
-	*gorocksdb.Slice
-	data    []byte
-	isSlice bool
-}
-
-func NewTopicValueFromData(topicMeta string, numPartitions uint32, replicationFactor uint32) *TopicValue {
-	data := make([]byte, len(topicMeta)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
-	copy(data, topicMeta)
-	binary.BigEndian.PutUint32(data[len(topicMeta):], numPartitions)
-	binary.BigEndian.PutUint32(data[len(topicMeta)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
-
-	return &TopicValue{data: data, isSlice: false}
-}
-
-func NewTopicValue(slice *gorocksdb.Slice) *TopicValue {
-	return &TopicValue{Slice: slice, isSlice: true}
-}
-
-func (key TopicValue) Data() []byte {
-	if key.isSlice {
-		return key.Slice.Data()
-	}
-	return key.data
-}
-
-func (key TopicValue) Size() int {
-	if key.isSlice {
-		return key.Slice.Size()
-	}
-	return len(key.data)
-}
-
-func (key TopicValue) TopicMeta() string {
-	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return string(key.Data()[:key.Size()-uint32Len*2])
-}
-
-func (key TopicValue) NumPartitions() uint32 {
-	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len*2 : key.Size()-uint32Len])
-}
-
-func (key TopicValue) ReplicationFactor() uint32 {
-	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len:])
 }

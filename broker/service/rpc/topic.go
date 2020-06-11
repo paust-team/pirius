@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"github.com/paust-team/paustq/broker/internals"
 	"github.com/paust-team/paustq/broker/storage"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
@@ -27,12 +28,8 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 
 func (s topicRPCService) CreateTopic(request *paustqproto.CreateTopicRequest) *paustqproto.CreateTopicResponse {
 
-	if err := s.DB.PutTopicIfNotExists(request.Topic.TopicName, request.Topic.TopicMeta,
-		request.Topic.NumPartitions, request.Topic.ReplicationFactor); err != nil {
-		return message.NewCreateTopicResponseMsg(&pqerror.QRocksOperateError{ErrStr: err.Error()})
-	}
-
-	err := s.zkClient.AddTopic(request.Topic.TopicName)
+	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor)
+	err := s.zkClient.AddTopic(request.Topic.Name, topicValue)
 	if err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if errors.As(err, &e) {
@@ -46,9 +43,6 @@ func (s topicRPCService) CreateTopic(request *paustqproto.CreateTopicRequest) *p
 
 func (s topicRPCService) DeleteTopic(request *paustqproto.DeleteTopicRequest) *paustqproto.DeleteTopicResponse {
 
-	if err := s.DB.DeleteTopic(request.TopicName); err != nil {
-		return message.NewDeleteTopicResponseMsg(&pqerror.QRocksOperateError{ErrStr: err.Error()})
-	}
 	if err := s.zkClient.RemoveTopic(request.TopicName); err != nil {
 		return message.NewDeleteTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -68,6 +62,10 @@ func (s topicRPCService) ListTopic(_ *paustqproto.ListTopicRequest) *paustqproto
 
 func (s topicRPCService) DescribeTopic(request *paustqproto.DescribeTopicRequest) *paustqproto.DescribeTopicResponse {
 
-	// Temporary
-	return message.NewDescribeTopicResponseMsg(request.TopicName, "", 0, 0, nil)
+	topicValue, err := s.zkClient.GetTopic(request.TopicName)
+	if err != nil {
+		return message.NewDescribeTopicResponseMsg("", "", 0, 0, &pqerror.ZKOperateError{ErrStr: err.Error()})
+	}
+
+	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor(), nil)
 }
