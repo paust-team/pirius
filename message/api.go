@@ -135,10 +135,15 @@ func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {
 	return ackMsg
 }
 
-func NewDiscoverBrokerRequestMsg(topic string) *paustqproto.DiscoverBrokerRequest {
-	return &paustqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, Topic: topic}
+func NewDiscoverBrokerRequestMsg(topicName string) *paustqproto.DiscoverBrokerRequest {
+	return &paustqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDiscoverBrokerResponseMsg(addr string) *paustqproto.DiscoverBrokerResponse {
-	return &paustqproto.DiscoverBrokerResponse{Magic: MAGIC_NUM, Address: addr}
+func NewDiscoverBrokerResponseMsg(addr string, err pqerror.PQError) *paustqproto.DiscoverBrokerResponse {
+	response := &paustqproto.DiscoverBrokerResponse{Magic: MAGIC_NUM, Address: addr}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	}
+	return response
 }

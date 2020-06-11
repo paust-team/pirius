@@ -108,7 +108,7 @@ func (client *Admin) CreateTopic(topicName string, topicMeta string, numPartitio
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error()
+		client.logger.Error(response.ErrorMessage)
 		return err
 	}
 	return nil
@@ -126,7 +126,7 @@ func (client *Admin) DeleteTopic(topicName string) error {
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error()
+		client.logger.Error(response.ErrorMessage)
 		return err
 	}
 	return nil
@@ -144,7 +144,7 @@ func (client *Admin) DescribeTopic(topicName string) (*paustqproto.DescribeTopic
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error()
+		client.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
 	return response, nil
@@ -162,9 +162,28 @@ func (client *Admin) ListTopic() (*paustqproto.ListTopicResponse, error) {
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error()
+		client.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
+	return response, nil
+}
+
+func (client *Admin) DiscoverBroker(topicName string) (*paustqproto.DiscoverBrokerResponse, error) {
+
+	request := message.NewDiscoverBrokerRequestMsg(topicName)
+	response := &paustqproto.DiscoverBrokerResponse{}
+
+	err := client.callAndUnpackTo(request, response)
+	if err != nil {
+		client.logger.Error(err)
+		return nil, err
+	}
+
+	if response.ErrorCode != 0 {
+		client.logger.Error(response.ErrorMessage)
+		return nil, err
+	}
+
 	return response, nil
 }
 
