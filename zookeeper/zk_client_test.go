@@ -62,7 +62,7 @@ func TestZKClient_AddTopic(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 
-	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
 	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestZKClient_AddTopic(t *testing.T) {
 	}
 
 	if topics[len(topics)-1] != expectedTopic {
-		t.Fatal("failed to add topic", expectedTopic,topics[len(topics)-1])
+		t.Fatal("failed to add topic", expectedTopic, topics[len(topics)-1])
 	}
 
 	targetTopicValue, err := zkClient.GetTopic(expectedTopic)
@@ -105,7 +105,7 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 
-	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
 	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 
-	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
 	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -198,7 +198,7 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 
-	topicValue := internals.NewTopicValueFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
 	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
