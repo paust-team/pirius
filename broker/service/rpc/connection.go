@@ -38,10 +38,10 @@ func (s *connectionRPCService) DiscoverBroker(request *paustqproto.DiscoverBroke
 				brokerAddr := brokerAddrs[rand.Intn(len(brokerAddrs))] // pick random broker
 				return message.NewDiscoverBrokerResponseMsg(brokerAddr, nil)
 			} else {
-				return message.NewDiscoverBrokerResponseMsg("", &pqerror.UnhandledError{ErrStr: "no brokers"})
+				return message.NewDiscoverBrokerResponseMsg("", err.(pqerror.PQError))
 			}
 		}
-		return message.NewDiscoverBrokerResponseMsg("", &pqerror.UnhandledError{ErrStr: "no brokers"})
+		return message.NewDiscoverBrokerResponseMsg("", &pqerror.TopicBrokersNotExistError{})
 	}
 }
 
