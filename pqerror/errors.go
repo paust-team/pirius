@@ -35,16 +35,16 @@ func (e InvalidCaseFnCountError) Error() string {
 
 func (e InvalidCaseFnCountError) IsSessionCloseable() {}
 
-type NoCaseFnMatchError struct{}
+type InvalidMsgTypeError struct{}
 
-func (e NoCaseFnMatchError) Error() string {
+func (e InvalidMsgTypeError) Error() string {
 	return "inStream data does not match any case functions"
 }
 
-func (e NoCaseFnMatchError) IsSessionCloseable() {}
-func (e NoCaseFnMatchError) IsClientVisible()    {}
-func (e NoCaseFnMatchError) Code() PQCode {
-	return ErrInvalidMsg
+func (e InvalidMsgTypeError) IsSessionCloseable() {}
+func (e InvalidMsgTypeError) IsClientVisible()    {}
+func (e InvalidMsgTypeError) Code() PQCode {
+	return ErrInvalidMsgType
 }
 
 type InvalidStartOffsetError struct {
@@ -88,7 +88,7 @@ func (e ZKConnectionError) Error() string {
 func (e ZKConnectionError) IsBrokerStoppable() {}
 func (e ZKConnectionError) IsBroadcastable()   {}
 func (e ZKConnectionError) Code() PQCode {
-	return ErrZKConnectionFail
+	return ErrZKConnection
 }
 
 type ZKRequestError struct {
@@ -299,4 +299,27 @@ func (e QRocksOperateError) Error() string {
 
 func (e QRocksOperateError) Code() PQCode {
 	return ErrDBOperate
+}
+
+type AlreadyConnectedError struct {
+	Addr string
+}
+
+func (e AlreadyConnectedError) Error() string {
+	return "already connected to " + e.Addr
+}
+
+type DialFailedError struct {
+	Addr string
+	Err error
+}
+
+func (e DialFailedError) Error() string {
+	return fmt.Sprintf("dial to %s failed : %v", e.Addr, e.Err)
+}
+
+type NotConnectedError struct {}
+
+func (e NotConnectedError) Error() string {
+	return "there's no connection to any endpoint"
 }
