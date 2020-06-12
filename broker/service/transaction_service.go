@@ -18,7 +18,7 @@ type RPCService struct {
 	rpc.PartitionRPCService
 	rpc.ConfigRPCService
 	rpc.GroupRPCService
-	rpc.HeartBeatRPCService
+	rpc.ConnectionRPCService
 }
 
 type TransactionService struct {
@@ -31,8 +31,7 @@ func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *
 		rpc.NewPartitionRPCService(db, zkClient),
 		rpc.NewConfigRPCService(),
 		rpc.NewGroupRPCService(),
-		rpc.NewHeartbeatService(),
-	},
+		rpc.NewConnectionRPCService(zkClient)},
 	}
 }
 
@@ -89,6 +88,8 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 	} else if reqMsg, err := msg.UnpackAs(&paustqproto.Ping{}); err == nil {
 		resMsg = s.rpcService.Heartbeat(reqMsg.(*paustqproto.Ping))
 
+	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DiscoverBrokerRequest{}); err == nil {
+		resMsg = s.rpcService.DiscoverBroker(reqMsg.(*paustqproto.DiscoverBrokerRequest))
 	} else {
 		return errors.New("invalid message to handle")
 	}

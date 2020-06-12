@@ -123,12 +123,20 @@ func (e ZKLockFailError) Error() string {
 	return fmt.Sprintf("locking path(%s) failed : %s", e.LockPath, e.ZKErrStr)
 }
 
+func (e ZKLockFailError) Code() PQCode {
+	return ErrZKLockFail
+}
+
 func (e ZKLockFailError) IsSessionCloseable() {}
 
 type ZKEncodeFailError struct{}
 
 func (e ZKEncodeFailError) Error() string {
 	return "failed to encode target to bytes"
+}
+
+func (e ZKEncodeFailError) Code() PQCode {
+	return ErrZKEncodeFail
 }
 
 func (e ZKEncodeFailError) IsSessionCloseable() {}
@@ -139,6 +147,10 @@ func (e ZKDecodeFailError) Error() string {
 	return "failed to decode bytes to target"
 }
 
+func (e ZKDecodeFailError) Code() PQCode {
+	return ErrZKDecodeFail
+}
+
 func (e ZKDecodeFailError) IsSessionCloseable() {}
 
 type ZKNothingToRemoveError struct{}
@@ -147,9 +159,13 @@ func (e ZKNothingToRemoveError) Error() string {
 	return "target to remove from zookeeper does not exist"
 }
 
+func (e ZKNothingToRemoveError) Code() PQCode {
+	return ErrZKNothingToRemove
+}
+
 func (e ZKNothingToRemoveError) IsSessionCloseable() {}
 
-type ZKOperateError struct{
+type ZKOperateError struct {
 	ErrStr string
 }
 
@@ -322,4 +338,14 @@ type NotConnectedError struct {}
 
 func (e NotConnectedError) Error() string {
 	return "there's no connection to any endpoint"
+}
+
+type TopicBrokersNotExistError struct{}
+
+func (e TopicBrokersNotExistError) Error() string {
+	return "topic broker not exists"
+}
+
+func (e TopicBrokersNotExistError) Code() PQCode {
+	return ErrTopicBrokersNotExist
 }
