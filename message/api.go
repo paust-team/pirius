@@ -135,8 +135,8 @@ func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {
 	return ackMsg
 }
 
-func NewDiscoverBrokerRequestMsg(topicName string) *paustqproto.DiscoverBrokerRequest {
-	return &paustqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, TopicName: topicName}
+func NewDiscoverBrokerRequestMsg(topicName string, sessionType paustqproto.SessionType) *paustqproto.DiscoverBrokerRequest {
+	return &paustqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, TopicName: topicName, SessionType: sessionType}
 }
 
 func NewDiscoverBrokerResponseMsg(addr string, err pqerror.PQError) *paustqproto.DiscoverBrokerResponse {

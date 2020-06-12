@@ -160,6 +160,7 @@ message DeleteGroupResponse {
 message DiscoverBrokerRequest {
     int32 magic = 1;
     string topic_name = 2;
+    SessionType session_type = 3;
 }
 
 message DiscoverBrokerResponse {

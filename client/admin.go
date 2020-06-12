@@ -33,6 +33,12 @@ func NewAdmin(brokerAddr string) *Admin {
 	}
 }
 
+func (client *Admin) WithConnection(socket *network.Socket) *Admin {
+	client.socket = socket
+	client.connected = true
+	return client
+}
+
 func (client *Admin) WithTimeout(timeout uint) *Admin {
 	client.timeout = timeout
 	return client
@@ -168,9 +174,9 @@ func (client *Admin) ListTopic() (*paustqproto.ListTopicResponse, error) {
 	return response, nil
 }
 
-func (client *Admin) DiscoverBroker(topicName string) (*paustqproto.DiscoverBrokerResponse, error) {
+func (client *Admin) DiscoverBroker(topicName string, sessionType paustqproto.SessionType) (*paustqproto.DiscoverBrokerResponse, error) {
 
-	request := message.NewDiscoverBrokerRequestMsg(topicName)
+	request := message.NewDiscoverBrokerRequestMsg(topicName, sessionType)
 	response := &paustqproto.DiscoverBrokerResponse{}
 
 	err := client.callAndUnpackTo(request, response)

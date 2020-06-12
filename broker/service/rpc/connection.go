@@ -5,6 +5,7 @@ import (
 	"github.com/paust-team/paustq/pqerror"
 	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
+	"math/rand"
 	"time"
 )
 
@@ -22,23 +23,26 @@ func NewConnectionRPCService(zkClient *zookeeper.ZKClient) *connectionRPCService
 }
 
 func (s *connectionRPCService) DiscoverBroker(request *paustqproto.DiscoverBrokerRequest) *paustqproto.DiscoverBrokerResponse {
-	var targetAddr string
+
 	topicBrokerAddrs, err := s.zkClient.GetTopicBrokers(request.TopicName)
 	if err != nil {
 		return message.NewDiscoverBrokerResponseMsg("", &pqerror.ZKOperateError{ErrStr: err.Error()})
-	} else if len(topicBrokerAddrs) == 0 {
-		brokerAddrs, err := s.zkClient.GetBrokers()
-		if err != nil {
-			return message.NewDiscoverBrokerResponseMsg("", &pqerror.ZKOperateError{ErrStr: err.Error()})
-		} else if len(brokerAddrs) == 0 {
-			return message.NewDiscoverBrokerResponseMsg("", &pqerror.UnhandledError{ErrStr: "no brokers"})
-		} else {
-			targetAddr = brokerAddrs[0] // TODO:: to pick random
-		}
+
+	} else if len(topicBrokerAddrs) > 0 {
+		return message.NewDiscoverBrokerResponseMsg(topicBrokerAddrs[0], nil)
+
 	} else {
-		targetAddr = topicBrokerAddrs[0] // TODO:: to pick random
+		if request.SessionType == paustqproto.SessionType_PUBLISHER {
+			brokerAddrs, err := s.zkClient.GetBrokers()
+			if err == nil && len(brokerAddrs) != 0 {
+				brokerAddr := brokerAddrs[rand.Intn(len(brokerAddrs))] // pick random broker
+				return message.NewDiscoverBrokerResponseMsg(brokerAddr, nil)
+			} else {
+				return message.NewDiscoverBrokerResponseMsg("", &pqerror.UnhandledError{ErrStr: "no brokers"})
+			}
+		}
+		return message.NewDiscoverBrokerResponseMsg("", &pqerror.UnhandledError{ErrStr: "no brokers"})
 	}
-	return message.NewDiscoverBrokerResponseMsg(targetAddr, nil)
 }
 
 func (s *connectionRPCService) Heartbeat(request *paustqproto.Ping) *paustqproto.Pong {
