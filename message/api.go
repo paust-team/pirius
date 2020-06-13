@@ -101,9 +101,9 @@ func NewPutRequestMsg(data []byte) *paustqproto.PutRequest {
 	return &paustqproto.PutRequest{Magic: MAGIC_NUM, Data: data}
 }
 
-func NewPutResponseMsg() *paustqproto.PutResponse {
+func NewPutResponseMsg(offset uint64) *paustqproto.PutResponse {
 	partition := &paustqproto.Partition{
-		PartitionId: 1, Offset: 0,
+		PartitionId: 1, Offset: offset,
 	}
 
 	return &paustqproto.PutResponse{Magic: MAGIC_NUM, Partition: partition}
