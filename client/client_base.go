@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/network"
@@ -127,6 +128,11 @@ func (c *ClientBase) connect(sessionType paustqproto.SessionType, brokerAddr str
 	if err != nil {
 		return err
 	}
+
+	if pqerror.PQCode(discoverRes.ErrorCode) != pqerror.Success {
+		return errors.New(discoverRes.ErrorMessage)
+	}
+
 	newAddr := discoverRes.GetAddress()
 	c.close()
 	if err = c.connectToBroker(newAddr); err != nil {
