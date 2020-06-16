@@ -96,7 +96,7 @@ func (c *ClientBase) continuousReceive(ctx context.Context) (<-chan *message.QMe
 	return msgCh, errCh, nil
 }
 
-func (c *ClientBase) read() (*message.QMessage, error) {
+func (c *ClientBase) receive() (*message.QMessage, error) {
 	if !c.isConnected() {
 		return nil, pqerror.NotConnectedError{}
 	}
@@ -118,7 +118,7 @@ func (c *ClientBase) connect(sessionType paustqproto.SessionType, brokerAddr str
 		return err
 	}
 
-	res, err := c.read()
+	res, err := c.receive()
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (c *ClientBase) initStream(sessionType paustqproto.SessionType, topic strin
 	if err := c.send(reqMsg); err != nil {
 		return err
 	}
-	res, err := c.read()
+	res, err := c.receive()
 	if err != nil {
 		return err
 	}

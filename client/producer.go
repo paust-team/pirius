@@ -76,7 +76,7 @@ func (p *Producer) Publish(data []byte) (common.Partition, error) {
 		return common.Partition{}, err
 	}
 
-	res, err := p.read()
+	res, err := p.receive()
 	if err != nil {
 		return common.Partition{}, err
 	}
