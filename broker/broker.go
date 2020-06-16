@@ -9,10 +9,12 @@ import (
 	"github.com/paust-team/paustq/common"
 	"github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/paustq/network"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/paust-team/paustq/zookeeper"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 )
 
@@ -24,7 +26,7 @@ var (
 )
 
 type Broker struct {
-	Port            uint16
+	Port            int
 	host            string
 	listener        net.Listener
 	streamService   *service.StreamService
@@ -57,7 +59,7 @@ func NewBroker(zkAddr string) *Broker {
 	}
 }
 
-func (b *Broker) WithPort(port uint16) *Broker {
+func (b *Broker) WithPort(port int) *Broker {
 	b.Port = port
 	return b
 }
@@ -98,8 +100,7 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-	b.host = fmt.Sprintf("127.0.0.1:%d", b.Port)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", b.host)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:1101")
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
@@ -115,7 +116,7 @@ func (b *Broker) Start() {
 	//Need to implement transaction service
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host)
+	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host+":"+strconv.Itoa(b.Port))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
@@ -202,12 +203,13 @@ func (b *Broker) connectToRocksDB() error {
 }
 
 func (b *Broker) setUpZookeeper() error {
-	host, err := zookeeper.GetOutboundIP()
+	host, err := network.GetOutboundIP()
 	if err != nil {
 		b.logger.Error(err)
 		return err
 	}
-	if !zookeeper.IsPublicIP(host) {
+
+	if !network.IsPublicIP(host) {
 		b.logger.Warning("cannot attach to broker from external network")
 	}
 
@@ -221,7 +223,7 @@ func (b *Broker) setUpZookeeper() error {
 		return err
 	}
 
-	if err := b.zkClient.AddBroker(b.host); err != nil {
+	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(b.Port)); err != nil {
 		return err
 	}
 

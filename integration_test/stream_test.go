@@ -3,17 +3,11 @@ package integration_test
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"github.com/paust-team/paustq/broker"
 	"github.com/paust-team/paustq/client"
-	"github.com/paust-team/paustq/client/consumer"
-	"github.com/paust-team/paustq/client/producer"
 	logger "github.com/paust-team/paustq/log"
-	paustqproto "github.com/paust-team/paustq/proto"
 	"github.com/paust-team/paustq/zookeeper"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"log"
 	"os"
 	"sync"
@@ -27,7 +21,7 @@ func Sleep(sec int) {
 	time.Sleep(time.Duration(sec) * time.Second)
 }
 
-func readFromFileLineBy(fileName string) (int, [][]byte) {
+func getRecordsFromFile(fileName string) [][]byte {
 	f, err := os.Open(fileName)
 	if err != nil {
 		log.Fatal(err)
@@ -35,14 +29,12 @@ func readFromFileLineBy(fileName string) (int, [][]byte) {
 	defer f.Close()
 
 	var records [][]byte
-	count := 0
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		data := []byte(scanner.Text())
 		records = append(records, data)
-		count++
 	}
-	return count, records
+	return records
 }
 
 func contains(s [][]byte, e []byte) bool {
@@ -55,59 +47,71 @@ func contains(s [][]byte, e []byte) bool {
 }
 
 func TestStreamClient_Connect(t *testing.T) {
-
+	brokerAddr := "127.0.0.1:1101"
 	zkAddr := "127.0.0.1"
-
-	ctx := context.Background()
 	topic := "test_topic1"
+
+	// zk client to reset
+	zkClient := zookeeper.NewZKClient(zkAddr)
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer zkClient.Close()
+	defer zkClient.RemoveAllPath()
 
 	// Start broker
 	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
+
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
+	defer brokerInstance.Stop()
 
 	go func() {
 		defer bwg.Done()
-		defer brokerInstance.Stop()
 		brokerInstance.Start()
 	}()
 
 	Sleep(1)
 
-	// Start client
-	brokerHost := fmt.Sprintf("127.0.0.1:%d", brokerInstance.Port)
-	c := client.NewStreamClient(brokerHost, paustqproto.SessionType_ADMIN)
-
-	if err := c.Connect(ctx, topic); err != nil {
+	admin := client.NewAdmin(brokerAddr)
+	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
 
-	if err := c.Close(); err != nil {
+	if err := admin.CreateTopic(topic, "meta", 1, 1); err != nil {
 		t.Error(err)
+		return
+	}
+
+	producer := client.NewProducer(brokerAddr, topic)
+	defer producer.Close()
+	if err := producer.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+
+	consumer := client.NewConsumer(brokerAddr, topic)
+	defer consumer.Close()
+	if err := consumer.Connect(); err != nil {
+		t.Error(err)
+		return
 	}
 }
 
 func TestPubSub(t *testing.T) {
-
 	zkAddr := "127.0.0.1"
 
-	testRecordMap := map[string][][]byte{
-		"topic1": {
-			{'g', 'o', 'o', 'g', 'l', 'e'},
-			{'p', 'a', 'u', 's', 't', 'q'},
-			{'1', '2', '3', '4', '5', '6'}},
+	expectedRecords := [][]byte{
+		{'g', 'o', 'o', 'g', 'l', 'e'},
+		{'p', 'a', 'u', 's', 't', 'q'},
+		{'1', '2', '3', '4', '5', '6'},
 	}
 	topic := "topic1"
-	receivedRecordMap := make(map[string][][]byte)
-
-	ctx1, cancel1 := context.WithCancel(context.Background())
-	ctx2, cancel2 := context.WithCancel(context.Background())
-
-	defer cancel1()
-	defer cancel2()
+	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
 	zkClient := zookeeper.NewZKClient(zkAddr)
@@ -124,117 +128,111 @@ func TestPubSub(t *testing.T) {
 	bwg.Add(1)
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
+	defer brokerInstance.Stop()
 
 	go func() {
 		defer bwg.Done()
-		defer brokerInstance.Stop()
 		brokerInstance.Start()
 	}()
 
 	Sleep(1)
-
+	brokerAddr := "127.0.0.1:1101"
 	// Create topic rpc
-	rpcClient := client.NewRPCClient(zkAddr)
-	if err := rpcClient.Connect(); err != nil {
+	admin := client.NewAdmin(brokerAddr)
+	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
-	defer rpcClient.Close()
+	defer admin.Close()
 
-	rpcCtx, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
-
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
-		st := status.Convert(err)
-		if st.Code() != codes.AlreadyExists {
-			t.Error(err)
-			return
-		}
+	if err := admin.CreateTopic(topic, "", 1, 1); err != nil {
+		t.Error(err)
+		return
 	}
 
 	// Start producer
-	producerClient := producer.NewProducer(zkAddr).WithLogLevel(testLogLevel)
-	if err := producerClient.Connect(ctx1, topic); err != nil {
+	producer := client.NewProducer(brokerAddr, topic).WithLogLevel(testLogLevel)
+	if err := producer.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
 	publishCh := make(chan []byte)
 	defer close(publishCh)
-	errChP := producerClient.Publish(ctx1, publishCh)
 
-	go func() {
-		select {
-		case err := <-errChP:
-			if err != nil {
-				t.Error(err)
-			}
-			return
-		case <-ctx1.Done():
-			return
-		}
-	}()
-
-	for _, record := range testRecordMap[topic] {
-		publishCh <- record
-	}
-
-	Sleep(1)
-
-	// Start consumer
-	consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
-	if err := consumerClient.Connect(ctx2, topic); err != nil {
+	partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
+	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	subscribeCh, errChC := consumerClient.Subscribe(ctx2, 0)
-
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		select {
-		case err := <-errChC:
-			if err != nil {
-				t.Error(err)
+		defer wg.Done()
+		defer producer.Close()
+
+		published := 0
+		for {
+			select {
+			case err := <-pubErrCh:
+				if err != nil {
+					t.Error(err)
+					return
+				}
+			case partition := <-partitionCh:
+				fmt.Println("publish succeed, offset :", partition.Offset)
+				published++
+				if published == len(expectedRecords) {
+					return
+				}
 			}
-			return
-		case <-ctx2.Done():
-			return
 		}
 	}()
 
-subscribeUntil:
-	for {
-		select {
-		case response:= <- subscribeCh:
-			receivedRecordMap[topic] = append(receivedRecordMap[topic], response.Data)
+	consumer := client.NewConsumer(brokerAddr, topic).WithLogLevel(testLogLevel)
+	if err := consumer.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
 
-			// break on reach end
-			if len(testRecordMap[topic]) == len(receivedRecordMap[topic]) {
-				break subscribeUntil
+	receiveCh, subErrCh, err := consumer.Subscribe(0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer consumer.Close()
+		for {
+			select {
+			case received := <-receiveCh:
+				actualRecords = append(actualRecords, received.Data)
+				fmt.Println(len(actualRecords), len(expectedRecords))
+				if len(actualRecords) == len(expectedRecords) {
+					return
+				}
+			case err := <-subErrCh:
+				t.Error(err)
+				return
 			}
-		case <- time.After(time.Second * 10):
-			t.Error("subscribe timeout")
-			os.Exit(1)
 		}
+	}()
+
+	for _, record := range expectedRecords {
+		publishCh <- record
 	}
 
-	if err := producerClient.Close(); err != nil {
-		t.Error(err)
-	}
-
-	if err := consumerClient.Close(); err != nil {
-		t.Error(err)
-	}
-
-	// test
-	for i, record := range testRecordMap[topic] {
-		if bytes.Compare(receivedRecordMap[topic][i], record) != 0 {
-			t.Error("Record is not same")
+	wg.Wait()
+	for i, expectedRecord := range expectedRecords {
+		if bytes.Compare(expectedRecord, actualRecords[i]) != 0 {
+			t.Error("published records and subscribed records does not match")
 		}
 	}
 }
 
 func TestMultiClient(t *testing.T) {
-
 	zkAddr := "127.0.0.1"
 	topic := "topic3"
 
@@ -252,172 +250,123 @@ func TestMultiClient(t *testing.T) {
 	bwg.Add(1)
 	defer brokerInstance.Clean()
 	defer bwg.Wait()
+	defer brokerInstance.Stop()
 
 	go func() {
 		defer bwg.Done()
-		defer brokerInstance.Stop()
 		brokerInstance.Start()
 	}()
 
 	Sleep(1)
 
-	// Create topic rpc
-	rpcClient := client.NewRPCClient(zkAddr)
-	if err := rpcClient.Connect(); err != nil {
+	brokerAddr := "127.0.0.1:1101"
+	admin := client.NewAdmin(brokerAddr)
+	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
-	defer rpcClient.Close()
 
-	rpcCtx, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
+	if err := admin.CreateTopic(topic, "meta", 1, 1); err != nil {
+		t.Error(err)
+		return
+	}
 
-	if err := rpcClient.CreateTopic(rpcCtx, topic, "", 1, 1); err != nil {
-		st := status.Convert(err)
-		if st.Code() != codes.AlreadyExists {
+	runProducer := func(fileName string) [][]byte {
+		records := getRecordsFromFile(fileName)
+		producer := client.NewProducer(brokerAddr, topic)
+		if err := producer.Connect(); err != nil {
 			t.Error(err)
-			return
+			return nil
 		}
-	}
 
-	mu := sync.Mutex{}
-	wg := sync.WaitGroup{}
+		publishCh := make(chan []byte)
 
-	// Start producer
-	var expectedSentCount int
-	var sentRecords [][]byte
+		partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
+		if err != nil {
+			t.Error(err)
+			return nil
+		}
 
-	runProducer := func(ctx context.Context, fileName string) {
-		count, sendingRecords := readFromFileLineBy(fileName)
-		expectedSentCount += count
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
-
-			producerClient := producer.NewProducer(zkAddr).WithLogLevel(testLogLevel)
-			if err := producerClient.Connect(ctx, topic); err != nil {
-				t.Error(err)
-				return
-			}
-			publishCh := make(chan []byte)
 			defer close(publishCh)
-			errCh := producerClient.Publish(ctx, publishCh)
-
-			go func() {
-				select {
-				case err := <-errCh:
-					if err != nil {
-						t.Error(err)
-					}
-					return
-				case <-ctx.Done():
-					return
-				}
-			}()
-
-			for _, record := range sendingRecords {
-				publishCh <- record
-			}
-
-			mu.Lock()
-			sentRecords = append(sentRecords, sendingRecords...)
-			mu.Unlock()
-
-			Sleep(2)
-
-			if err := producerClient.Close(); err != nil {
-				t.Error(err)
-			}
-			fmt.Println("publish done with file :", fileName, "sent total:", len(sendingRecords))
-		}()
-	}
-
-	ctx1, cancelP1 := context.WithCancel(context.Background())
-	ctx2, cancelP2 := context.WithCancel(context.Background())
-	ctx3, cancelP3 := context.WithCancel(context.Background())
-	defer cancelP1()
-	defer cancelP2()
-	defer cancelP3()
-
-	runProducer(ctx1, "data1.txt")
-	runProducer(ctx2, "data2.txt")
-	runProducer(ctx3, "data3.txt")
-
-	Sleep(1)
-
-	// Start consumer
-	type ReceivedRecords [][]byte
-	var totalReceivedRecords []ReceivedRecords
-
-	runConsumer := func(ctx context.Context) {
-		var receivedRecords ReceivedRecords
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			consumerClient := consumer.NewConsumer(zkAddr).WithLogLevel(testLogLevel)
-			if err := consumerClient.Connect(ctx, topic); err != nil {
-				t.Error(err)
-				return
-			}
-
-			receiveCount := 0
-			subscribeCh, errCh := consumerClient.Subscribe(ctx, 0)
-
-			go func() {
-				select {
-				case err := <-errCh:
-					if err != nil {
-						t.Error(err)
-					}
-					return
-				case <-ctx.Done():
-					return
-				}
-			}()
-
-		subscribeUntil:
+			defer producer.Close()
+			published := 0
 			for {
 				select {
-				case response:= <- subscribeCh:
-					receivedRecords = append(receivedRecords, response.Data)
-					receiveCount++
-					if expectedSentCount == receiveCount {
-						fmt.Println("complete consumer. received :", receiveCount)
-						break subscribeUntil
+				case err := <-pubErrCh:
+					if err != nil {
+						t.Error(err)
+						return
 					}
-				case <- time.After(time.Second * 3):
-					t.Error("subscribe timeout")
-					return
+				case <-partitionCh:
+					published++
+					if published == len(records) {
+						return
+					}
 				}
 			}
+		}()
 
-			totalReceivedRecords = append(totalReceivedRecords, receivedRecords)
-
-			if err := consumerClient.Close(); err != nil {
-				t.Error(err)
+		go func() {
+			for _, record := range records {
+				publishCh <- record
 			}
 		}()
+
+		return records
 	}
 
-	ctx4, cancelC1 := context.WithCancel(context.Background())
-	ctx5, cancelC2 := context.WithCancel(context.Background())
-	defer cancelC1()
-	defer cancelC2()
+	// Start producer
+	var totalPublishedRecords [][]byte
 
-	runConsumer(ctx4)
-	runConsumer(ctx5)
+	totalPublishedRecords = append(totalPublishedRecords, runProducer("data1.txt")...)
+	totalPublishedRecords = append(totalPublishedRecords, runProducer("data2.txt")...)
+	totalPublishedRecords = append(totalPublishedRecords, runProducer("data3.txt")...)
 
-	wg.Wait()
+	// Start consumer
+	type SubscribedRecords [][]byte
+	var totalSubscribedRecords []SubscribedRecords
 
-	for _, receivedRecords := range totalReceivedRecords {
-		if len(sentRecords) != len(receivedRecords) {
-			t.Error("Length Mismatch - Expected records: ", len(sentRecords), ", Received records: ", len(receivedRecords))
+	runConsumer := func() SubscribedRecords {
+		var subscribedRecords SubscribedRecords
+		consumer := client.NewConsumer(brokerAddr, topic).WithLogLevel(testLogLevel)
+		if err := consumer.Connect(); err != nil {
+			t.Error(err)
+			return nil
 		}
 
-		for _, record := range receivedRecords {
-			if !contains(sentRecords, record) {
+		defer consumer.Close()
+
+		receiveCh, subErrCh, err := consumer.Subscribe(0)
+		if err != nil {
+			t.Error(err)
+			return nil
+		}
+
+		for {
+			select {
+			case received := <-receiveCh:
+				subscribedRecords = append(subscribedRecords, received.Data)
+				if len(subscribedRecords) == len(totalPublishedRecords) {
+					return subscribedRecords
+				}
+			case err := <-subErrCh:
+				t.Error(err)
+				return subscribedRecords
+			}
+		}
+	}
+
+	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
+	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
+
+	for _, subscribedRecords := range totalSubscribedRecords {
+		if len(totalPublishedRecords) != len(subscribedRecords) {
+			t.Error("Length Mismatch - Expected records: ", len(totalPublishedRecords), ", Received records: ", len(subscribedRecords))
+		}
+
+		for _, record := range subscribedRecords {
+			if !contains(totalPublishedRecords, record) {
 				t.Error("Record is not exists: ", record)
 			}
 		}

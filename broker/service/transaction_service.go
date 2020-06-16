@@ -44,25 +44,26 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 			wg.Wait()
 			close(errCh)
 		}()
-		select {
-		case <-brokerCtx.Done():
-			return
-		case eventStream := <-eventStreamCh:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					select {
-					case msg := <-eventStream.MsgCh:
-
-						if msg == nil {
-							return
+		for {
+			select {
+			case <-brokerCtx.Done():
+				return
+			case eventStream := <-eventStreamCh:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						select {
+						case msg := <-eventStream.MsgCh:
+							if msg == nil {
+								return
+							}
+							err := s.handleMsg(msg, eventStream.Session)
+							errCh <- err
 						}
-						err := s.handleMsg(msg, eventStream.Session)
-						errCh <- err
 					}
-				}
-			}()
+				}()
+			}
 		}
 	}()
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/paust-team/paustq/broker/internals"
+	"github.com/paust-team/paustq/network"
 	"github.com/paust-team/paustq/pqerror"
 	"os"
 	"testing"
@@ -34,12 +35,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestZKClient_AddBroker(t *testing.T) {
-	host, err := GetOutboundIP()
+	host, err := network.GetOutboundIP()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = zkClient.AddBroker(host.String()); err != nil {
+	brokerAddr := host.String() + ":1101"
+	if err = zkClient.AddBroker(brokerAddr); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,7 +53,7 @@ func TestZKClient_AddBroker(t *testing.T) {
 	if len(brokers) == 0 {
 		t.Fatal("no brokers")
 	}
-	if brokers[0] != host.String() {
+	if brokers[0] != brokerAddr {
 		t.Error("failed to add broker ", host.String())
 	}
 }
@@ -122,12 +124,13 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Fatal("failed to add topic ", expectedTopic)
 	}
 
-	host, err := GetOutboundIP()
+	host, err := network.GetOutboundIP()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = zkClient.AddTopicBroker(expectedTopic, host.String())
+	brokerAddr := host.String() + ":1101"
+	err = zkClient.AddTopicBroker(expectedTopic, brokerAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +140,7 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if brokers[len(brokers)-1] != host.String() {
+	if brokers[len(brokers)-1] != brokerAddr {
 		t.Fatal("failed to add topic broker ", host)
 	}
 }
@@ -172,7 +175,7 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 }
 
 func TestZKClient_RemoveBroker(t *testing.T) {
-	broker := "127.0.0.1"
+	broker := "127.0.0.1:1101"
 	err := zkClient.AddBroker(broker)
 	if err != nil {
 		t.Fatal(err)
@@ -213,12 +216,14 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 		t.Fatal("failed to add topic ", topic)
 	}
 
-	host, err := GetOutboundIP()
+	host, err := network.GetOutboundIP()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = zkClient.AddTopicBroker(topic, host.String())
+	brokerAddr := host.String() + ":1101"
+
+	err = zkClient.AddTopicBroker(topic, brokerAddr)
 	if err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if !errors.As(err, &e) {
@@ -226,7 +231,7 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 		}
 	}
 
-	err = zkClient.RemoveTopicBroker(topic, host.String())
+	err = zkClient.RemoveTopicBroker(topic, brokerAddr)
 	if err != nil {
 		t.Fatal(err)
 	}

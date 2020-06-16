@@ -15,12 +15,12 @@ type StreamService struct {
 	DB       *storage.QRocksDB
 	Notifier *internals.Notifier
 	zKClient *zookeeper.ZKClient
-	host     string
+	addr     string
 }
 
 func NewStreamService(DB *storage.QRocksDB, notifier *internals.Notifier, zKClient *zookeeper.ZKClient,
-	host string) *StreamService {
-	return &StreamService{DB: DB, Notifier: notifier, zKClient: zKClient, host: host}
+	addr string) *StreamService {
+	return &StreamService{DB: DB, Notifier: notifier, zKClient: zKClient, addr: addr}
 }
 
 func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
@@ -38,9 +38,11 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 			select {
 			case <-brokerCtx.Done():
 				return
-			case eventStream := <-eventStreams:
-				wg.Add(1)
-				go s.handleEventStream(eventStream, sessionErrCh, &wg)
+			case eventStream, ok := <-eventStreams:
+				if ok {
+					wg.Add(1)
+					go s.handleEventStream(eventStream, sessionErrCh, &wg)
+				}
 			}
 		}
 	}()
@@ -73,18 +75,20 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 		select {
 		case <-sessionCtx.Done():
 			return
-		case err := <-errCh:
-			pqErr, ok := err.(pqerror.PQError)
-			if !ok {
-				sessionErrCh <- internals.SessionError{
-					PQError:           pqerror.UnhandledError{ErrStr: err.Error()},
-					Session:       session,
-					CancelSession: cancelSession}
-			} else {
-				sessionErrCh <- internals.SessionError{
-					PQError:           pqErr,
-					Session:       session,
-					CancelSession: cancelSession}
+		case err, ok := <-errCh:
+			if ok {
+				pqErr, ok := err.(pqerror.PQError)
+				if !ok {
+					sessionErrCh <- internals.SessionError{
+						PQError:       pqerror.UnhandledError{ErrStr: err.Error()},
+						Session:       session,
+						CancelSession: cancelSession}
+				} else {
+					sessionErrCh <- internals.SessionError{
+						PQError:       pqErr,
+						Session:       session,
+						CancelSession: cancelSession}
+				}
 			}
 		}
 	}
@@ -129,7 +133,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.Notifier)
+	err = connector.Build(sess, s.Notifier, s.zKClient, s.addr)
 	if err != nil {
 		return err, nil
 	}
@@ -143,7 +147,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB, s.zKClient, s.host)
+	err = putter.Build(sess, s.DB)
 	if err != nil {
 		return err, nil
 	}
