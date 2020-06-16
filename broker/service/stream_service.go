@@ -38,9 +38,11 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 			select {
 			case <-brokerCtx.Done():
 				return
-			case eventStream := <-eventStreams:
-				wg.Add(1)
-				go s.handleEventStream(eventStream, sessionErrCh, &wg)
+			case eventStream, ok := <-eventStreams:
+				if ok {
+					wg.Add(1)
+					go s.handleEventStream(eventStream, sessionErrCh, &wg)
+				}
 			}
 		}
 	}()
