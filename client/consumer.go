@@ -92,12 +92,6 @@ func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan err
 		defer close(sinkCh)
 		defer close(errCh)
 
-		if err != nil {
-			c.logger.Error(err)
-			errCh <- err
-			return
-		}
-
 		for {
 			select {
 			case <-c.ctx.Done():
