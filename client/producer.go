@@ -94,9 +94,17 @@ func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, 
 
 		go func() {
 			defer close(to)
-			for data := range from {
-				msgCh, _ := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
-				to <- msgCh
+			for {
+				select {
+				case data, ok := <-from:
+					if ok {
+						msg, _ := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
+						to <- msg
+					}
+				case <-p.ctx.Done():
+					return
+				}
+
 			}
 		}()
 
