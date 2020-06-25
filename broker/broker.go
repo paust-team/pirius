@@ -26,7 +26,7 @@ var (
 )
 
 type Broker struct {
-	Port            int
+	Port            uint
 	host            string
 	listener        net.Listener
 	streamService   *service.StreamService
@@ -59,7 +59,7 @@ func NewBroker(zkAddr string) *Broker {
 	}
 }
 
-func (b *Broker) WithPort(port int) *Broker {
+func (b *Broker) WithPort(port uint) *Broker {
 	b.Port = port
 	return b
 }
@@ -116,7 +116,7 @@ func (b *Broker) Start() {
 	//Need to implement transaction service
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host+":"+strconv.Itoa(b.Port))
+	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host+":"+strconv.Itoa(int(b.Port)))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
@@ -223,7 +223,7 @@ func (b *Broker) setUpZookeeper() error {
 		return err
 	}
 
-	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(b.Port)); err != nil {
+	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(int(b.Port))); err != nil {
 		return err
 	}
 
