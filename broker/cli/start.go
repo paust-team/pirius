@@ -17,7 +17,7 @@ var (
 	logDir   string
 	dataDir  string
 	logLevel uint8
-	port     uint16
+	port     uint
 	zkAddr   string
 )
 
@@ -107,7 +107,7 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().StringVar(&logDir, "log-dir", broker.DefaultLogDir, "log directory")
 	startCmd.Flags().StringVar(&dataDir, "data-dir", broker.DefaultDataDir, "data directory")
 	startCmd.Flags().Uint8Var(&logLevel, "log-level", uint8(broker.DefaultLogLevel), "set log level [0=debug|1=info|2=warning|3=error]")
-	startCmd.Flags().Uint16Var(&port, "port", common.DefaultBrokerPort, "broker port")
+	startCmd.Flags().UintVar(&port, "port", common.DefaultBrokerPort, "broker port")
 	startCmd.Flags().StringVarP(&zkAddr, "zk-addr", "z", "", "zookeeper ip address")
 
 	startCmd.MarkFlagRequired("zk-addr")

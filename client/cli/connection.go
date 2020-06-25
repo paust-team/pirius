@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	echoMsg    string
-	brokerId   uint64
+	echoMsg  string
+	brokerId uint64
 )
 
 func NewHeartbeatCmd() *cobra.Command {
@@ -18,7 +18,7 @@ func NewHeartbeatCmd() *cobra.Command {
 		Use:   "heartbeat",
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout)
+			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {

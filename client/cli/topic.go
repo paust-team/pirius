@@ -36,7 +36,7 @@ func NewCreateTopicCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdminClient(brokerAddr).WithLogLevel(logger.Error)
+			adminClient := client.NewAdmin(brokerAddr).WithLogLevel(logger.Error)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -66,7 +66,7 @@ func NewDeleteTopicCmd() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -95,7 +95,7 @@ func NewListTopicCmd() *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -125,7 +125,7 @@ func NewDescribeTopicCmd() *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminClient := client.NewAdminClient(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -139,8 +139,8 @@ func NewDescribeTopicCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Printf("Topic: %s, Topic meta: %s, Num partitions: %d, replication factor: %d", response.Topic.TopicName,
-				response.Topic.TopicMeta, response.Topic.NumPartitions, response.Topic.ReplicationFactor)
+			fmt.Printf("Topic: %s, Topic meta: %s, Num partitions: %d, replication factor: %d", response.Topic.Name,
+				response.Topic.Description, response.Topic.NumPartitions, response.Topic.ReplicationFactor)
 		},
 	}
 
