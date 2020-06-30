@@ -4,21 +4,23 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/paust-team/paustq/broker/internals"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/paust-team/paustq/pqerror"
 	"github.com/samuel/go-zookeeper/zk"
-	"net"
 	"time"
 )
 
 type ZKPath string
 
 const (
-	PAUSTQ       ZKPath = "/paustq"
-	BROKERS      ZKPath = "/paustq/brokers"
-	TOPICS       ZKPath = "/paustq/topics"
-	BROKERS_LOCK ZKPath = "/brokers-lock"
-	TOPICS_LOCK  ZKPath = "/topics-lock"
+	PAUSTQ             ZKPath = "/paustq"
+	BROKERS            ZKPath = "/paustq/brokers"
+	TOPICS             ZKPath = "/paustq/topics"
+	TOPIC_BROKERS      ZKPath = "/paustq/topic-brokers"
+	BROKERS_LOCK       ZKPath = "/brokers-lock"
+	TOPICS_LOCK        ZKPath = "/topics-lock"
+	TOPIC_BROKERS_LOCK ZKPath = "/topic-brokers-lock"
 )
 
 func (zp ZKPath) string() string {
@@ -60,7 +62,7 @@ func (z *ZKClient) Close() {
 }
 
 func (z *ZKClient) CreatePathsIfNotExist() error {
-	paths := []ZKPath{PAUSTQ, BROKERS, TOPICS}
+	paths := []ZKPath{PAUSTQ, BROKERS, TOPICS, TOPIC_BROKERS}
 	for _, path := range paths {
 		err := z.createPathIfNotExists(path)
 		if err != nil {
@@ -90,7 +92,7 @@ func topicLockPath(topic string) string {
 	return fmt.Sprintf("/topics-%s-lock", topic)
 }
 
-func (z *ZKClient) AddTopic(topic string) error {
+func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error {
 	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -100,7 +102,7 @@ func (z *ZKClient) AddTopic(topic string) error {
 		return err
 	}
 
-	_, err = z.conn.Create(topicPath(topic), nil, 0, zk.WorldACL(zk.PermAll))
+	_, err = z.conn.Create(topicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
 			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
@@ -111,6 +113,30 @@ func (z *ZKClient) AddTopic(topic string) error {
 		return err
 	}
 	return nil
+}
+
+func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
+	tLock := zk.NewLock(z.conn, TOPICS_LOCK.string(), zk.WorldACL(zk.PermAll))
+	err := tLock.Lock()
+	defer tLock.Unlock()
+	if err != nil {
+		err = pqerror.ZKLockFailError{LockPath: TOPICS_LOCK.string(), ZKErrStr: err.Error()}
+		z.logger.Error(err)
+		return nil, err
+	}
+
+	topicBytes, _, err := z.conn.Get(topicPath(topic))
+	if err != nil {
+		if err == zk.ErrNodeExists {
+			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		}
+		z.logger.Error(err)
+		return nil, err
+	}
+
+	return internals.NewTopicMeta(topicBytes), nil
 }
 
 func (z *ZKClient) GetTopics() ([]string, error) {
@@ -307,16 +333,16 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 		return err
 	}
 
-	tLocks := zk.NewLock(z.conn, topicLockPath(topic), zk.WorldACL(zk.PermAll))
+	tLocks := zk.NewLock(z.conn, TOPIC_BROKERS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err = tLocks.Lock()
 	defer tLocks.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: topicLockPath(topic), ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: TOPIC_BROKERS_LOCK.string(), ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
-	_, err = z.conn.Set(topicPath(topic), buffer.Bytes(), -1)
+	_, err = z.conn.Set(TOPIC_BROKERS.string(), buffer.Bytes(), -1)
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -327,16 +353,16 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 }
 
 func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
-	tLock := zk.NewLock(z.conn, topicLockPath(topic), zk.WorldACL(zk.PermAll))
+	tLock := zk.NewLock(z.conn, TOPIC_BROKERS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: topicLockPath(topic), ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: TOPIC_BROKERS_LOCK.string(), ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
 
-	brokersBytes, _, err := z.conn.Get(topicPath(topic))
+	brokersBytes, _, err := z.conn.Get(TOPIC_BROKERS.string())
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -353,6 +379,7 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	var brokers []string
 	err = gob.NewDecoder(buffer).Decode(&brokers)
 	if err != nil {
+		fmt.Println(err, brokersBytes)
 		err = pqerror.ZKDecodeFailError{}
 		z.logger.Error(err)
 		return nil, err
@@ -391,16 +418,16 @@ func (z *ZKClient) RemoveTopicBroker(topic string, server string) error {
 		return err
 	}
 
-	tLock := zk.NewLock(z.conn, topicLockPath(topic), zk.WorldACL(zk.PermAll))
+	tLock := zk.NewLock(z.conn, TOPIC_BROKERS_LOCK.string(), zk.WorldACL(zk.PermAll))
 	err = tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: topicLockPath(topic), ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: TOPIC_BROKERS_LOCK.string(), ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
-	_, err = z.conn.Set(topicPath(topic), buffer.Bytes(), -1)
+	_, err = z.conn.Set(TOPIC_BROKERS.string(), buffer.Bytes(), -1)
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -436,35 +463,4 @@ func (z *ZKClient) RemoveAllPath() {
 	if err != nil {
 		z.logger.Error("failed to delete path /paustq ", err)
 	}
-}
-
-func GetOutboundIP() (net.IP, error) {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-
-	return localAddr.IP, nil
-}
-
-func IsPublicIP(IP net.IP) bool {
-	if IP.IsLoopback() || IP.IsLinkLocalMulticast() || IP.IsLinkLocalUnicast() {
-		return false
-	}
-	if ip4 := IP.To4(); ip4 != nil {
-		switch true {
-		case ip4[0] == 10:
-			return false
-		case ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31:
-			return false
-		case ip4[0] == 192 && ip4[1] == 168:
-			return false
-		default:
-			return true
-		}
-	}
-	return false
 }

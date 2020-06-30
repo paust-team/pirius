@@ -42,10 +42,12 @@ func (s *Notifier) RegisterSubscription(trigger *Subscription) {
 	s.subscriptionChan <- trigger
 }
 
-func (s *Notifier) NotifyNews(ctx context.Context, errChan chan error) {
+func (s *Notifier) NotifyNews(ctx context.Context) <-chan error {
 	s.subscriptionChan = make(chan *Subscription, 2)
+	errCh := make(chan error)
 	go func() {
 		defer close(s.subscriptionChan)
+		defer close(errCh)
 		for {
 			select {
 			case subscription := <-s.subscriptionChan:
@@ -57,11 +59,13 @@ func (s *Notifier) NotifyNews(ctx context.Context, errChan chan error) {
 						s.subscriptionChan <- subscription
 					}
 				} else {
-					errChan <- pqerror.NewTopicNotExistError(subscription.TopicName)
+					errCh <- pqerror.NewTopicNotExistError(subscription.TopicName)
 				}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
+
+	return errCh
 }

@@ -1,27 +1,34 @@
 package pipeline
 
 import (
-	"context"
+	"errors"
 	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/network"
 	"github.com/paust-team/paustq/message"
 	"github.com/paust-team/paustq/pqerror"
 	paustq_proto "github.com/paust-team/paustq/proto"
-	"sync"
+	"github.com/paust-team/paustq/zookeeper"
 	"sync/atomic"
 )
 
 type ConnectPipe struct {
-	session  *network.Session
-	notifier *internals.Notifier
+	session    *internals.Session
+	notifier   *internals.Notifier
+	zkClient   *zookeeper.ZKClient
+	brokerAddr string
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
 	casted := true
-	session, ok := in[0].(*network.Session)
+	session, ok := in[0].(*internals.Session)
 	casted = casted && ok
 
 	notifier, ok := in[1].(*internals.Notifier)
+	casted = casted && ok
+
+	zkClient, ok := in[2].(*zookeeper.ZKClient)
+	casted = casted && ok
+
+	brokerAddr, ok := in[3].(string)
 	casted = casted && ok
 
 	if !casted {
@@ -30,26 +37,25 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 
 	c.session = session
 	c.notifier = notifier
+	c.zkClient = zkClient
+	c.brokerAddr = brokerAddr
 
 	return nil
 }
 
-func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg *sync.WaitGroup) (
-	<-chan interface{}, <-chan error, error) {
+func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan error, error) {
 	outStream := make(chan interface{})
 	errCh := make(chan error)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(outStream)
 		defer close(errCh)
 
 		for in := range inStream {
 			req := in.(*paustq_proto.ConnectRequest)
 
-			if c.session.State() != network.READY {
-				err := c.session.SetState(network.READY)
+			if c.session.State() != internals.READY {
+				err := c.session.SetState(internals.READY)
 				if err != nil {
 					errCh <- err
 					return
@@ -68,22 +74,23 @@ func (c *ConnectPipe) Ready(ctx context.Context, inStream <-chan interface{}, wg
 			switch req.SessionType {
 			case paustq_proto.SessionType_PUBLISHER:
 				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
+				err := c.zkClient.AddTopicBroker(c.session.Topic().Name(), c.brokerAddr)
+				if err != nil && !errors.As(err, &pqerror.ZKTargetAlreadyExistsError{}) {
+					errCh <- err
+					return
+				}
 			case paustq_proto.SessionType_SUBSCRIBER:
 				atomic.AddInt64(&c.session.Topic().NumSubs, 1)
 			default:
 			}
 
-			out, err := message.NewQMessageFromMsg(message.NewConnectResponseMsg())
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectResponseMsg())
 			if err != nil {
 				errCh <- err
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-				return
-			case outStream <- out:
-			}
+			outStream <- out
 		}
 	}()
 

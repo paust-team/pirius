@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"context"
 	"fmt"
-	"github.com/paust-team/paustq/client/consumer"
+	client "github.com/paust-team/paustq/client"
 	logger "github.com/paust-team/paustq/log"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,43 +21,32 @@ func NewSubscribeCmd() *cobra.Command {
 		Use:   "subscribe",
 		Short: "subscribe data from topic",
 		Run: func(cmd *cobra.Command, args []string) {
-
 			sigCh := make(chan os.Signal, 1)
 			defer close(sigCh)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			ctx := context.Background()
-			client := consumer.NewConsumer(zkAddr).WithLogLevel(logger.Error)
-
-			if err := client.Connect(ctx, topicName); err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+			consumer := client.NewConsumer(brokerAddr, topicName).WithLogLevel(logger.Error)
+			if err := consumer.Connect(); err != nil {
+				log.Fatal(err)
 			}
 
-			defer client.Close()
+			defer consumer.Close()
 			defer fmt.Println("done subscribe")
 
-			subscribeCh, errCh := client.Subscribe(ctx, startOffset)
-			go func() {
-				select {
-				case err := <-errCh:
-					if err != nil {
-						fmt.Println(err)
-						os.Exit(1)
-					}
-					return
-				case <-ctx.Done():
-					return
-				}
-			}()
+			subscribeCh, errCh, err := consumer.Subscribe(startOffset)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			for {
 				select {
-				case response:= <- subscribeCh:
+				case response := <-subscribeCh:
 					fmt.Println("received topic data:", response.Data)
 				case sig := <-sigCh:
 					fmt.Println("received signal:", sig)
 					return
+				case err := <-errCh:
+					log.Fatal(err)
 				}
 			}
 		},

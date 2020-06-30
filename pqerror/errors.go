@@ -35,16 +35,16 @@ func (e InvalidCaseFnCountError) Error() string {
 
 func (e InvalidCaseFnCountError) IsSessionCloseable() {}
 
-type NoCaseFnMatchError struct{}
+type InvalidMsgTypeError struct{}
 
-func (e NoCaseFnMatchError) Error() string {
+func (e InvalidMsgTypeError) Error() string {
 	return "inStream data does not match any case functions"
 }
 
-func (e NoCaseFnMatchError) IsSessionCloseable() {}
-func (e NoCaseFnMatchError) IsClientVisible()    {}
-func (e NoCaseFnMatchError) Code() PQCode {
-	return ErrInvalidMsg
+func (e InvalidMsgTypeError) IsSessionCloseable() {}
+func (e InvalidMsgTypeError) IsClientVisible()    {}
+func (e InvalidMsgTypeError) Code() PQCode {
+	return ErrInvalidMsgType
 }
 
 type InvalidStartOffsetError struct {
@@ -88,7 +88,7 @@ func (e ZKConnectionError) Error() string {
 func (e ZKConnectionError) IsBrokerStoppable() {}
 func (e ZKConnectionError) IsBroadcastable()   {}
 func (e ZKConnectionError) Code() PQCode {
-	return ErrZKConnectionFail
+	return ErrZKConnection
 }
 
 type ZKRequestError struct {
@@ -108,6 +108,9 @@ type ZKTargetAlreadyExistsError struct {
 func (e ZKTargetAlreadyExistsError) Error() string {
 	return fmt.Sprintf("target %s already exists", e.Target)
 }
+func (e ZKTargetAlreadyExistsError) Code() PQCode {
+	return ErrZKTargetAlreadyExists
+}
 
 //func (e ZKTargetAlreadyExistsError) IsSessionCloseable() {}
 
@@ -120,12 +123,20 @@ func (e ZKLockFailError) Error() string {
 	return fmt.Sprintf("locking path(%s) failed : %s", e.LockPath, e.ZKErrStr)
 }
 
+func (e ZKLockFailError) Code() PQCode {
+	return ErrZKLockFail
+}
+
 func (e ZKLockFailError) IsSessionCloseable() {}
 
 type ZKEncodeFailError struct{}
 
 func (e ZKEncodeFailError) Error() string {
 	return "failed to encode target to bytes"
+}
+
+func (e ZKEncodeFailError) Code() PQCode {
+	return ErrZKEncodeFail
 }
 
 func (e ZKEncodeFailError) IsSessionCloseable() {}
@@ -136,6 +147,10 @@ func (e ZKDecodeFailError) Error() string {
 	return "failed to decode bytes to target"
 }
 
+func (e ZKDecodeFailError) Code() PQCode {
+	return ErrZKDecodeFail
+}
+
 func (e ZKDecodeFailError) IsSessionCloseable() {}
 
 type ZKNothingToRemoveError struct{}
@@ -144,7 +159,23 @@ func (e ZKNothingToRemoveError) Error() string {
 	return "target to remove from zookeeper does not exist"
 }
 
+func (e ZKNothingToRemoveError) Code() PQCode {
+	return ErrZKNothingToRemove
+}
+
 func (e ZKNothingToRemoveError) IsSessionCloseable() {}
+
+type ZKOperateError struct {
+	ErrStr string
+}
+
+func (e ZKOperateError) Error() string {
+	return "zk operate error : " + e.ErrStr
+}
+
+func (e ZKOperateError) Code() PQCode {
+	return ErrZKOperate
+}
 
 // notifier
 type TopicNotExistError struct {
@@ -162,8 +193,35 @@ func NewTopicNotExistError(topic string) TopicNotExistError {
 	return e
 }
 
+// serialize / deserialize
+
+type InvalidChecksumError struct{}
+
+func (e InvalidChecksumError) Error() string {
+	return "checksum of data body does not match specified checksum"
+}
+
+type NotEnoughBufferError struct{}
+
+func (e NotEnoughBufferError) Error() string {
+	return "size of data to serialize is smaller than size of header"
+}
+
 //socket
 // May be retryable
+
+type ReadTimeOutError struct{}
+
+func (e ReadTimeOutError) Error() string {
+	return "read timed out"
+}
+
+type WriteTimeOutError struct{}
+
+func (e WriteTimeOutError) Error() string {
+	return "write timed out"
+}
+
 type SocketReadError struct {
 	ErrStr string
 }
@@ -196,6 +254,12 @@ type UnhandledError struct {
 func (e UnhandledError) Error() string {
 	return "unhandled error : " + e.ErrStr
 }
+
+func (e UnhandledError) Code() PQCode {
+	return ErrInternal
+}
+
+func (e UnhandledError) IsBrokerStoppable() {}
 
 // message encode/decode error
 type MarshalAnyFailedError struct{}
@@ -239,3 +303,49 @@ func (e InvalidMsgTypeToUnpackError) Error() string {
 }
 
 func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
+
+// DBError
+type QRocksOperateError struct {
+	ErrStr string
+}
+
+func (e QRocksOperateError) Error() string {
+	return "rocksdb operate error : " + e.ErrStr
+}
+
+func (e QRocksOperateError) Code() PQCode {
+	return ErrDBOperate
+}
+
+type AlreadyConnectedError struct {
+	Addr string
+}
+
+func (e AlreadyConnectedError) Error() string {
+	return "already connected to " + e.Addr
+}
+
+type DialFailedError struct {
+	Addr string
+	Err error
+}
+
+func (e DialFailedError) Error() string {
+	return fmt.Sprintf("dial to %s failed : %v", e.Addr, e.Err)
+}
+
+type NotConnectedError struct {}
+
+func (e NotConnectedError) Error() string {
+	return "there's no connection to any endpoint"
+}
+
+type TopicBrokersNotExistError struct{}
+
+func (e TopicBrokersNotExistError) Error() string {
+	return "topic broker not exists"
+}
+
+func (e TopicBrokersNotExistError) Code() PQCode {
+	return ErrTopicBrokersNotExist
+}

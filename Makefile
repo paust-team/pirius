@@ -22,7 +22,7 @@ rebuild-protobuf:
 
 build-protobuf:
 ifeq ($(PROTOC),)
-	rebuild-protobuf
+	make rebuild-protobuf
 else
 	@echo 'protoc is already built. Run make rebuild-protobuf to remove existing one and rebuild it.'
 endif
@@ -32,9 +32,9 @@ $(PROTOC_GEN_GO):
 
 PROTOFILE_DIR := $(abspath proto)
 
-compile-protobuf: $(PROTOC_GEN_GO) $(PROTOC)
+compile-protobuf: $(PROTOC_GEN_GO) 
 	rm -f $(PROTOFILE_DIR)/*.go
-	protoc --proto_path=$(PROTOFILE_DIR) --go_out=plugins=grpc:$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
+	protoc --proto_path=$(PROTOFILE_DIR) --go_out=$(PROTOFILE_DIR) $(PROTOFILE_DIR)/*.proto
 
 .PHONY: rebuild-rocksdb build-rocksdb
 rebuild-rocksdb:
@@ -50,7 +50,7 @@ ifdef mac-os-host
 endif
 ifdef linux-os-host
 	cd $(ROCKSDB_BUILD_DIR) && cmake .. $(BASE_CMAKE_FLAGS) -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DPORTABLE=ON -DWITH_FALLOCATE=OFF -DWITH_TESTS=OFF -DWITH_SNAPPY=ON -DUSE_RTTI=ON -DWITH_GFLAGS=OFF \
+	-DPORTABLE=ON -DWITH_FALLOCATE=OFF -DWITH_TESTS=OFF -DWITH_BENCHMARK_TOOLS=OFF -DWITH_SNAPPY=ON -DUSE_RTTI=ON -DWITH_GFLAGS=OFF \
 	&& make -j $(NPROC) install
 endif
 
@@ -92,10 +92,13 @@ install:
 clean:
 	rm -f /usr/local/bin/paustq
 	rm -f /usr/local/bin/paustq-client
+	rm -rf vendor
+	rm -rf .vendor-new
+	rm -f $(PROTOFILE_DIR)/*.go
 	if [ -d $(ROCKSDB_BUILD_DIR) ]; then \
 		cd $(ROCKSDB_BUILD_DIR) && make clean; \
 	fi
 	rm -rf $(ROCKSDB_BUILD_DIR)
-	rm -f $(PROTOFILE_DIR)/*.go
+
 test:
 	@go test -v

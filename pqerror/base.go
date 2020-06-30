@@ -27,27 +27,6 @@ type IsBroadcastable interface {
 	IsBroadcastable()
 }
 
-type ErrBroadcaster struct {
-	sync.Mutex
-	BroadcastChs []chan error
-}
-
-func (b *ErrBroadcaster) AddChannel(ch chan error) {
-	b.Lock()
-	b.BroadcastChs = append(b.BroadcastChs, ch)
-	b.Unlock()
-}
-
-func (b *ErrBroadcaster) RemoveChannel(ch chan error) {
-	for i, broadcastCh := range b.BroadcastChs {
-		if broadcastCh == ch {
-			b.Lock()
-			b.BroadcastChs = append(b.BroadcastChs[:i], b.BroadcastChs[i+1:]...)
-			b.Unlock()
-		}
-	}
-}
-
 func MergeErrors(errChannels ...<-chan error) <-chan error {
 	var wg sync.WaitGroup
 

@@ -1,11 +1,12 @@
 package common
 
-var DefaultBrokerPort uint16 = 11010
-var DefaultChunkSize uint32 = 1024
+var DefaultBrokerPort uint = 1101
+var DefaultTimeout uint = 3
 
-type BackPressureMode int
+type BackPressure int
+
 const (
-	AtMostOnce BackPressureMode = iota
+	AtMostOnce BackPressure = iota
 	AtLeastOnce
 	ExactlyONce
 )
