@@ -31,16 +31,17 @@ func TestHeartBeat(t *testing.T) {
 	Sleep(1)
 
 	adminClient := client.NewAdmin(brokerAddr)
-
 	defer adminClient.Close()
 
 	if err := adminClient.Connect(); err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return
 	}
 
 	pongMsg, err := adminClient.Heartbeat("test", 1)
 	if err != nil {
-		t.Fatal(pongMsg)
+		t.Error(pongMsg)
+		return
 	}
 	fmt.Println(pongMsg.Echo)
 
