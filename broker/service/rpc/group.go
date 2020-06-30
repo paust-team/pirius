@@ -1,15 +1,15 @@
 package rpc
 
 import (
-	paustqproto "github.com/paust-team/paustq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 type GroupRPCService interface {
-	JoinGroup(*paustqproto.JoinGroupRequest) *paustqproto.JoinGroupResponse
-	LeaveGroup(*paustqproto.LeaveGroupRequest) *paustqproto.LeaveGroupResponse
-	CreateGroup(*paustqproto.CreateGroupRequest) *paustqproto.CreateGroupResponse
-	ListGroups(*paustqproto.ListGroupsRequest) *paustqproto.ListGroupsResponse
-	DeleteGroup(*paustqproto.DeleteGroupRequest) *paustqproto.DeleteGroupResponse
+	JoinGroup(*shapleqproto.JoinGroupRequest) *shapleqproto.JoinGroupResponse
+	LeaveGroup(*shapleqproto.LeaveGroupRequest) *shapleqproto.LeaveGroupResponse
+	CreateGroup(*shapleqproto.CreateGroupRequest) *shapleqproto.CreateGroupResponse
+	ListGroups(*shapleqproto.ListGroupsRequest) *shapleqproto.ListGroupsResponse
+	DeleteGroup(*shapleqproto.DeleteGroupRequest) *shapleqproto.DeleteGroupResponse
 }
 
 type groupRPCService struct{}
@@ -18,22 +18,22 @@ func NewGroupRPCService() *groupRPCService {
 	return &groupRPCService{}
 }
 
-func (s *groupRPCService) JoinGroup(request *paustqproto.JoinGroupRequest) *paustqproto.JoinGroupResponse {
-	return &paustqproto.JoinGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+func (s *groupRPCService) JoinGroup(request *shapleqproto.JoinGroupRequest) *shapleqproto.JoinGroupResponse {
+	return &shapleqproto.JoinGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }
 
-func (s *groupRPCService) LeaveGroup(request *paustqproto.LeaveGroupRequest) *paustqproto.LeaveGroupResponse {
-	return &paustqproto.LeaveGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+func (s *groupRPCService) LeaveGroup(request *shapleqproto.LeaveGroupRequest) *shapleqproto.LeaveGroupResponse {
+	return &shapleqproto.LeaveGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }
 
-func (s *groupRPCService) CreateGroup(request *paustqproto.CreateGroupRequest) *paustqproto.CreateGroupResponse {
-	return &paustqproto.CreateGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+func (s *groupRPCService) CreateGroup(request *shapleqproto.CreateGroupRequest) *shapleqproto.CreateGroupResponse {
+	return &shapleqproto.CreateGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }
 
-func (s *groupRPCService) ListGroups(request *paustqproto.ListGroupsRequest) *paustqproto.ListGroupsResponse {
-	return &paustqproto.ListGroupsResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+func (s *groupRPCService) ListGroups(request *shapleqproto.ListGroupsRequest) *shapleqproto.ListGroupsResponse {
+	return &shapleqproto.ListGroupsResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }
 
-func (s *groupRPCService) DeleteGroup(request *paustqproto.DeleteGroupRequest) *paustqproto.DeleteGroupResponse {
-	return &paustqproto.DeleteGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+func (s *groupRPCService) DeleteGroup(request *shapleqproto.DeleteGroupRequest) *shapleqproto.DeleteGroupResponse {
+	return &shapleqproto.DeleteGroupResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }

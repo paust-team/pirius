@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"github.com/paust-team/paustq/client"
+	"github.com/paust-team/shapleq/client"
 	"github.com/spf13/cobra"
 	"os"
 )

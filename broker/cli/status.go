@@ -9,7 +9,7 @@ func NewStatusCmd() *cobra.Command {
 
 	var statusCmd = &cobra.Command{
 		Use:   "status",
-		Short: "show status of paustq broker",
+		Short: "show status of shapleq broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if running {

@@ -1,11 +1,11 @@
 package pipeline
 
 import (
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustq_proto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"sync"
 	"sync/atomic"
 )
@@ -56,7 +56,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 				}
 			})
 
-			req := in.(*paustq_proto.PutRequest)
+			req := in.(*shapleq_proto.PutRequest)
 			offset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
 			err := p.db.PutRecord(topic.Name(), offset, req.Data)
 			if err != nil {

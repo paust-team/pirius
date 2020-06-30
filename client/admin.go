@@ -3,10 +3,10 @@ package client
 import (
 	"errors"
 	"github.com/golang/protobuf/proto"
-	logger "github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/network"
-	paustqproto "github.com/paust-team/paustq/proto"
+	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/network"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"net"
 	"sync"
 )
@@ -105,7 +105,7 @@ func (client *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto
 func (client *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
 	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
-	response := &paustqproto.CreateTopicResponse{}
+	response := &shapleqproto.CreateTopicResponse{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {
@@ -123,7 +123,7 @@ func (client *Admin) CreateTopic(topicName string, topicMeta string, numPartitio
 func (client *Admin) DeleteTopic(topicName string) error {
 
 	request := message.NewDeleteTopicRequestMsg(topicName)
-	response := &paustqproto.DeleteTopicResponse{}
+	response := &shapleqproto.DeleteTopicResponse{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {
@@ -138,10 +138,10 @@ func (client *Admin) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (client *Admin) DescribeTopic(topicName string) (*paustqproto.DescribeTopicResponse, error) {
+func (client *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResponse, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
-	response := &paustqproto.DescribeTopicResponse{}
+	response := &shapleqproto.DescribeTopicResponse{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {
@@ -156,10 +156,10 @@ func (client *Admin) DescribeTopic(topicName string) (*paustqproto.DescribeTopic
 	return response, nil
 }
 
-func (client *Admin) ListTopic() (*paustqproto.ListTopicResponse, error) {
+func (client *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 
 	request := message.NewListTopicRequestMsg()
-	response := &paustqproto.ListTopicResponse{}
+	response := &shapleqproto.ListTopicResponse{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {
@@ -174,10 +174,10 @@ func (client *Admin) ListTopic() (*paustqproto.ListTopicResponse, error) {
 	return response, nil
 }
 
-func (client *Admin) DiscoverBroker(topicName string, sessionType paustqproto.SessionType) (*paustqproto.DiscoverBrokerResponse, error) {
+func (client *Admin) DiscoverBroker(topicName string, sessionType shapleqproto.SessionType) (*shapleqproto.DiscoverBrokerResponse, error) {
 
 	request := message.NewDiscoverBrokerRequestMsg(topicName, sessionType)
-	response := &paustqproto.DiscoverBrokerResponse{}
+	response := &shapleqproto.DiscoverBrokerResponse{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {
@@ -193,10 +193,10 @@ func (client *Admin) DiscoverBroker(topicName string, sessionType paustqproto.Se
 	return response, nil
 }
 
-func (client *Admin) Heartbeat(msg string, brokerId uint64) (*paustqproto.Pong, error) {
+func (client *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {
 
 	request := message.NewPingMsg(msg, brokerId)
-	response := &paustqproto.Pong{}
+	response := &shapleqproto.Pong{}
 
 	err := client.callAndUnpackTo(request, response)
 	if err != nil {

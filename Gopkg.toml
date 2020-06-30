@@ -24,7 +24,7 @@
 #   go-tests = true
 #   unused-packages = true
 
-ignored = ["github.com/paust-team/paustq/thirdparty*"]
+ignored = ["github.com/paust-team/shapleq/thirdparty*"]
 
 [prune]
   go-tests = true

@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/pipeline"
-	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/broker/pipeline"
+	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	"github.com/paust-team/shapleq/zookeeper"
 	"sync"
 )
 

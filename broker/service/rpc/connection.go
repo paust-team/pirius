@@ -1,17 +1,17 @@
 package rpc
 
 import (
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustqproto "github.com/paust-team/paustq/proto"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 	"math/rand"
 	"time"
 )
 
 type ConnectionRPCService interface {
-	DiscoverBroker(*paustqproto.DiscoverBrokerRequest) *paustqproto.DiscoverBrokerResponse
-	Heartbeat(*paustqproto.Ping) *paustqproto.Pong
+	DiscoverBroker(*shapleqproto.DiscoverBrokerRequest) *shapleqproto.DiscoverBrokerResponse
+	Heartbeat(*shapleqproto.Ping) *shapleqproto.Pong
 }
 
 type connectionRPCService struct {
@@ -22,7 +22,7 @@ func NewConnectionRPCService(zkClient *zookeeper.ZKClient) *connectionRPCService
 	return &connectionRPCService{zkClient}
 }
 
-func (s *connectionRPCService) DiscoverBroker(request *paustqproto.DiscoverBrokerRequest) *paustqproto.DiscoverBrokerResponse {
+func (s *connectionRPCService) DiscoverBroker(request *shapleqproto.DiscoverBrokerRequest) *shapleqproto.DiscoverBrokerResponse {
 
 	topicBrokerAddrs, err := s.zkClient.GetTopicBrokers(request.TopicName)
 	if err != nil {
@@ -32,7 +32,7 @@ func (s *connectionRPCService) DiscoverBroker(request *paustqproto.DiscoverBroke
 		return message.NewDiscoverBrokerResponseMsg(topicBrokerAddrs[0], nil)
 
 	} else {
-		if request.SessionType == paustqproto.SessionType_PUBLISHER {
+		if request.SessionType == shapleqproto.SessionType_PUBLISHER {
 			brokerAddrs, err := s.zkClient.GetBrokers()
 			if err == nil && len(brokerAddrs) != 0 {
 				brokerAddr := brokerAddrs[rand.Intn(len(brokerAddrs))] // pick random broker
@@ -45,7 +45,7 @@ func (s *connectionRPCService) DiscoverBroker(request *paustqproto.DiscoverBroke
 	}
 }
 
-func (s *connectionRPCService) Heartbeat(request *paustqproto.Ping) *paustqproto.Pong {
+func (s *connectionRPCService) Heartbeat(request *shapleqproto.Ping) *shapleqproto.Pong {
 	serverTime := time.Now().Nanosecond()
 	return message.NewPongMsg(request.Echo, 1, uint64(serverTime))
 }

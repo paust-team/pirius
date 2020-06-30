@@ -2,9 +2,9 @@ package integration_test
 
 import (
 	"fmt"
-	"github.com/paust-team/paustq/broker"
-	"github.com/paust-team/paustq/client"
-	"github.com/paust-team/paustq/common"
+	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/client"
+	"github.com/paust-team/shapleq/common"
 	"sync"
 	"testing"
 )

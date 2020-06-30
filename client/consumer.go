@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	logger "github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustqproto "github.com/paust-team/paustq/proto"
+	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 type Consumer struct {
@@ -65,7 +65,7 @@ func (c Consumer) Context() context.Context {
 }
 
 func (c *Consumer) Connect() error {
-	return c.connect(paustqproto.SessionType_SUBSCRIBER, c.brokerAddr, c.topic)
+	return c.connect(shapleqproto.SessionType_SUBSCRIBER, c.brokerAddr, c.topic)
 }
 
 func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan error, error) {
@@ -123,13 +123,13 @@ type FetchedData struct {
 }
 
 func (c *Consumer) handleMessage(msg *message.QMessage) (FetchedData, error) {
-	if res, err := msg.UnpackAs(&paustqproto.FetchResponse{}); err == nil {
-		fetchRes := res.(*paustqproto.FetchResponse)
+	if res, err := msg.UnpackAs(&shapleqproto.FetchResponse{}); err == nil {
+		fetchRes := res.(*shapleqproto.FetchResponse)
 		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d, offset: %d",
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset))
 		return FetchedData{Data: fetchRes.Data, Offset: fetchRes.Offset, LastOffset: fetchRes.LastOffset}, nil
-	} else if res, err := msg.UnpackAs(&paustqproto.Ack{}); err == nil {
-		return FetchedData{}, errors.New(res.(*paustqproto.Ack).Msg)
+	} else if res, err := msg.UnpackAs(&shapleqproto.Ack{}); err == nil {
+		return FetchedData{}, errors.New(res.(*shapleqproto.Ack).Msg)
 	} else {
 		return FetchedData{}, errors.New("received invalid type of message")
 	}

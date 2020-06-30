@@ -2,7 +2,7 @@ package message
 
 import (
 	"bytes"
-	paustqproto "github.com/paust-team/paustq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"testing"
 )
 
@@ -14,15 +14,15 @@ func TestQMessage(t *testing.T) {
 		t.Error(err)
 	}
 
-	if msg.Is(&paustqproto.FetchRequest{}) {
+	if msg.Is(&shapleqproto.FetchRequest{}) {
 		t.Error("should be false")
 	}
 
-	if !msg.Is(&paustqproto.PutRequest{}) {
+	if !msg.Is(&shapleqproto.PutRequest{}) {
 		t.Error("should be true")
 	}
 
-	putMsg := &paustqproto.PutRequest{}
+	putMsg := &shapleqproto.PutRequest{}
 	if err := msg.UnpackTo(putMsg); err != nil {
 		t.Error(err)
 	}

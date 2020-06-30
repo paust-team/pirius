@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
-	"github.com/paust-team/paustq/client"
-	logger "github.com/paust-team/paustq/log"
+	"github.com/paust-team/shapleq/client"
+	logger "github.com/paust-team/shapleq/log"
 	"github.com/spf13/cobra"
 	"os"
 )

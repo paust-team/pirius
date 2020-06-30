@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	logger "github.com/paust-team/paustq/log"
+	logger "github.com/paust-team/shapleq/log"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -13,10 +13,10 @@ var (
 	timeout    uint
 )
 
-var defaultLogger = logger.NewQLogger("paustq-cli", logger.Error)
+var defaultLogger = logger.NewQLogger("shapleq-cli", logger.Error)
 
 var paustQClientCmd = &cobra.Command{
-	Use:   "paustq-client [command] (flags)",
+	Use:   "shapleq-client [command] (flags)",
 	Short: "Command line interface for PaustQ client",
 }
 

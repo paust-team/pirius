@@ -63,10 +63,10 @@ endif
 
 .PHONY: build-broker build-client
 build-broker:
-	cd broker/cmd/paustq && go build
+	cd broker/cmd/shapleq && go build
 
 build-client:
-	cd client/cmd/paustq-client && go build
+	cd client/cmd/shapleq-client && go build
 
 .PHONY: build rebuild install test
 build:
@@ -87,11 +87,11 @@ rebuild:
 	make compile-protobuf
 	make rebuild-rocksdb
 install:
-	cp broker/cmd/paustq/paustq /usr/local/bin/
-	cp client/cmd/paustq-client/paustq-client /usr/local/bin/
+	cp broker/cmd/shapleq/shapleq /usr/local/bin/
+	cp client/cmd/shapleq-client/shapleq-client /usr/local/bin/
 clean:
-	rm -f /usr/local/bin/paustq
-	rm -f /usr/local/bin/paustq-client
+	rm -f /usr/local/bin/shapleq
+	rm -f /usr/local/bin/shapleq-client
 	rm -rf vendor
 	rm -rf .vendor-new
 	rm -f $(PROTOFILE_DIR)/*.go

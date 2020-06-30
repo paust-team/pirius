@@ -2,9 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"github.com/paust-team/paustq/broker"
-	"github.com/paust-team/paustq/common"
-	logger "github.com/paust-team/paustq/log"
+	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/common"
+	logger "github.com/paust-team/shapleq/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"os"
@@ -25,7 +25,7 @@ func NewStartCmd() *cobra.Command {
 
 	var startCmd = &cobra.Command{
 		Use:   "start",
-		Short: "start paustq broker",
+		Short: "start shapleq broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if running {
@@ -48,7 +48,7 @@ func NewStartCmd() *cobra.Command {
 					os.Exit(1)
 				}
 
-				daemon := exec.Command(fmt.Sprintf("%s/paustq", dir), reconstructedArgs...)
+				daemon := exec.Command(fmt.Sprintf("%s/shapleq", dir), reconstructedArgs...)
 				if err = daemon.Start(); err != nil {
 					fmt.Println("start error: ", err)
 					os.Exit(1)

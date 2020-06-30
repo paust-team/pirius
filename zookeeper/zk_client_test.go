@@ -3,9 +3,9 @@ package zookeeper
 import (
 	"errors"
 	"fmt"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/network"
-	"github.com/paust-team/paustq/pqerror"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/network"
+	"github.com/paust-team/shapleq/pqerror"
 	"os"
 	"testing"
 )

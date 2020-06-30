@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"github.com/paust-team/paustq/pqerror"
+	"github.com/paust-team/shapleq/pqerror"
 	"testing"
 	"time"
 )

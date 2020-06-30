@@ -2,11 +2,11 @@ package pipeline
 
 import (
 	"bytes"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustq_proto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"sync"
 )
 
@@ -59,8 +59,8 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 				}
 			})
 
-			req := in.(*paustq_proto.FetchRequest)
-			var fetchRes paustq_proto.FetchResponse
+			req := in.(*shapleq_proto.FetchRequest)
+			var fetchRes shapleq_proto.FetchResponse
 
 			first := true
 			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
@@ -98,7 +98,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 						}
 
 						fetchRes.Reset()
-						fetchRes = paustq_proto.FetchResponse{
+						fetchRes = shapleq_proto.FetchResponse{
 							Data:       it.Value().Data(),
 							LastOffset: currentLastOffset,
 							Offset:     keyOffset,

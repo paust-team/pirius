@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/paust-team/paustq/broker/cli"
+	"github.com/paust-team/shapleq/broker/cli"
 )
 
 func main() {
