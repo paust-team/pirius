@@ -3,15 +3,15 @@ package broker
 import (
 	"context"
 	"fmt"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/service"
-	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/common"
-	"github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/network"
-	"github.com/paust-team/paustq/pqerror"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/broker/service"
+	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/common"
+	"github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/network"
+	"github.com/paust-team/shapleq/pqerror"
+	"github.com/paust-team/shapleq/zookeeper"
 	"net"
 	"os"
 	"strconv"
@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	DefaultBrokerHomeDir = os.ExpandEnv("$HOME/.paustq")
+	DefaultBrokerHomeDir = os.ExpandEnv("$HOME/.shapleq")
 	DefaultLogDir        = fmt.Sprintf("%s/log", DefaultBrokerHomeDir)
 	DefaultDataDir       = fmt.Sprintf("%s/data", DefaultBrokerHomeDir)
 	DefaultLogLevel      = logger.Info

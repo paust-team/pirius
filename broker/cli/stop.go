@@ -11,11 +11,11 @@ func NewStopCmd() *cobra.Command {
 
 	var stopCmd = &cobra.Command{
 		Use:   "stop",
-		Short: "stop running paustq broker",
+		Short: "stop running shapleq broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if !running {
-				fmt.Println("paustq broker is not running!")
+				fmt.Println("shapleq broker is not running!")
 				os.Exit(1)
 			}
 

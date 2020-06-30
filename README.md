@@ -41,7 +41,7 @@ Available Commands:
   status      show status of shapleQ broker
 
 Flags:
-  -h, --help   help for paustq
+  -h, --help   help for shapleQ
 
 Use "shapleQ [command] --help" for more information about a command.
 ```
@@ -82,7 +82,7 @@ $ shapleQ status
 ```
 
 ### Client
-- **[Client documentation](https://github.com/paust-team/paustq/tree/master/client#shapleq-client)**
+- **[Client documentation](https://github.com/paust-team/shapleq/tree/master/client#shapleq-client)**
 
 ## License
 - GPLv3

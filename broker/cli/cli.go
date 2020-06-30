@@ -12,7 +12,7 @@ import (
 func checkRunningBrokerProcess() (bool, int) {
 
 	parentPid := os.Getppid()
-	existsProcess := "ps -ef | grep 'paustq start' | grep -v grep | awk '{print $2, $3}'"
+	existsProcess := "ps -ef | grep 'shapleq start' | grep -v grep | awk '{print $2, $3}'"
 	out, err := exec.Command("bash", "-c", existsProcess).Output()
 	if err != nil {
 		return false, 0
@@ -31,7 +31,7 @@ func checkRunningBrokerProcess() (bool, int) {
 }
 
 var paustQCmd = &cobra.Command{
-	Use:   "paustq [command] (flags)",
+	Use:   "shapleq [command] (flags)",
 	Short: "PaustQ cli",
 }
 

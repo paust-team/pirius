@@ -4,7 +4,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/paust-team/paustq/pqerror"
+	"github.com/paust-team/shapleq/pqerror"
 )
 
 // message type

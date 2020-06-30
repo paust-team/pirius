@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/paust-team/paustq/common"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/network"
-	"github.com/paust-team/paustq/pqerror"
-	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/common"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/network"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"net"
 	"sync"
 )
@@ -103,7 +103,7 @@ func (c *ClientBase) receive() (*message.QMessage, error) {
 	return c.socket.Read()
 }
 
-func (c *ClientBase) connect(sessionType paustqproto.SessionType, brokerAddr string, topic string) error {
+func (c *ClientBase) connect(sessionType shapleqproto.SessionType, brokerAddr string, topic string) error {
 	err := c.connectToBroker(brokerAddr)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (c *ClientBase) connect(sessionType paustqproto.SessionType, brokerAddr str
 		return err
 	}
 
-	discoverRes := &paustqproto.DiscoverBrokerResponse{}
+	discoverRes := &shapleqproto.DiscoverBrokerResponse{}
 	err = res.UnpackTo(discoverRes)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (c *ClientBase) connect(sessionType paustqproto.SessionType, brokerAddr str
 	return nil
 }
 
-func (c *ClientBase) initStream(sessionType paustqproto.SessionType, topic string) error {
+func (c *ClientBase) initStream(sessionType shapleqproto.SessionType, topic string) error {
 	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectRequestMsg(sessionType, topic))
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func (c *ClientBase) initStream(sessionType paustqproto.SessionType, topic strin
 	if err != nil {
 		return err
 	}
-	connectRes := &paustqproto.ConnectResponse{}
+	connectRes := &shapleqproto.ConnectResponse{}
 	if err := res.UnpackTo(connectRes); err != nil {
 		return err
 	}

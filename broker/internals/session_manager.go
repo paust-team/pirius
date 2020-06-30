@@ -1,7 +1,7 @@
 package internals
 
 import (
-	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/shapleq/message"
 	"sync"
 )
 

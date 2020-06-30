@@ -3,7 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
-	"github.com/paust-team/paustq/message"
+	"github.com/paust-team/shapleq/message"
 	"net"
 	"testing"
 )
@@ -73,7 +73,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 
 	<-readStarted
 	for _, msg := range expected {
-		msgCh <- message.NewQMessage(STREAM, msg)
+		msgCh <- message.NewQMessage(message.STREAM, msg)
 	}
 	<-readDone
 

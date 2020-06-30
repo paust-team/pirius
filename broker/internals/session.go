@@ -2,10 +2,10 @@ package internals
 
 import (
 	"context"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/network"
-	"github.com/paust-team/paustq/pqerror"
-	paustq_proto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/network"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -63,7 +63,7 @@ var stateTransition = map[SessionStateType][]SessionStateType{
 type Session struct {
 	sock     *network.Socket
 	state    *SessionState
-	sessType paustq_proto.SessionType
+	sessType shapleq_proto.SessionType
 	topic    *Topic
 	rTimeout uint
 	wTimeout uint
@@ -85,7 +85,7 @@ func NewSession(conn net.Conn) *Session {
 	}
 }
 
-func (s *Session) WithType(sessType paustq_proto.SessionType) *Session {
+func (s *Session) WithType(sessType shapleq_proto.SessionType) *Session {
 	s.sessType = sessType
 	return s
 }
@@ -104,11 +104,11 @@ func (s *Session) SetTopic(topic *Topic) {
 	s.topic = topic
 }
 
-func (s *Session) Type() paustq_proto.SessionType {
+func (s *Session) Type() shapleq_proto.SessionType {
 	return s.sessType
 }
 
-func (s *Session) SetType(sessType paustq_proto.SessionType) {
+func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
 }
 
@@ -131,11 +131,11 @@ func (s *Session) Close() {
 	s.sock.Close()
 
 	switch s.Type() {
-	case paustq_proto.SessionType_PUBLISHER:
+	case shapleq_proto.SessionType_PUBLISHER:
 		if atomic.LoadInt64(&s.Topic().NumPubs) > 0 {
 			atomic.AddInt64(&s.Topic().NumPubs, -1)
 		}
-	case paustq_proto.SessionType_SUBSCRIBER:
+	case shapleq_proto.SessionType_SUBSCRIBER:
 		if atomic.LoadInt64(&s.Topic().NumSubs) > 0 {
 			atomic.AddInt64(&s.Topic().NumSubs, -1)
 		}

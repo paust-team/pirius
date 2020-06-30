@@ -1,9 +1,9 @@
 package pipeline
 
 import (
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 func IsConnectRequest(data interface{}) (interface{}, bool) {
@@ -11,7 +11,7 @@ func IsConnectRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &paustqproto.ConnectRequest{}
+	pb := &shapleqproto.ConnectRequest{}
 	err := msg.UnpackTo(pb)
 	if err != nil {
 		return nil, false
@@ -24,7 +24,7 @@ func IsFetchRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &paustqproto.FetchRequest{}
+	pb := &shapleqproto.FetchRequest{}
 	err := msg.UnpackTo(pb)
 	if err != nil {
 		return nil, false
@@ -37,7 +37,7 @@ func IsPutRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &paustqproto.PutRequest{}
+	pb := &shapleqproto.PutRequest{}
 	err := msg.UnpackTo(pb)
 	if err != nil {
 		return nil, false

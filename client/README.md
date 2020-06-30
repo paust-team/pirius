@@ -100,7 +100,7 @@ type Producer struct {/* private variables */}
 #### Sample Code
 
 ```go
-import "github.com/paust-team/paustq/client/producer"
+import "github.com/paust-team/shapleq/client/producer"
 
 topic := “test”
 
@@ -171,7 +171,7 @@ type SinkData struct {
 #### Sample Code
 
 ```go
-import "github.com/paust-team/paustq/client/consumer"
+import "github.com/paust-team/shapleq/client/consumer"
 
 topic := “test”
 

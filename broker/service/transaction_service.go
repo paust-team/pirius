@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/broker/service/rpc"
-	"github.com/paust-team/paustq/broker/storage"
-	"github.com/paust-team/paustq/message"
-	paustqproto "github.com/paust-team/paustq/proto"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/broker/service/rpc"
+	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/message"
+	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 	"sync"
 )
 
@@ -74,23 +74,23 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 
 	var resMsg proto.Message
 
-	if reqMsg, err := msg.UnpackAs(&paustqproto.CreateTopicRequest{}); err == nil {
-		resMsg = s.rpcService.CreateTopic(reqMsg.(*paustqproto.CreateTopicRequest))
+	if reqMsg, err := msg.UnpackAs(&shapleqproto.CreateTopicRequest{}); err == nil {
+		resMsg = s.rpcService.CreateTopic(reqMsg.(*shapleqproto.CreateTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DeleteTopicRequest{}); err == nil {
-		resMsg = s.rpcService.DeleteTopic(reqMsg.(*paustqproto.DeleteTopicRequest))
+	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DeleteTopicRequest{}); err == nil {
+		resMsg = s.rpcService.DeleteTopic(reqMsg.(*shapleqproto.DeleteTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.ListTopicRequest{}); err == nil {
-		resMsg = s.rpcService.ListTopic(reqMsg.(*paustqproto.ListTopicRequest))
+	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.ListTopicRequest{}); err == nil {
+		resMsg = s.rpcService.ListTopic(reqMsg.(*shapleqproto.ListTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DescribeTopicRequest{}); err == nil {
-		resMsg = s.rpcService.DescribeTopic(reqMsg.(*paustqproto.DescribeTopicRequest))
+	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DescribeTopicRequest{}); err == nil {
+		resMsg = s.rpcService.DescribeTopic(reqMsg.(*shapleqproto.DescribeTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.Ping{}); err == nil {
-		resMsg = s.rpcService.Heartbeat(reqMsg.(*paustqproto.Ping))
+	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.Ping{}); err == nil {
+		resMsg = s.rpcService.Heartbeat(reqMsg.(*shapleqproto.Ping))
 
-	} else if reqMsg, err := msg.UnpackAs(&paustqproto.DiscoverBrokerRequest{}); err == nil {
-		resMsg = s.rpcService.DiscoverBroker(reqMsg.(*paustqproto.DiscoverBrokerRequest))
+	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DiscoverBrokerRequest{}); err == nil {
+		resMsg = s.rpcService.DiscoverBroker(reqMsg.(*shapleqproto.DiscoverBrokerRequest))
 	} else {
 		return errors.New("invalid message to handle")
 	}

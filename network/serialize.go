@@ -2,8 +2,8 @@ package network
 
 import (
 	"encoding/binary"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
 	"hash/crc32"
 )
 

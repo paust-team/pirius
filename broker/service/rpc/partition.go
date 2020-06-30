@@ -1,13 +1,13 @@
 package rpc
 
 import (
-	"github.com/paust-team/paustq/broker/storage"
-	paustqproto "github.com/paust-team/paustq/proto"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/broker/storage"
+	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type PartitionRPCService interface {
-	CreatePartition(*paustqproto.CreatePartitionRequest) *paustqproto.CreatePartitionResponse
+	CreatePartition(*shapleqproto.CreatePartitionRequest) *shapleqproto.CreatePartitionResponse
 }
 
 type partitionRPCService struct {
@@ -19,7 +19,7 @@ func NewPartitionRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) 
 	return &partitionRPCService{db, zkClient}
 }
 
-func (s *partitionRPCService) CreatePartition(request *paustqproto.CreatePartitionRequest) *paustqproto.CreatePartitionResponse {
+func (s *partitionRPCService) CreatePartition(request *shapleqproto.CreatePartitionRequest) *shapleqproto.CreatePartitionResponse {
 
-	return &paustqproto.CreatePartitionResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
+	return &shapleqproto.CreatePartitionResponse{ErrorCode: 1, ErrorMessage: "not implemented"}
 }

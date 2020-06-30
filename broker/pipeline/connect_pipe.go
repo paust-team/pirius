@@ -2,11 +2,11 @@ package pipeline
 
 import (
 	"errors"
-	"github.com/paust-team/paustq/broker/internals"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustq_proto "github.com/paust-team/paustq/proto"
-	"github.com/paust-team/paustq/zookeeper"
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 	"sync/atomic"
 )
 
@@ -52,7 +52,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 		defer close(errCh)
 
 		for in := range inStream {
-			req := in.(*paustq_proto.ConnectRequest)
+			req := in.(*shapleq_proto.ConnectRequest)
 
 			if c.session.State() != internals.READY {
 				err := c.session.SetState(internals.READY)
@@ -72,14 +72,14 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			c.session.SetTopic(topic)
 
 			switch req.SessionType {
-			case paustq_proto.SessionType_PUBLISHER:
+			case shapleq_proto.SessionType_PUBLISHER:
 				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
 				err := c.zkClient.AddTopicBroker(c.session.Topic().Name(), c.brokerAddr)
 				if err != nil && !errors.As(err, &pqerror.ZKTargetAlreadyExistsError{}) {
 					errCh <- err
 					return
 				}
-			case paustq_proto.SessionType_SUBSCRIBER:
+			case shapleq_proto.SessionType_SUBSCRIBER:
 				atomic.AddInt64(&c.session.Topic().NumSubs, 1)
 			default:
 			}

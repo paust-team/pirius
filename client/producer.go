@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/paust-team/paustq/common"
-	logger "github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/message"
-	"github.com/paust-team/paustq/pqerror"
-	paustqproto "github.com/paust-team/paustq/proto"
+	"github.com/paust-team/shapleq/common"
+	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 type Producer struct {
@@ -68,7 +68,7 @@ func (p Producer) Context() context.Context {
 }
 
 func (p *Producer) Connect() error {
-	return p.connect(paustqproto.SessionType_PUBLISHER, p.brokerAddr, p.topic)
+	return p.connect(shapleqproto.SessionType_PUBLISHER, p.brokerAddr, p.topic)
 }
 
 func (p *Producer) Publish(data []byte) (common.Partition, error) {
@@ -150,12 +150,12 @@ func (p *Producer) Close() {
 }
 
 func (p *Producer) handleMessage(msg *message.QMessage) (common.Partition, error) {
-	if res, err := msg.UnpackAs(&paustqproto.PutResponse{}); err == nil {
-		putRes := res.(*paustqproto.PutResponse)
+	if res, err := msg.UnpackAs(&shapleqproto.PutResponse{}); err == nil {
+		putRes := res.(*shapleqproto.PutResponse)
 		p.logger.Debug("received response - offset: %d", putRes.Partition.Offset)
 		return common.Partition{Id: putRes.Partition.PartitionId, Offset: putRes.Partition.Offset}, nil
-	} else if res, err := msg.UnpackAs(&paustqproto.Ack{}); err == nil {
-		return common.Partition{}, errors.New(res.(*paustqproto.Ack).GetMsg())
+	} else if res, err := msg.UnpackAs(&shapleqproto.Ack{}); err == nil {
+		return common.Partition{}, errors.New(res.(*shapleqproto.Ack).GetMsg())
 	} else {
 		return common.Partition{}, errors.New("received invalid type of message")
 	}

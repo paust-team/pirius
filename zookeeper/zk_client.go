@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/paust-team/paustq/broker/internals"
-	logger "github.com/paust-team/paustq/log"
-	"github.com/paust-team/paustq/pqerror"
+	"github.com/paust-team/shapleq/broker/internals"
+	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/pqerror"
 	"github.com/samuel/go-zookeeper/zk"
 	"time"
 )
@@ -14,10 +14,10 @@ import (
 type ZKPath string
 
 const (
-	PAUSTQ             ZKPath = "/paustq"
-	BROKERS            ZKPath = "/paustq/brokers"
-	TOPICS             ZKPath = "/paustq/topics"
-	TOPIC_BROKERS      ZKPath = "/paustq/topic-brokers"
+	SHAPLEQ            ZKPath = "/shapleq"
+	BROKERS            ZKPath = "/shapleq/brokers"
+	TOPICS             ZKPath = "/shapleq/topics"
+	TOPIC_BROKERS      ZKPath = "/shapleq/topic-brokers"
 	BROKERS_LOCK       ZKPath = "/brokers-lock"
 	TOPICS_LOCK        ZKPath = "/topics-lock"
 	TOPIC_BROKERS_LOCK ZKPath = "/topic-brokers-lock"
@@ -62,7 +62,7 @@ func (z *ZKClient) Close() {
 }
 
 func (z *ZKClient) CreatePathsIfNotExist() error {
-	paths := []ZKPath{PAUSTQ, BROKERS, TOPICS, TOPIC_BROKERS}
+	paths := []ZKPath{SHAPLEQ, BROKERS, TOPICS, TOPIC_BROKERS}
 	for _, path := range paths {
 		err := z.createPathIfNotExists(path)
 		if err != nil {
@@ -452,15 +452,15 @@ func (z *ZKClient) RemoveAllPath() {
 
 	err = z.conn.Delete(TOPICS.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /paustq/topics ", err)
+		z.logger.Error("failed to delete path /shapleq/topics ", err)
 	}
 	z.conn.Delete(BROKERS.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /paustq/brokers ", err)
+		z.logger.Error("failed to delete path /shapleq/brokers ", err)
 	}
 
-	z.conn.Delete(PAUSTQ.string(), -1)
+	z.conn.Delete(SHAPLEQ.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /paustq ", err)
+		z.logger.Error("failed to delete path /shapleq ", err)
 	}
 }

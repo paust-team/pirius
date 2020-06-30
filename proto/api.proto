@@ -1,5 +1,5 @@
 syntax = "proto3";
-package paustq.proto;
+package shapleq.proto;
 import "data.proto";
 
 // Config
