@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/client"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/zookeeper"
@@ -61,7 +62,10 @@ func TestStreamClient_Connect(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 
@@ -123,7 +127,10 @@ func TestPubSub(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 	defer brokerInstance.Clean()
@@ -245,7 +252,10 @@ func TestMultiClient(t *testing.T) {
 	defer zkClient.Close()
 	defer zkClient.RemoveAllPath()
 
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 	defer brokerInstance.Clean()

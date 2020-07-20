@@ -1,7 +1,13 @@
 package common
 
-var DefaultBrokerPort uint = 1101
-var DefaultTimeout uint = 3
+import "os"
+
+var (
+	DefaultHomeDir           = os.ExpandEnv("$HOME/.shapleq")
+	DefaultBrokerPort uint   = 1101
+	DefaultTimeout    uint   = 3
+	DefaultConfigName string = "config"
+)
 
 type BackPressure int
 
