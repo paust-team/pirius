@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  zk1:
+    image: zookeeper
+    hostname: zk1
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok
+  zk2:
+    image: zookeeper
+    hostname: zk2
+    ports:
+      - 2182:2181
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=0.0.0.0:2888:3888;2181 server.3=zk3:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok
+
+  zk3:
+    image: zookeeper
+    hostname: zk3
+    ports:
+      - 2183:2181
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=0.0.0.0:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: ruok
+
+  sq1:
+    image: shapleq
+    ports:
+      - 1101:1101
+    environment:
+      ZK_ADDR: zk1
+      ZK_PORT: 2181
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+
+  sq2:
+    image: shapleq
+    ports:
+      - 1102:1101
+    environment:
+      ZK_ADDR: zk2
+      ZK_PORT: 2181
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+
+  sq3:
+    image: shapleq
+    ports:
+      - 1103:1101
+    environment:
+      ZK_ADDR: zk3
+      ZK_PORT: 2181
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
