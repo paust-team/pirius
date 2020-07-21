@@ -92,6 +92,12 @@ func (b BrokerConfig) ZKTimeout() int {
 	return zkInfo["timeout"].(int)
 }
 
+func (b *BrokerConfig) SetZKTimeout(timeout int) {
+	zkInfo := b.GetStringMap("zookeeper")
+	zkInfo["timeout"] = timeout
+	b.Set("zookeeper", zkInfo)
+}
+
 func (b BrokerConfig) LogLevel() logger.LogLevel {
 	return logger.LogLevelFromString(b.GetString("log-level"))
 }
