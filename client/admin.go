@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"github.com/golang/protobuf/proto"
+	"github.com/paust-team/shapleq/client/config"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
@@ -12,25 +13,21 @@ import (
 )
 
 type Admin struct {
-	socket     *network.Socket
-	brokerAddr string
-	timeout    int
-	mu         sync.Mutex
-	connected  bool
-	logger     *logger.QLogger
+	socket    *network.Socket
+	config    *config.AdminConfig
+	mu        sync.Mutex
+	connected bool
+	logger    *logger.QLogger
 }
 
-var defaultTimeout = 3
+func NewAdmin(config *config.AdminConfig) *Admin {
 
-func NewAdmin(brokerAddr string) *Admin {
-
-	l := logger.NewQLogger("Admin-client", logger.Info)
+	l := logger.NewQLogger("Admin-client", config.LogLevel())
 	return &Admin{
-		timeout:    defaultTimeout,
-		connected:  false,
-		brokerAddr: brokerAddr,
-		logger:     l,
-		mu:         sync.Mutex{},
+		config:    config,
+		connected: false,
+		logger:    l,
+		mu:        sync.Mutex{},
 	}
 }
 
@@ -40,26 +37,16 @@ func (client *Admin) WithConnection(socket *network.Socket) *Admin {
 	return client
 }
 
-func (client *Admin) WithTimeout(timeout int) *Admin {
-	client.timeout = timeout
-	return client
-}
-
-func (client *Admin) WithLogLevel(level logger.LogLevel) *Admin {
-	client.logger.SetLogLevel(level)
-	return client
-}
-
 func (client *Admin) Connect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	conn, err := net.Dial("tcp", client.brokerAddr)
+	conn, err := net.Dial("tcp", client.config.BrokerAddr())
 	if err != nil {
 		client.logger.Error(err)
 		return err
 	}
 
-	client.socket = network.NewSocket(conn, client.timeout, client.timeout)
+	client.socket = network.NewSocket(conn, client.config.Timeout(), client.config.Timeout())
 	client.connected = true
 	return nil
 }
