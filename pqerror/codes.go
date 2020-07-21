@@ -11,7 +11,7 @@ const (
 	ErrInvalidStartOffset = 0x0101
 
 	// 02 - zookeeper related error
-	ErrZKConnection = 0x0200
+	ErrZKConnection          = 0x0200
 	ErrZKTargetAlreadyExists = 0x0201
 	ErrZKOperate             = 0x0202
 	ErrTopicBrokersNotExist  = 0x0203

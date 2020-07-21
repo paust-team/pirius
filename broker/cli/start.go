@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/broker"
 	"github.com/paust-team/shapleq/broker/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"os"
@@ -86,7 +87,7 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	startCmd.Flags().BoolP("daemon", "d", false, "run with daemon")
-	startCmd.Flags().StringVar(&configDir, "config-dir", broker.DefaultConfigDir, "broker config directory")
+	startCmd.Flags().StringVar(&configDir, "config-dir", common.DefaultBrokerConfigDir, "broker config directory")
 
 	return startCmd
 }

@@ -2,7 +2,6 @@ package broker
 
 import (
 	"context"
-	"fmt"
 	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service"
@@ -18,8 +17,6 @@ import (
 	"strconv"
 	"sync"
 )
-
-var DefaultConfigDir = fmt.Sprintf("%s/config/broker", common.DefaultHomeDir)
 
 type Broker struct {
 	config          *config.BrokerConfig

@@ -327,14 +327,14 @@ func (e AlreadyConnectedError) Error() string {
 
 type DialFailedError struct {
 	Addr string
-	Err error
+	Err  error
 }
 
 func (e DialFailedError) Error() string {
 	return fmt.Sprintf("dial to %s failed : %v", e.Addr, e.Err)
 }
 
-type NotConnectedError struct {}
+type NotConnectedError struct{}
 
 func (e NotConnectedError) Error() string {
 	return "there's no connection to any endpoint"
