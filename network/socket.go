@@ -15,19 +15,19 @@ import (
 type Socket struct {
 	sync.Mutex
 	conn     net.Conn
-	rTimeout uint
-	wTimeout uint
+	rTimeout int
+	wTimeout int
 }
 
-func NewSocket(conn net.Conn, rTimeout uint, wTimeout uint) *Socket {
+func NewSocket(conn net.Conn, rTimeout int, wTimeout int) *Socket {
 	return &Socket{conn: conn, rTimeout: rTimeout, wTimeout: wTimeout}
 }
 
-func (s *Socket) SetReadTimeout(rTimeout uint) {
+func (s *Socket) SetReadTimeout(rTimeout int) {
 	s.rTimeout = rTimeout
 }
 
-func (s *Socket) SetWriteTimeout(wTimeout uint) {
+func (s *Socket) SetWriteTimeout(wTimeout int) {
 	s.wTimeout = wTimeout
 }
 

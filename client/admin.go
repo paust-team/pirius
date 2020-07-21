@@ -14,16 +14,17 @@ import (
 type Admin struct {
 	socket     *network.Socket
 	brokerAddr string
-	timeout    uint
+	timeout    int
 	mu         sync.Mutex
 	connected  bool
 	logger     *logger.QLogger
 }
 
-func NewAdmin(brokerAddr string) *Admin {
-	var defaultTimeout uint = 3 // second
-	l := logger.NewQLogger("Admin-client", logger.Info)
+var defaultTimeout = 3
 
+func NewAdmin(brokerAddr string) *Admin {
+
+	l := logger.NewQLogger("Admin-client", logger.Info)
 	return &Admin{
 		timeout:    defaultTimeout,
 		connected:  false,
@@ -39,7 +40,7 @@ func (client *Admin) WithConnection(socket *network.Socket) *Admin {
 	return client
 }
 
-func (client *Admin) WithTimeout(timeout uint) *Admin {
+func (client *Admin) WithTimeout(timeout int) *Admin {
 	client.timeout = timeout
 	return client
 }
