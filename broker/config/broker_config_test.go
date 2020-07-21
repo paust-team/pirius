@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/zookeeper"
 	"testing"
@@ -26,9 +27,28 @@ func TestBrokerConfigSet(t *testing.T) {
 		t.Errorf("wrong default value")
 	}
 
-	brokerConfig.SetPort(11010)
+	var expectedPort uint = 11010
+	brokerConfig.SetPort(expectedPort)
 
-	if brokerConfig.Port() != 11010 {
+	if brokerConfig.Port() != expectedPort {
+		t.Errorf("value is not set")
+	}
+}
+
+func TestBrokerConfigStringMap(t *testing.T) {
+	brokerConfig := NewBrokerConfig().Load("./")
+
+	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", zookeeper.DefaultHost, zookeeper.DefaultPort) {
+		t.Errorf("wrong default value")
+	}
+
+	expectedHost := "172.0.0.1"
+	var expectedPort uint = 10000
+
+	brokerConfig.SetZKHost(expectedHost)
+	brokerConfig.SetZKPort(expectedPort)
+
+	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", expectedHost, expectedPort) {
 		t.Errorf("value is not set")
 	}
 }

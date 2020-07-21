@@ -81,7 +81,7 @@ func (b *BrokerConfig) SetZKHost(zkHost string) {
 	b.Set("zookeeper", zkInfo)
 }
 
-func (b *BrokerConfig) SetZKPort(zkPort int) {
+func (b *BrokerConfig) SetZKPort(zkPort uint) {
 	zkInfo := b.GetStringMap("zookeeper")
 	zkInfo["port"] = zkPort
 	b.Set("zookeeper", zkInfo)
