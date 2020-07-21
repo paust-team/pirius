@@ -87,7 +87,7 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	startCmd.Flags().BoolP("daemon", "d", false, "run with daemon")
-	startCmd.Flags().StringVar(&configDir, "config-dir", common.DefaultBrokerConfigDir, "broker config directory")
+	startCmd.Flags().StringVarP(&configDir, "config-dir", "p", common.DefaultBrokerConfigDir, "broker config directory")
 
 	return startCmd
 }

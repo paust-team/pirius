@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/paust-team/shapleq/client"
-	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -20,7 +21,9 @@ func NewPublishCmd() *cobra.Command {
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			sigCh := make(chan os.Signal, 1)
-			producer := client.NewProducer(brokerAddr, topicName).WithTimeout(timeout).WithLogLevel(logger.Error)
+			producerConfig := config.NewProducerConfig()
+			producerConfig.Load(configDir)
+			producer := client.NewProducer(producerConfig, topicName)
 
 			if err := producer.Connect(); err != nil {
 				log.Fatal(err)
@@ -72,6 +75,7 @@ func NewPublishCmd() *cobra.Command {
 
 	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish to")
 	publishCmd.Flags().StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
+	publishCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultProducerConfigDir, "producer client config directory")
 
 	publishCmd.MarkFlagRequired("topic")
 

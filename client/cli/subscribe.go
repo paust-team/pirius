@@ -3,7 +3,8 @@ package cli
 import (
 	"fmt"
 	client "github.com/paust-team/shapleq/client"
-	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -25,7 +26,9 @@ func NewSubscribeCmd() *cobra.Command {
 			defer close(sigCh)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			consumer := client.NewConsumer(brokerAddr, topicName).WithLogLevel(logger.Error)
+			consumerConfig := config.NewConsumerConfig()
+			consumerConfig.Load(configDir)
+			consumer := client.NewConsumer(consumerConfig, topicName)
 			if err := consumer.Connect(); err != nil {
 				log.Fatal(err)
 			}
@@ -54,7 +57,7 @@ func NewSubscribeCmd() *cobra.Command {
 
 	subscribeCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to subscribe from")
 	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
-
+	subscribeCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultConsumerConfigDir, "consumer client config directory")
 	subscribeCmd.MarkFlagRequired("topic")
 
 	return subscribeCmd

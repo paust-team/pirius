@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"github.com/paust-team/shapleq/client"
+	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -18,7 +20,10 @@ func NewHeartbeatCmd() *cobra.Command {
 		Use:   "heartbeat",
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout)
+
+			adminConfig := config.NewAdminConfig()
+			adminConfig.Load(common.DefaultAdminConfigDir)
+			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -37,6 +42,7 @@ func NewHeartbeatCmd() *cobra.Command {
 
 	heartbeatCmd.Flags().StringVarP(&echoMsg, "echo-msg", "m", "echotest", "message to ping-pong")
 	heartbeatCmd.Flags().Uint64VarP(&brokerId, "broker-id", "i", 0, "broker id to send ping")
+	heartbeatCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultAdminConfigDir, "admin client config directory")
 
 	return heartbeatCmd
 }
