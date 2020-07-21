@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"fmt"
 	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service"
@@ -75,14 +76,14 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:1101")
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", b.Port))
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		b.logger.Fatalf("fail to bind address to 1101 : %v", err)
+		b.logger.Fatalf("fail to bind address to %d : %v", b.Port, err)
 	}
 	b.listener = listener
 
