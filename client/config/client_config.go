@@ -59,18 +59,13 @@ func (c *ClientConfigBase) SetTimeout(timeout int) {
 }
 
 func (c *ClientConfigBase) BrokerAddr() string {
-	brokerInfo := c.GetStringMap("broker")
-	return fmt.Sprintf("%s:%d", brokerInfo["host"], brokerInfo["port"])
+	return fmt.Sprintf("%s:%d", c.GetString("broker.host"), c.GetUint("broker.port"))
 }
 
 func (c *ClientConfigBase) SetBrokerHost(host string) {
-	brokerInfo := c.GetStringMap("broker")
-	brokerInfo["host"] = host
-	c.Set("broker", brokerInfo)
+	c.Set("broker.host", host)
 }
 
 func (c *ClientConfigBase) SetBrokerPort(port uint) {
-	brokerInfo := c.GetStringMap("broker")
-	brokerInfo["port"] = port
-	c.Set("broker", brokerInfo)
+	c.Set("broker.port", port)
 }

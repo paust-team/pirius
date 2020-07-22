@@ -71,31 +71,23 @@ func (b *BrokerConfig) SetDataDir(dataDir string) {
 }
 
 func (b BrokerConfig) ZKAddr() string {
-	zkInfo := b.GetStringMap("zookeeper")
-	return fmt.Sprintf("%s:%d", zkInfo["host"], zkInfo["port"])
+	return fmt.Sprintf("%s:%d", b.GetString("zookeeper.host"), b.GetInt("zookeeper.port"))
 }
 
 func (b *BrokerConfig) SetZKHost(zkHost string) {
-	zkInfo := b.GetStringMap("zookeeper")
-	zkInfo["host"] = zkHost
-	b.Set("zookeeper", zkInfo)
+	b.Set("zookeeper.host", zkHost)
 }
 
 func (b *BrokerConfig) SetZKPort(zkPort uint) {
-	zkInfo := b.GetStringMap("zookeeper")
-	zkInfo["port"] = zkPort
-	b.Set("zookeeper", zkInfo)
+	b.Set("zookeeper.port", zkPort)
 }
 
 func (b BrokerConfig) ZKTimeout() int {
-	zkInfo := b.GetStringMap("zookeeper")
-	return zkInfo["timeout"].(int)
+	return b.GetInt("zookeeper.timeout")
 }
 
 func (b *BrokerConfig) SetZKTimeout(timeout int) {
-	zkInfo := b.GetStringMap("zookeeper")
-	zkInfo["timeout"] = timeout
-	b.Set("zookeeper", zkInfo)
+	b.Set("zookeeper.timeout", timeout)
 }
 
 func (b BrokerConfig) LogLevel() logger.LogLevel {

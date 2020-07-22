@@ -35,7 +35,7 @@ func TestBrokerConfigSet(t *testing.T) {
 	}
 }
 
-func TestBrokerConfigStringMap(t *testing.T) {
+func TestBrokerConfigStructured(t *testing.T) {
 	brokerConfig := NewBrokerConfig().Load("./")
 
 	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", zookeeper.DefaultHost, zookeeper.DefaultPort) {
