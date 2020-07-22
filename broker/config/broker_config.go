@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
-	"github.com/paust-team/shapleq/zookeeper"
 	"github.com/spf13/viper"
 )
 
 var (
-	defaultLogDir   = fmt.Sprintf("%s/log", common.DefaultHomeDir)
-	defaultDataDir  = fmt.Sprintf("%s/data", common.DefaultHomeDir)
-	defaultLogLevel = logger.Info
+	defaultLogDir         = fmt.Sprintf("%s/log", common.DefaultHomeDir)
+	defaultDataDir        = fmt.Sprintf("%s/data", common.DefaultHomeDir)
+	defaultLogLevel       = logger.Info
+	defaultZKPort         = 2181
+	defaultZKHost         = "localhost"
+	defaultZKTimeout uint = 3
 )
 
 type BrokerConfig struct {
@@ -27,9 +29,9 @@ func NewBrokerConfig() *BrokerConfig {
 	v.SetDefault("data-dir", defaultDataDir)
 	v.SetDefault("log-level", logger.LogLevelToString(defaultLogLevel))
 	v.SetDefault("zookeeper", map[string]interface{}{
-		"port":    zookeeper.DefaultPort,
-		"host":    zookeeper.DefaultHost,
-		"timeout": zookeeper.DefaultTimeout,
+		"port":    defaultZKPort,
+		"host":    defaultZKHost,
+		"timeout": defaultZKTimeout,
 	})
 
 	return &BrokerConfig{v}
@@ -80,11 +82,11 @@ func (b *BrokerConfig) SetZKPort(zkPort uint) {
 	b.Set("zookeeper.port", zkPort)
 }
 
-func (b BrokerConfig) ZKTimeout() int {
-	return b.GetInt("zookeeper.timeout")
+func (b BrokerConfig) ZKTimeout() uint {
+	return b.GetUint("zookeeper.timeout")
 }
 
-func (b *BrokerConfig) SetZKTimeout(timeout int) {
+func (b *BrokerConfig) SetZKTimeout(timeout uint) {
 	b.Set("zookeeper.timeout", timeout)
 }
 

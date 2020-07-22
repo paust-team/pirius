@@ -23,13 +23,6 @@ const (
 	TOPIC_BROKERS_LOCK ZKPath = "/topic-brokers-lock"
 )
 
-var (
-	DefaultPort = 2181
-	DefaultHost = "localhost"
-)
-
-var DefaultTimeout int = 3
-
 func (zp ZKPath) string() string {
 	return string(zp)
 }
@@ -37,22 +30,17 @@ func (zp ZKPath) string() string {
 type ZKClient struct {
 	zkAddr  string
 	conn    *zk.Conn
-	timeout int
+	timeout uint
 	logger  *logger.QLogger
 }
 
-func NewZKClient(zkAddr string) *ZKClient {
+func NewZKClient(zkAddr string, timeout uint) *ZKClient {
 	return &ZKClient{
 		zkAddr:  zkAddr,
-		timeout: DefaultTimeout,
+		timeout: timeout,
 		conn:    nil,
 		logger:  logger.NewQLogger("ZkClient", logger.Info),
 	}
-}
-
-func (z *ZKClient) WithTimeout(timeout int) *ZKClient {
-	z.timeout = timeout
-	return z
 }
 
 func (z *ZKClient) WithLogger(logger *logger.QLogger) *ZKClient {

@@ -39,7 +39,7 @@ func NewBroker(config *config.BrokerConfig) *Broker {
 
 	notifier := internals.NewNotifier()
 	l := logger.NewQLogger("Broker", config.LogLevel())
-	zkClient := zookeeper.NewZKClient(config.ZKAddr())
+	zkClient := zookeeper.NewZKClient(config.ZKAddr(), config.ZKTimeout())
 
 	return &Broker{
 		config:   config,
@@ -190,7 +190,7 @@ func (b *Broker) setUpZookeeper() error {
 	}
 
 	b.host = host.String()
-	b.zkClient = b.zkClient.WithLogger(b.logger).WithTimeout(b.config.ZKTimeout())
+	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
 		return err
 	}

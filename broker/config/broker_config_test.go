@@ -3,19 +3,16 @@ package config
 import (
 	"fmt"
 	"github.com/paust-team/shapleq/common"
-	"github.com/paust-team/shapleq/zookeeper"
 	"testing"
 )
 
 func TestBrokerConfigLoad(t *testing.T) {
 	brokerConfig := NewBrokerConfig()
 
-	if brokerConfig.ZKTimeout() != zookeeper.DefaultTimeout {
-		t.Errorf("wrong default value")
-	}
+	defaultZKTimeout := brokerConfig.ZKTimeout()
 
 	brokerConfig.Load("./config.yml")
-	if brokerConfig.ZKTimeout() == zookeeper.DefaultTimeout {
+	if brokerConfig.ZKTimeout() == defaultZKTimeout {
 		t.Errorf("value in file is not wrapped")
 	}
 }
@@ -37,10 +34,6 @@ func TestBrokerConfigSet(t *testing.T) {
 
 func TestBrokerConfigStructured(t *testing.T) {
 	brokerConfig := NewBrokerConfig().Load("./config.yml")
-
-	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", zookeeper.DefaultHost, zookeeper.DefaultPort) {
-		t.Errorf("wrong default value")
-	}
 
 	expectedHost := "172.0.0.1"
 	var expectedPort uint = 10000

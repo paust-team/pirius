@@ -21,6 +21,7 @@ var (
 	port       uint
 	zkHost     string
 	zkPort     uint
+	zkTimeout  uint
 )
 
 func NewStartCmd() *cobra.Command {
@@ -101,10 +102,12 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().UintVar(&port, "port", 0, "broker port")
 	startCmd.Flags().StringVar(&zkHost, "zk-host", "", "zookeeper host")
 	startCmd.Flags().UintVar(&zkPort, "zk-port", 0, "zookeeper port")
+	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
 
 	brokerConfig.BindPFlags(startCmd.Flags())
 	brokerConfig.BindPFlag("zookeeper.host", startCmd.Flags().Lookup("zk-host"))
 	brokerConfig.BindPFlag("zookeeper.port", startCmd.Flags().Lookup("zk-port"))
+	brokerConfig.BindPFlag("zookeeper.timeout", startCmd.Flags().Lookup("zk-timeout"))
 
 	return startCmd
 }
