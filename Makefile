@@ -30,6 +30,7 @@ INSTALL_CONSUMER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/consumer
 # rocksdb
 ROCKSDB_DIR := $(THIRDPARTY_DIR)/rocksdb
 ROCKSDB_BUILD_DIR := $(ROCKSDB_DIR)/build
+ROCKSDB_INCLUDE_DIR := $(ROCKSDB_DIR)/include
 LIB_ROCKSDB := $(ROCKSDB_BUILD_DIR)/librocksdb.a
 
 BASE_CMAKE_FLAGS := -DCMAKE_TARGET_MESSAGES=OFF
@@ -68,7 +69,7 @@ rebuild-rocksdb:
 	rm -rf $(ROCKSDB_BUILD_DIR)
 	mkdir -p $(ROCKSDB_BUILD_DIR)
 ifdef mac-os-host
-	cd $(ROCKSDB_BUILD_DIR) && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPORTABLE=ON -DWITH_TESTS=OFF \
+	cd $(ROCKSDB_BUILD_DIR) && cmake .. $(BASE_CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPORTABLE=ON -DWITH_TESTS=OFF \
 	-DWITH_BENCHMARK_TOOLS=OFF -DWITH_SNAPPY=ON -DUSE_RTTI=ON -DWITH_GFLAGS=OFF \
 	&& make -j $(NPROC) install
 endif
@@ -87,7 +88,15 @@ endif
 
 .PHONY: build-broker build-client
 build-broker:
+ifdef linux-os-host
+	CGO_ENABLED=1 CGO_CFLAGS="-I/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/include" \
+	CGO_LDFLAGS="-L/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/build -lrocksdb -lstdc++ -lm -lsnappy -ldl" \
+	GOOS=linux GOARCH=amd64 \
 	go build -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
+endif
+ifdef mac-os-host
+	go build -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
+endif
 
 build-client:
 	go build -o ./${CLIENT_BIN_DIR}/${CLIENT_BIN_NAME} ./${CLIENT_BIN_DIR}...
