@@ -58,7 +58,7 @@ $ make build
 4. Run `make install` and execute ShapleQ CLI 
 ```
 $ make install 
-$ shapleQ 
+$ shapleq 
 ShapleQ cli
 
 Usage:
@@ -73,7 +73,7 @@ Available Commands:
 Flags:
   -h, --help   help for shapleQ
 
-Use "shapleQ [command] --help" for more information about a command.
+Use "shapleq [command] --help" for more information about a command.
 ```
 ## Configurations
 We support below configurations to setup broker.
@@ -111,19 +111,19 @@ $ zkServer start
 	- `—-data-dir` directory for saving data file
 
 ```shell
-$ shapleQ start --port 11010 -d
+$ shapleq start --port 11010 -d
 ```
 
 #### Stop broker
 
 ```shell
-$ shapleQ stop
+$ shapleq stop
 ```
 
 #### Status of broker
 
 ```shell
-$ shapleQ status
+$ shapleq status
 ```
 
 ### Client
