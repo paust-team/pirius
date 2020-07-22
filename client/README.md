@@ -1,83 +1,96 @@
 # ShapleQ Client
 If you want ShapleQ Client only, just type `go get github.com/paust-team/ShapleQ/client`
+
+## Configurations
+We support below configurations to setup client.
+
+```yaml
+broker:
+  port: 1101 # broker port
+  host: localhost # broker address
+timeout: 3 # connection timeout (seconds)
+log-level: INFO # DEBUG/INFO/WARNING/ERROR
+```
+
+Same as the structure for setting broker configuration.
+
 ## Usage
 Before running client cli, ShapleQ broker and zookeeper must be running
 
-### Create topic
-- **Flags**
-	- `-z` zk-address `required`
-	- `-n` topic name `required`
-	- `-m` topic meta or description
+### Common Flags
+- `--broker-host` broker host
+- `--broker-port` broker port
+- `--timeout` connection timeout
+- `--log-level` log level
 
+### Commands
+#### Create topic
+- **Flags**
+	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
+	- `-n, --topic` topic name
+	- `-m, --topic-meta` topic meta or description
 
 ```shell
-$ shapleQ-cli topic create -z [zk-host] -n [topic-name] -m [topic-description]
+$ shapleQ-cli topic create -n [topic-name] -m [topic-description]
 ```
 
-### Delete topic
+#### Delete topic
 - **Flags**
-	- `-z` zk-address `required`
-	- `-n` topic name `required`
-
+	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
+	- `-n, --topic` topic name `required`
 
 ```shell
-$ shapleQ-cli topic delete -z [zk-host] -n [topic-name]
+$ shapleQ-cli topic delete -n [topic-name]
 ```
 
-### List topic
+#### List topic
 - **Flags**
-	- `-z` zk-address `required`
-
+	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 
 ```shell
-$ shapleQ-cli topic list -z [zk-host]
+$ shapleQ-cli topic list
 ```
 
-### Describe topic
+#### Describe topic
 - **Flags**
-	- `-z` zk-address `required`
-	- `-n` topic name `required`
-
+	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
+	- `-n, --topic` topic name `required`
 
 ```shell
 $ shapleQ-cli topic describe -z [zk-host] -n [topic-name]
 ```
 
-### Publish topic data
+#### Publish topic data
 ***NOTE: The topic must be created before publish the data to it(see Create topic data cmd)***
 - **Flags**
-	- `-p` broker port (default 11010)
-	- `-z` zk-address `required`
-	- `-n` topic name `required`
-	- `-f` file path to publish (read from file and publish data line by)
+	- `-i, --config-path` config path (default: ~/.shapleq/config/producer/config.yml)
+	- `-n, --topic` topic name `required`
+	- `-f, --file-path` file path to publish (read from file and publish data line by)
 
-	
 ```shell
-$ shapleQ-cli publish [byte-string-data-to-publish] -n [topic-name] -z [zk-host]
+$ shapleQ-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-host 172.32.0.1
 ```
 
-### Subscribe topic data
+#### Subscribe topic data
 ***NOTE: At least one data must be published before subscribe the topic***
 - **Flags**
-	- `-p` broker port (default 11010)
-	- `-z` zk-address `required`
-	- `-n` topic name `required`
-	- `-o` start offset (default 0)
-
+	- `-i, --config-path` config path (default: ~/.shapleq/config/consumer/config.yml)
+	- `-n, --topic` topic name `required`
+	- `-o, --offset` start offset (default 0)
 	
 ```shell
-$ shapleQ-cli subscribe -n [topic-name] -z [zk-host]
+$ shapleQ-cli subscribe -n [topic-name] --broker-host 172.32.0.1
 ```
 
 Subscribe command will not stop until broker had stopped or received `sigint` or `sigterm`
 
-## Development Guide
+## Development Guide [WIP]
 You can build your own application using Producer, Consumer client library.
 
 ### Producer
 The `producer` client is a client that sends the produced data to the broker. Any developer who wants to publish data to ShapleQ Network can write the ShapleQ client application using `producer` client library.
 
-### Structs
+#### Structs
 
 ```go
 
