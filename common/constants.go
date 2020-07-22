@@ -6,14 +6,12 @@ import (
 )
 
 var (
-	DefaultHomeDir                  = os.ExpandEnv("$HOME/.shapleq")
-	DefaultBrokerConfigDir          = fmt.Sprintf("%s/config/broker", DefaultHomeDir)
-	DefaultAdminConfigDir           = fmt.Sprintf("%s/config/admin", DefaultHomeDir)
-	DefaultProducerConfigDir        = fmt.Sprintf("%s/config/producer", DefaultHomeDir)
-	DefaultConsumerConfigDir        = fmt.Sprintf("%s/config/consumer", DefaultHomeDir)
-	DefaultBrokerPort        uint   = 1101
-	DefaultTimeout           uint   = 3
-	DefaultConfigName        string = "config"
+	DefaultHomeDir                 = os.ExpandEnv("$HOME/.shapleq")
+	DefaultBrokerConfigPath        = fmt.Sprintf("%s/config/broker/config.yml", DefaultHomeDir)
+	DefaultAdminConfigPath         = fmt.Sprintf("%s/config/admin/config.yml", DefaultHomeDir)
+	DefaultProducerConfigPath      = fmt.Sprintf("%s/config/producer/config.yml", DefaultHomeDir)
+	DefaultConsumerConfigPath      = fmt.Sprintf("%s/config/consumer/config.yml", DefaultHomeDir)
+	DefaultBrokerPort         uint = 1101
 )
 
 type BackPressure int

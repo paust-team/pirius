@@ -14,11 +14,18 @@ import (
 )
 
 var (
-	configDir string
+	configPath string
+	logDir     string
+	dataDir    string
+	logLevel   uint8
+	port       uint
+	zkHost     string
+	zkPort     uint
 )
 
 func NewStartCmd() *cobra.Command {
 
+	brokerConfig := config.NewBrokerConfig()
 	var startCmd = &cobra.Command{
 		Use:   "start",
 		Short: "start shapleq broker",
@@ -57,7 +64,7 @@ func NewStartCmd() *cobra.Command {
 				fmt.Printf("run broker on background with process id %d", daemon.Process.Pid)
 				return
 			} else {
-				brokerConfig := config.NewBrokerConfig().Load(configDir)
+				brokerConfig.Load(configPath)
 				brokerInstance := broker.NewBroker(brokerConfig)
 
 				sigCh := make(chan os.Signal, 1)
@@ -87,7 +94,17 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	startCmd.Flags().BoolP("daemon", "d", false, "run with daemon")
-	startCmd.Flags().StringVarP(&configDir, "config-dir", "p", common.DefaultBrokerConfigDir, "broker config directory")
+	startCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultBrokerConfigPath, "broker config directory")
+	startCmd.Flags().StringVar(&logDir, "log-dir", "", "log directory")
+	startCmd.Flags().StringVar(&dataDir, "data-dir", "", "data directory")
+	startCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	startCmd.Flags().UintVar(&port, "port", 0, "broker port")
+	startCmd.Flags().StringVar(&zkHost, "zk-host", "", "zookeeper host")
+	startCmd.Flags().UintVar(&zkPort, "zk-port", 0, "zookeeper port")
+
+	brokerConfig.BindPFlags(startCmd.Flags())
+	brokerConfig.BindPFlag("zookeeper.host", startCmd.Flags().Lookup("zk-host"))
+	brokerConfig.BindPFlag("zookeeper.port", startCmd.Flags().Lookup("zk-port"))
 
 	return startCmd
 }

@@ -16,13 +16,14 @@ var (
 
 func NewHeartbeatCmd() *cobra.Command {
 
+	adminConfig := config.NewAdminConfig()
+
 	var heartbeatCmd = &cobra.Command{
 		Use:   "heartbeat",
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminConfig := config.NewAdminConfig()
-			adminConfig.Load(common.DefaultAdminConfigDir)
+			adminConfig.Load(configPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -41,8 +42,16 @@ func NewHeartbeatCmd() *cobra.Command {
 	}
 
 	heartbeatCmd.Flags().StringVarP(&echoMsg, "echo-msg", "m", "echotest", "message to ping-pong")
-	heartbeatCmd.Flags().Uint64VarP(&brokerId, "broker-id", "i", 0, "broker id to send ping")
-	heartbeatCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultAdminConfigDir, "admin client config directory")
+	heartbeatCmd.Flags().Uint64VarP(&brokerId, "broker-id", "u", 0, "broker id to send ping")
+	heartbeatCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
+	heartbeatCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
+	heartbeatCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	heartbeatCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	heartbeatCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
+
+	adminConfig.BindPFlags(heartbeatCmd.Flags())
+	adminConfig.BindPFlag("broker.host", heartbeatCmd.Flags().Lookup("broker-host"))
+	adminConfig.BindPFlag("broker.port", heartbeatCmd.Flags().Lookup("broker-port"))
 
 	return heartbeatCmd
 }

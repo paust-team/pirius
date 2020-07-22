@@ -21,7 +21,6 @@ type BrokerConfig struct {
 func NewBrokerConfig() *BrokerConfig {
 
 	v := viper.New()
-	v.SetConfigName(common.DefaultConfigName)
 
 	v.SetDefault("port", common.DefaultBrokerPort)
 	v.SetDefault("log-dir", defaultLogDir)
@@ -36,9 +35,8 @@ func NewBrokerConfig() *BrokerConfig {
 	return &BrokerConfig{v}
 }
 
-func (b *BrokerConfig) Load(configDir string) *BrokerConfig {
-	b.SetConfigType("yaml")
-	b.AddConfigPath(configDir)
+func (b *BrokerConfig) Load(configPath string) *BrokerConfig {
+	b.SetConfigFile(configPath)
 	err := b.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))

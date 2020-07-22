@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-var configDir string
+var configPath string
 
 var shapleQClientCmd = &cobra.Command{
 	Use:   "shapleq-client [command] (flags)",

@@ -14,14 +14,14 @@ func TestBrokerConfigLoad(t *testing.T) {
 		t.Errorf("wrong default value")
 	}
 
-	brokerConfig.Load("./")
+	brokerConfig.Load("./config.yml")
 	if brokerConfig.ZKTimeout() == zookeeper.DefaultTimeout {
 		t.Errorf("value in file is not wrapped")
 	}
 }
 
 func TestBrokerConfigSet(t *testing.T) {
-	brokerConfig := NewBrokerConfig().Load("./")
+	brokerConfig := NewBrokerConfig().Load("./config.yml")
 
 	if brokerConfig.Port() != common.DefaultBrokerPort {
 		t.Errorf("wrong default value")
@@ -36,7 +36,7 @@ func TestBrokerConfigSet(t *testing.T) {
 }
 
 func TestBrokerConfigStructured(t *testing.T) {
-	brokerConfig := NewBrokerConfig().Load("./")
+	brokerConfig := NewBrokerConfig().Load("./config.yml")
 
 	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", zookeeper.DefaultHost, zookeeper.DefaultPort) {
 		t.Errorf("wrong default value")

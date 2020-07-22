@@ -20,7 +20,6 @@ var (
 func NewClientConfigBase() *ClientConfigBase {
 
 	v := viper.New()
-	v.SetConfigName(common.DefaultConfigName)
 
 	v.SetDefault("log-level", logger.LogLevelToString(defaultLogLevel))
 	v.SetDefault("timeout", defaultTimeout)
@@ -32,9 +31,8 @@ func NewClientConfigBase() *ClientConfigBase {
 	return &ClientConfigBase{v}
 }
 
-func (c *ClientConfigBase) Load(configDir string) *ClientConfigBase {
-	c.SetConfigType("yaml")
-	c.AddConfigPath(configDir)
+func (c *ClientConfigBase) Load(configPath string) *ClientConfigBase {
+	c.SetConfigFile(configPath)
 	err := c.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))

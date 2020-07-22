@@ -18,6 +18,8 @@ var (
 
 func NewSubscribeCmd() *cobra.Command {
 
+	consumerConfig := config.NewConsumerConfig()
+
 	var subscribeCmd = &cobra.Command{
 		Use:   "subscribe",
 		Short: "subscribe data from topic",
@@ -26,8 +28,7 @@ func NewSubscribeCmd() *cobra.Command {
 			defer close(sigCh)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			consumerConfig := config.NewConsumerConfig()
-			consumerConfig.Load(configDir)
+			consumerConfig.Load(configPath)
 			consumer := client.NewConsumer(consumerConfig, topicName)
 			if err := consumer.Connect(); err != nil {
 				log.Fatal(err)
@@ -57,8 +58,17 @@ func NewSubscribeCmd() *cobra.Command {
 
 	subscribeCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to subscribe from")
 	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
-	subscribeCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultConsumerConfigDir, "consumer client config directory")
+	subscribeCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultConsumerConfigPath, "consumer client config path")
+	subscribeCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
+	subscribeCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	subscribeCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	subscribeCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
+
 	subscribeCmd.MarkFlagRequired("topic")
+
+	consumerConfig.BindPFlags(subscribeCmd.Flags())
+	consumerConfig.BindPFlag("broker.host", subscribeCmd.Flags().Lookup("broker-host"))
+	consumerConfig.BindPFlag("broker.port", subscribeCmd.Flags().Lookup("broker-port"))
 
 	return subscribeCmd
 }

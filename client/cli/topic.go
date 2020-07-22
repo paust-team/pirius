@@ -10,8 +10,12 @@ import (
 )
 
 var (
-	topicName string
-	topicMeta string
+	topicName  string
+	topicMeta  string
+	brokerHost string
+	brokerPort uint
+	logLevel   uint8
+	timeout    int
 )
 
 func NewTopicCmd() *cobra.Command {
@@ -21,10 +25,17 @@ func NewTopicCmd() *cobra.Command {
 		Short: "topic commands",
 	}
 
-	topicCmd.Flags().StringVarP(&configDir, "config-dir", "c", common.DefaultAdminConfigDir, "admin client config directory")
+	topicCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
+	topicCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
+	topicCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	topicCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	topicCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
 
 	adminConfig := config.NewAdminConfig()
-	adminConfig.Load(configDir)
+
+	adminConfig.BindPFlags(topicCmd.Flags())
+	adminConfig.BindPFlag("broker.host", topicCmd.Flags().Lookup("broker-host"))
+	adminConfig.BindPFlag("broker.port", topicCmd.Flags().Lookup("broker-port"))
 
 	topicCmd.AddCommand(
 		NewCreateTopicCmd(adminConfig),
@@ -43,6 +54,7 @@ func NewCreateTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
+			adminConfig.Load(configPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -74,6 +86,7 @@ func NewDeleteTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
+			adminConfig.Load(configPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -103,6 +116,7 @@ func NewListTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
+			adminConfig.Load(configPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -133,6 +147,7 @@ func NewDescribeTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
+			adminConfig.Load(configPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
