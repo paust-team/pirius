@@ -31,7 +31,7 @@ Before running client cli, ShapleQ broker and zookeeper must be running
 	- `-m, --topic-meta` topic meta or description
 
 ```shell
-$ shapleQ-cli topic create -n [topic-name] -m [topic-description]
+$ shapleq-cli topic create -n [topic-name] -m [topic-description]
 ```
 
 #### Delete topic
@@ -40,7 +40,7 @@ $ shapleQ-cli topic create -n [topic-name] -m [topic-description]
 	- `-n, --topic` topic name `required`
 
 ```shell
-$ shapleQ-cli topic delete -n [topic-name]
+$ shapleq-cli topic delete -n [topic-name]
 ```
 
 #### List topic
@@ -48,7 +48,7 @@ $ shapleQ-cli topic delete -n [topic-name]
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 
 ```shell
-$ shapleQ-cli topic list
+$ shapleq-cli topic list
 ```
 
 #### Describe topic
@@ -57,7 +57,7 @@ $ shapleQ-cli topic list
 	- `-n, --topic` topic name `required`
 
 ```shell
-$ shapleQ-cli topic describe -z [zk-host] -n [topic-name]
+$ shapleq-cli topic describe -z [zk-host] -n [topic-name]
 ```
 
 #### Publish topic data
@@ -68,7 +68,7 @@ $ shapleQ-cli topic describe -z [zk-host] -n [topic-name]
 	- `-f, --file-path` file path to publish (read from file and publish data line by)
 
 ```shell
-$ shapleQ-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-host 172.32.0.1
+$ shapleq-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-host 172.32.0.1
 ```
 
 #### Subscribe topic data
@@ -79,7 +79,7 @@ $ shapleQ-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-hos
 	- `-o, --offset` start offset (default 0)
 	
 ```shell
-$ shapleQ-cli subscribe -n [topic-name] --broker-host 172.32.0.1
+$ shapleq-cli subscribe -n [topic-name] --broker-host 172.32.0.1
 ```
 
 Subscribe command will not stop until broker had stopped or received `sigint` or `sigterm`
