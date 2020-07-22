@@ -75,6 +75,21 @@ Flags:
 
 Use "shapleQ [command] --help" for more information about a command.
 ```
+## Configurations
+We support below configurations to setup broker.
+
+```yaml
+port: 1101  # broker port
+log-dir: ~/.shapleq/log # log directory
+data-dir: ~/.shapleq/data # data directory
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+zookeeper:
+  port: 2181
+  host: localhost
+  timeout: 3 # zookeeper connection timeout(seconds)
+```
+
+Default template for configuring the broker is located at `broker/config/config.yml`. And every config files will be installed in `${HOME}/.shapleq/config` via `make install-config` command. 
 
 ## Usage
 ### Broker
@@ -85,17 +100,18 @@ $ zkServer start
 ```
 
 #### Start broker
-- **Flags**
-	- `-d` run with background
-	- `-p` port (default 11010)
-	- `-z` zk-address `required`
-	- `—log-level` log level : 0-debug, 1-info, 2-warning, 3-error (default: 1)
-	- `—log-dir` directory for saving log file (default ~/.shapleQ/log)
-	- `—data-dir` directory for saving data file (default ~/.shapleQ/data)
-
+- **Flags** (***Flags will override corresponding configurations***)
+	- `-i, --config-path` config path (default: ~/.shapleq/config/broker/config.yml)
+	- `-d, --daemon` run with background
+	- `--port` port
+	- `--zk-host` zookeeper host
+	- `--zk-port` zookeeper port
+	- `-—log-level` log level : 0-debug, 1-info, 2-warning, 3-error
+	- `—-log-dir` directory for saving log file
+	- `—-data-dir` directory for saving data file
 
 ```shell
-$ shapleQ start -z [zk-host]
+$ shapleQ start --port 11010 -d
 ```
 
 #### Stop broker
