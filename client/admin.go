@@ -13,9 +13,9 @@ import (
 )
 
 type Admin struct {
-	socket    *network.Socket
-	config    *config.AdminConfig
-	mu        sync.Mutex
+	socket *network.Socket
+	config *config.AdminConfig
+	sync.Mutex
 	connected bool
 	logger    *logger.QLogger
 }
@@ -24,171 +24,175 @@ func NewAdmin(config *config.AdminConfig) *Admin {
 
 	l := logger.NewQLogger("Admin-client", config.LogLevel())
 	return &Admin{
+		Mutex:     sync.Mutex{},
 		config:    config,
 		connected: false,
 		logger:    l,
-		mu:        sync.Mutex{},
 	}
 }
 
-func (client *Admin) WithConnection(socket *network.Socket) *Admin {
-	client.socket = socket
-	client.connected = true
-	return client
+func (a *Admin) WithConnection(socket *network.Socket) *Admin {
+	a.socket = socket
+	a.Lock()
+	a.connected = true
+	a.Unlock()
+	return a
 }
 
-func (client *Admin) Connect() error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	conn, err := net.Dial("tcp", client.config.BrokerAddr())
+func (a *Admin) Connect() error {
+
+	conn, err := net.Dial("tcp", a.config.BrokerAddr())
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
 
-	client.socket = network.NewSocket(conn, client.config.Timeout(), client.config.Timeout())
-	client.connected = true
+	a.socket = network.NewSocket(conn, a.config.Timeout(), a.config.Timeout())
+	a.Lock()
+	a.connected = true
+	a.Unlock()
 	return nil
 }
 
-func (client *Admin) Close() {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	client.connected = false
-	client.socket.Close()
+func (a *Admin) Close() {
+	a.Lock()
+	a.connected = false
+	a.Unlock()
+	a.socket.Close()
 }
 
-func (client *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+func (a *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
 
-	if !client.connected {
+	a.Lock()
+	if !a.connected {
+		a.Unlock()
 		return errors.New("admin client is not connected to broker")
 	}
+	a.Unlock()
 
 	sendMsg, err := message.NewQMessageFromMsg(message.TRANSACTION, requestMsg)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
-	if err := client.socket.Write(sendMsg); err != nil {
-		client.logger.Error(err)
+	if err := a.socket.Write(sendMsg); err != nil {
+		a.logger.Error(err)
 		return err
 	}
 
-	receivedMsg, err := client.socket.Read()
+	receivedMsg, err := a.socket.Read()
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
 
 	if err := receivedMsg.UnpackTo(responseMsg); err != nil {
 		err = errors.New("unhandled error occurred")
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
 	return nil
 }
 
-func (client *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+func (a *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
 
 	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
 	response := &shapleqproto.CreateTopicResponse{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error(response.ErrorMessage)
+		a.logger.Error(response.ErrorMessage)
 		return err
 	}
 	return nil
 }
 
-func (client *Admin) DeleteTopic(topicName string) error {
+func (a *Admin) DeleteTopic(topicName string) error {
 
 	request := message.NewDeleteTopicRequestMsg(topicName)
 	response := &shapleqproto.DeleteTopicResponse{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return err
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error(response.ErrorMessage)
+		a.logger.Error(response.ErrorMessage)
 		return err
 	}
 	return nil
 }
 
-func (client *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResponse, error) {
+func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResponse, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &shapleqproto.DescribeTopicResponse{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return nil, err
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error(response.ErrorMessage)
+		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
 	return response, nil
 }
 
-func (client *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
+func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 
 	request := message.NewListTopicRequestMsg()
 	response := &shapleqproto.ListTopicResponse{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return nil, err
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error(response.ErrorMessage)
+		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
 	return response, nil
 }
 
-func (client *Admin) DiscoverBroker(topicName string, sessionType shapleqproto.SessionType) (*shapleqproto.DiscoverBrokerResponse, error) {
+func (a *Admin) DiscoverBroker(topicName string, sessionType shapleqproto.SessionType) (*shapleqproto.DiscoverBrokerResponse, error) {
 
 	request := message.NewDiscoverBrokerRequestMsg(topicName, sessionType)
 	response := &shapleqproto.DiscoverBrokerResponse{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return nil, err
 	}
 
 	if response.ErrorCode != 0 {
-		client.logger.Error(response.ErrorMessage)
+		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
 
 	return response, nil
 }
 
-func (client *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {
+func (a *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {
 
 	request := message.NewPingMsg(msg, brokerId)
 	response := &shapleqproto.Pong{}
 
-	err := client.callAndUnpackTo(request, response)
+	err := a.callAndUnpackTo(request, response)
 	if err != nil {
-		client.logger.Error(err)
+		a.logger.Error(err)
 		return nil, err
 	}
 
