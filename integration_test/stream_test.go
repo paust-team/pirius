@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/client"
+	config2 "github.com/paust-team/shapleq/client/config"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/zookeeper"
 	"log"
@@ -16,6 +18,9 @@ import (
 )
 
 var testLogLevel = logger.Debug
+var brokerPort uint = 1101
+var brokerHost = "127.0.0.1"
+var zkAddr = "127.0.0.1"
 
 func Sleep(sec int) {
 	time.Sleep(time.Duration(sec) * time.Second)
@@ -47,12 +52,10 @@ func contains(s [][]byte, e []byte) bool {
 }
 
 func TestStreamClient_Connect(t *testing.T) {
-	brokerAddr := "127.0.0.1:1101"
-	zkAddr := "127.0.0.1"
 	topic := "test_topic1"
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr)
+	zkClient := zookeeper.NewZKClient(zkAddr, 3)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -61,7 +64,11 @@ func TestStreamClient_Connect(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetPort(brokerPort)
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 
@@ -76,7 +83,11 @@ func TestStreamClient_Connect(t *testing.T) {
 
 	Sleep(1)
 
-	admin := client.NewAdmin(brokerAddr)
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetBrokerHost(brokerHost)
+	adminConfig.SetBrokerPort(brokerPort)
+	admin := client.NewAdmin(adminConfig)
 	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -87,14 +98,22 @@ func TestStreamClient_Connect(t *testing.T) {
 		return
 	}
 
-	producer := client.NewProducer(brokerAddr, topic)
+	producerConfig := config2.NewProducerConfig()
+	producerConfig.SetLogLevel(testLogLevel)
+	producerConfig.SetBrokerHost(brokerHost)
+	producerConfig.SetBrokerPort(brokerPort)
+	producer := client.NewProducer(producerConfig, topic)
 	defer producer.Close()
 	if err := producer.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
 
-	consumer := client.NewConsumer(brokerAddr, topic)
+	consumerConfig := config2.NewConsumerConfig()
+	consumerConfig.SetLogLevel(testLogLevel)
+	consumerConfig.SetBrokerHost(brokerHost)
+	consumerConfig.SetBrokerPort(brokerPort)
+	consumer := client.NewConsumer(consumerConfig, topic)
 	defer consumer.Close()
 	if err := consumer.Connect(); err != nil {
 		t.Error(err)
@@ -103,7 +122,6 @@ func TestStreamClient_Connect(t *testing.T) {
 }
 
 func TestPubSub(t *testing.T) {
-	zkAddr := "127.0.0.1"
 
 	expectedRecords := [][]byte{
 		{'g', 'o', 'o', 'g', 'l', 'e'},
@@ -114,7 +132,7 @@ func TestPubSub(t *testing.T) {
 	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr)
+	zkClient := zookeeper.NewZKClient(zkAddr, 3)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -123,7 +141,10 @@ func TestPubSub(t *testing.T) {
 	defer zkClient.RemoveAllPath()
 
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 	defer brokerInstance.Clean()
@@ -136,9 +157,13 @@ func TestPubSub(t *testing.T) {
 	}()
 
 	Sleep(1)
-	brokerAddr := "127.0.0.1:1101"
+
 	// Create topic rpc
-	admin := client.NewAdmin(brokerAddr)
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetBrokerHost(brokerHost)
+	adminConfig.SetBrokerPort(brokerPort)
+	admin := client.NewAdmin(adminConfig)
 	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -151,7 +176,11 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// Start producer
-	producer := client.NewProducer(brokerAddr, topic).WithLogLevel(testLogLevel)
+	producerConfig := config2.NewProducerConfig()
+	producerConfig.SetLogLevel(testLogLevel)
+	producerConfig.SetBrokerHost(brokerHost)
+	producerConfig.SetBrokerPort(brokerPort)
+	producer := client.NewProducer(producerConfig, topic)
 	if err := producer.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -189,7 +218,11 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	consumer := client.NewConsumer(brokerAddr, topic).WithLogLevel(testLogLevel)
+	consumerConfig := config2.NewConsumerConfig()
+	consumerConfig.SetLogLevel(testLogLevel)
+	consumerConfig.SetBrokerHost(brokerHost)
+	consumerConfig.SetBrokerPort(brokerPort)
+	consumer := client.NewConsumer(consumerConfig, topic)
 	if err := consumer.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -233,11 +266,10 @@ func TestPubSub(t *testing.T) {
 }
 
 func TestMultiClient(t *testing.T) {
-	zkAddr := "127.0.0.1"
 	topic := "topic3"
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr)
+	zkClient := zookeeper.NewZKClient(zkAddr, 3)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -245,7 +277,10 @@ func TestMultiClient(t *testing.T) {
 	defer zkClient.Close()
 	defer zkClient.RemoveAllPath()
 
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 	defer brokerInstance.Clean()
@@ -259,8 +294,11 @@ func TestMultiClient(t *testing.T) {
 
 	Sleep(1)
 
-	brokerAddr := "127.0.0.1:1101"
-	admin := client.NewAdmin(brokerAddr)
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetBrokerHost(brokerHost)
+	adminConfig.SetBrokerPort(brokerPort)
+	admin := client.NewAdmin(adminConfig)
 	if err := admin.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -273,7 +311,12 @@ func TestMultiClient(t *testing.T) {
 
 	runProducer := func(fileName string) [][]byte {
 		records := getRecordsFromFile(fileName)
-		producer := client.NewProducer(brokerAddr, topic)
+
+		producerConfig := config2.NewProducerConfig()
+		producerConfig.SetLogLevel(testLogLevel)
+		producerConfig.SetBrokerHost(brokerHost)
+		producerConfig.SetBrokerPort(brokerPort)
+		producer := client.NewProducer(producerConfig, topic)
 		if err := producer.Connect(); err != nil {
 			t.Error(err)
 			return nil
@@ -329,7 +372,12 @@ func TestMultiClient(t *testing.T) {
 
 	runConsumer := func() SubscribedRecords {
 		var subscribedRecords SubscribedRecords
-		consumer := client.NewConsumer(brokerAddr, topic).WithLogLevel(testLogLevel)
+
+		consumerConfig := config2.NewConsumerConfig()
+		consumerConfig.SetLogLevel(testLogLevel)
+		consumerConfig.SetBrokerHost(brokerHost)
+		consumerConfig.SetBrokerPort(brokerPort)
+		consumer := client.NewConsumer(consumerConfig, topic)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
 			return nil

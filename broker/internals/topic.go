@@ -28,7 +28,7 @@ func (t *Topic) LastOffset() uint64 {
 }
 
 type TopicMeta struct {
-	data    []byte
+	data []byte
 }
 
 func NewTopicMeta(data []byte) *TopicMeta {

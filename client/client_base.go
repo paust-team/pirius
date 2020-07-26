@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/paust-team/shapleq/common"
+	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
@@ -19,25 +19,20 @@ type ReceivedData struct {
 
 type ClientBase struct {
 	sync.Mutex
-	socket     *network.Socket
-	brokerAddr string
-	connected  bool
-	timeout    uint
+	socket    *network.Socket
+	connected bool
+	config    *config.ClientConfigBase
 }
 
-func newClientBase() *ClientBase {
+func newClientBase(config *config.ClientConfigBase) *ClientBase {
 	return &ClientBase{
 		Mutex:     sync.Mutex{},
 		connected: false,
-		timeout:   common.DefaultTimeout,
+		config:    config,
 	}
 }
 
-func (c *ClientBase) setTimeout(timeout uint) {
-	c.timeout = timeout
-}
-
-func (c ClientBase) isConnected() bool {
+func (c *ClientBase) isConnected() bool {
 	c.Lock()
 	defer c.Unlock()
 	return c.connected
@@ -45,16 +40,15 @@ func (c ClientBase) isConnected() bool {
 
 func (c *ClientBase) connectToBroker(brokerAddr string) error {
 	if c.isConnected() {
-		return pqerror.AlreadyConnectedError{Addr: c.brokerAddr}
+		return pqerror.AlreadyConnectedError{Addr: brokerAddr}
 	}
 
 	conn, err := net.Dial("tcp", brokerAddr)
 	if err != nil {
 		return pqerror.DialFailedError{Addr: brokerAddr, Err: err}
 	}
-	c.socket = network.NewSocket(conn, c.timeout, c.timeout)
+	c.socket = network.NewSocket(conn, c.config.Timeout(), c.config.Timeout())
 
-	c.brokerAddr = brokerAddr
 	c.Lock()
 	c.connected = true
 	c.Unlock()
@@ -103,8 +97,8 @@ func (c *ClientBase) receive() (*message.QMessage, error) {
 	return c.socket.Read()
 }
 
-func (c *ClientBase) connect(sessionType shapleqproto.SessionType, brokerAddr string, topic string) error {
-	err := c.connectToBroker(brokerAddr)
+func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string) error {
+	err := c.connectToBroker(c.config.BrokerAddr())
 	if err != nil {
 		return err
 	}

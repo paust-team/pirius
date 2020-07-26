@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/paust-team/shapleq/client"
-	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -15,12 +16,17 @@ var (
 )
 
 func NewPublishCmd() *cobra.Command {
+
+	producerConfig := config.NewProducerConfig()
+
 	var publishCmd = &cobra.Command{
 		Use:   "publish (byte-string-data)",
 		Short: "Publish data to topic",
 		Run: func(cmd *cobra.Command, args []string) {
 			sigCh := make(chan os.Signal, 1)
-			producer := client.NewProducer(brokerAddr, topicName).WithTimeout(timeout).WithLogLevel(logger.Error)
+
+			producerConfig.Load(configPath)
+			producer := client.NewProducer(producerConfig, topicName)
 
 			if err := producer.Connect(); err != nil {
 				log.Fatal(err)
@@ -72,8 +78,17 @@ func NewPublishCmd() *cobra.Command {
 
 	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish to")
 	publishCmd.Flags().StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
+	publishCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultProducerConfigPath, "producer client config path")
+	publishCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
+	publishCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	publishCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	publishCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
 
 	publishCmd.MarkFlagRequired("topic")
+
+	producerConfig.BindPFlags(publishCmd.Flags())
+	producerConfig.BindPFlag("broker.host", publishCmd.Flags().Lookup("broker-host"))
+	producerConfig.BindPFlag("broker.port", publishCmd.Flags().Lookup("broker-port"))
 
 	return publishCmd
 }

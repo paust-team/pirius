@@ -3,14 +3,19 @@ package cli
 import (
 	"fmt"
 	"github.com/paust-team/shapleq/client"
-	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/spf13/cobra"
 	"os"
 )
 
 var (
-	topicName string
-	topicMeta string
+	topicName  string
+	topicMeta  string
+	brokerHost string
+	brokerPort uint
+	logLevel   uint8
+	timeout    int
 )
 
 func NewTopicCmd() *cobra.Command {
@@ -20,23 +25,37 @@ func NewTopicCmd() *cobra.Command {
 		Short: "topic commands",
 	}
 
+	topicCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
+	topicCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
+	topicCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	topicCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	topicCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
+
+	adminConfig := config.NewAdminConfig()
+
+	adminConfig.BindPFlags(topicCmd.Flags())
+	adminConfig.BindPFlag("broker.host", topicCmd.Flags().Lookup("broker-host"))
+	adminConfig.BindPFlag("broker.port", topicCmd.Flags().Lookup("broker-port"))
+
 	topicCmd.AddCommand(
-		NewCreateTopicCmd(),
-		NewListTopicCmd(),
-		NewDeleteTopicCmd(),
-		NewDescribeTopicCmd(),
+		NewCreateTopicCmd(adminConfig),
+		NewListTopicCmd(adminConfig),
+		NewDeleteTopicCmd(adminConfig),
+		NewDescribeTopicCmd(adminConfig),
 	)
 
 	return topicCmd
 }
 
-func NewCreateTopicCmd() *cobra.Command {
+func NewCreateTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 
 	var createTopicCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdmin(brokerAddr).WithLogLevel(logger.Error)
+
+			adminConfig.Load(configPath)
+			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -60,13 +79,15 @@ func NewCreateTopicCmd() *cobra.Command {
 	return createTopicCmd
 }
 
-func NewDeleteTopicCmd() *cobra.Command {
+func NewDeleteTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 
 	var deleteTopicCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
-			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+
+			adminConfig.Load(configPath)
+			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -88,14 +109,15 @@ func NewDeleteTopicCmd() *cobra.Command {
 	return deleteTopicCmd
 }
 
-func NewListTopicCmd() *cobra.Command {
+func NewListTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 
 	var listTopicCmd = &cobra.Command{
 		Use:   "list",
 		Short: "Get list of all existing topics",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			adminConfig.Load(configPath)
+			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {
@@ -118,14 +140,15 @@ func NewListTopicCmd() *cobra.Command {
 	return listTopicCmd
 }
 
-func NewDescribeTopicCmd() *cobra.Command {
+func NewDescribeTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 
 	var describeTopicCmd = &cobra.Command{
 		Use:   "describe",
 		Short: "Describe topic",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminClient := client.NewAdmin(brokerAddr).WithTimeout(timeout).WithLogLevel(logger.Error)
+			adminConfig.Load(configPath)
+			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
 			if err := adminClient.Connect(); err != nil {

@@ -3,19 +3,20 @@ package integration_test
 import (
 	"fmt"
 	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/client"
-	"github.com/paust-team/shapleq/common"
+	config2 "github.com/paust-team/shapleq/client/config"
 	"sync"
 	"testing"
 )
 
 func TestHeartBeat(t *testing.T) {
 
-	zkAddr := "127.0.0.1"
-	brokerAddr := fmt.Sprintf("127.0.0.1:%d", common.DefaultBrokerPort)
-
 	// Start broker
-	brokerInstance := broker.NewBroker(zkAddr).WithLogLevel(testLogLevel)
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
 
@@ -30,7 +31,11 @@ func TestHeartBeat(t *testing.T) {
 
 	Sleep(1)
 
-	adminClient := client.NewAdmin(brokerAddr)
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetBrokerHost(brokerHost)
+	adminConfig.SetBrokerPort(brokerPort)
+	adminClient := client.NewAdmin(adminConfig)
 	defer adminClient.Close()
 
 	if err := adminClient.Connect(); err != nil {

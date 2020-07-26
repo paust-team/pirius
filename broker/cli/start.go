@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 	"github.com/paust-team/shapleq/broker"
+	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/common"
-	logger "github.com/paust-team/shapleq/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"os"
@@ -14,15 +14,19 @@ import (
 )
 
 var (
-	logDir   string
-	dataDir  string
-	logLevel uint8
-	port     uint
-	zkAddr   string
+	configPath string
+	logDir     string
+	dataDir    string
+	logLevel   uint8
+	port       uint
+	zkHost     string
+	zkPort     uint
+	zkTimeout  uint
 )
 
 func NewStartCmd() *cobra.Command {
 
+	brokerConfig := config.NewBrokerConfig()
 	var startCmd = &cobra.Command{
 		Use:   "start",
 		Short: "start shapleq broker",
@@ -61,21 +65,8 @@ func NewStartCmd() *cobra.Command {
 				fmt.Printf("run broker on background with process id %d", daemon.Process.Pid)
 				return
 			} else {
-
-				brokerInstance := broker.NewBroker(zkAddr)
-
-				if cmd.Flags().Changed("port") {
-					brokerInstance = brokerInstance.WithPort(port)
-				}
-				if cmd.Flags().Changed("log-dir") {
-					brokerInstance = brokerInstance.WithLogDir(logDir)
-				}
-				if cmd.Flags().Changed("data-dir") {
-					brokerInstance = brokerInstance.WithDataDir(dataDir)
-				}
-				if cmd.Flags().Changed("log-level") {
-					brokerInstance = brokerInstance.WithLogLevel(logger.LogLevel(logLevel))
-				}
+				brokerConfig.Load(configPath)
+				brokerInstance := broker.NewBroker(brokerConfig)
 
 				sigCh := make(chan os.Signal, 1)
 				defer close(sigCh)
@@ -104,13 +95,19 @@ func NewStartCmd() *cobra.Command {
 	}
 
 	startCmd.Flags().BoolP("daemon", "d", false, "run with daemon")
-	startCmd.Flags().StringVar(&logDir, "log-dir", broker.DefaultLogDir, "log directory")
-	startCmd.Flags().StringVar(&dataDir, "data-dir", broker.DefaultDataDir, "data directory")
-	startCmd.Flags().Uint8Var(&logLevel, "log-level", uint8(broker.DefaultLogLevel), "set log level [0=debug|1=info|2=warning|3=error]")
-	startCmd.Flags().UintVar(&port, "port", common.DefaultBrokerPort, "broker port")
-	startCmd.Flags().StringVarP(&zkAddr, "zk-addr", "z", "", "zookeeper ip address")
+	startCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultBrokerConfigPath, "broker config directory")
+	startCmd.Flags().StringVar(&logDir, "log-dir", "", "log directory")
+	startCmd.Flags().StringVar(&dataDir, "data-dir", "", "data directory")
+	startCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	startCmd.Flags().UintVar(&port, "port", 0, "broker port")
+	startCmd.Flags().StringVar(&zkHost, "zk-host", "", "zookeeper host")
+	startCmd.Flags().UintVar(&zkPort, "zk-port", 0, "zookeeper port")
+	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
 
-	startCmd.MarkFlagRequired("zk-addr")
+	brokerConfig.BindPFlags(startCmd.Flags())
+	brokerConfig.BindPFlag("zookeeper.host", startCmd.Flags().Lookup("zk-host"))
+	brokerConfig.BindPFlag("zookeeper.port", startCmd.Flags().Lookup("zk-port"))
+	brokerConfig.BindPFlag("zookeeper.timeout", startCmd.Flags().Lookup("zk-timeout"))
 
 	return startCmd
 }

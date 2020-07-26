@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/paust-team/shapleq/client/config"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
@@ -12,19 +13,19 @@ import (
 
 type Consumer struct {
 	*ClientBase
-	brokerAddr string
-	topic      string
-	logger     *logger.QLogger
-	ctx        context.Context
-	cancel     context.CancelFunc
+	config *config.ConsumerConfig
+	topic  string
+	logger *logger.QLogger
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-func NewConsumer(brokerAddr, topic string) *Consumer {
-	l := logger.NewQLogger("Consumer", logger.Info)
+func NewConsumer(config *config.ConsumerConfig, topic string) *Consumer {
+	l := logger.NewQLogger("Consumer", config.LogLevel())
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer := &Consumer{
-		ClientBase: newClientBase(),
-		brokerAddr: brokerAddr,
+		ClientBase: newClientBase(config.ClientConfigBase),
+		config:     config,
 		topic:      topic,
 		logger:     l,
 		ctx:        ctx,
@@ -33,28 +34,18 @@ func NewConsumer(brokerAddr, topic string) *Consumer {
 	return consumer
 }
 
-func NewConsumerWithContext(ctx context.Context, brokerAddr, topic string) *Consumer {
-	l := logger.NewQLogger("Consumer", logger.Info)
+func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topic string) *Consumer {
+	l := logger.NewQLogger("Consumer", config.LogLevel())
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
-		ClientBase: newClientBase(),
-		brokerAddr: brokerAddr,
+		ClientBase: newClientBase(config.ClientConfigBase),
+		config:     config,
 		topic:      topic,
 		logger:     l,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
 	return consumer
-}
-
-func (c *Consumer) WithLogLevel(level logger.LogLevel) *Consumer {
-	c.logger.SetLogLevel(level)
-	return c
-}
-
-func (c *Consumer) WithTimeout(timeout uint) *Consumer {
-	c.setTimeout(timeout)
-	return c
 }
 
 func (c Consumer) Context() context.Context {
@@ -65,7 +56,7 @@ func (c Consumer) Context() context.Context {
 }
 
 func (c *Consumer) Connect() error {
-	return c.connect(shapleqproto.SessionType_SUBSCRIBER, c.brokerAddr, c.topic)
+	return c.connect(shapleqproto.SessionType_SUBSCRIBER, c.topic)
 }
 
 func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan error, error) {

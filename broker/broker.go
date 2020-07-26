@@ -3,6 +3,7 @@ package broker
 import (
 	"context"
 	"fmt"
+	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service"
 	"github.com/paust-team/shapleq/broker/storage"
@@ -18,14 +19,8 @@ import (
 	"sync"
 )
 
-var (
-	DefaultBrokerHomeDir = os.ExpandEnv("$HOME/.shapleq")
-	DefaultLogDir        = fmt.Sprintf("%s/log", DefaultBrokerHomeDir)
-	DefaultDataDir       = fmt.Sprintf("%s/data", DefaultBrokerHomeDir)
-	DefaultLogLevel      = logger.Info
-)
-
 type Broker struct {
+	config          *config.BrokerConfig
 	Port            uint
 	host            string
 	listener        net.Listener
@@ -35,48 +30,29 @@ type Broker struct {
 	db              *storage.QRocksDB
 	notifier        *internals.Notifier
 	zkClient        *zookeeper.ZKClient
-	logDir          string
-	dataDir         string
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
 	closed          bool
 }
 
-func NewBroker(zkAddr string) *Broker {
+func NewBroker(config *config.BrokerConfig) *Broker {
 
 	notifier := internals.NewNotifier()
-	l := logger.NewQLogger("Broker", DefaultLogLevel)
-	zkClient := zookeeper.NewZKClient(zkAddr)
+	l := logger.NewQLogger("Broker", config.LogLevel())
+	zkClient := zookeeper.NewZKClient(config.ZKAddr(), config.ZKTimeout())
 
 	return &Broker{
+		config:   config,
 		Port:     common.DefaultBrokerPort,
 		notifier: notifier,
 		zkClient: zkClient,
-		logDir:   DefaultLogDir,
-		dataDir:  DefaultDataDir,
 		logger:   l,
 		closed:   false,
 	}
 }
 
-func (b *Broker) WithPort(port uint) *Broker {
-	b.Port = port
-	return b
-}
-
-func (b *Broker) WithLogDir(dir string) *Broker {
-	b.logDir = dir
-	return b
-}
-
-func (b *Broker) WithDataDir(dir string) *Broker {
-	b.dataDir = dir
-	return b
-}
-
-func (b *Broker) WithLogLevel(level logger.LogLevel) *Broker {
-	b.logger.SetLogLevel(level)
-	return b
+func (b *Broker) Config() *config.BrokerConfig {
+	return b.config
 }
 
 func (b *Broker) Start() {
@@ -87,7 +63,7 @@ func (b *Broker) Start() {
 		b.logger.Fatal(err)
 	}
 
-	b.logger = b.logger.WithFile(b.logDir)
+	b.logger = b.logger.WithFile(b.config.LogDir())
 
 	if err := b.connectToRocksDB(); err != nil {
 		b.logger.Fatalf("error occurred while connecting to rocksdb : %v", err)
@@ -100,14 +76,14 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:1101")
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", b.Port))
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		b.logger.Fatalf("fail to bind address to 1101 : %v", err)
+		b.logger.Fatalf("fail to bind address to %d : %v", b.Port, err)
 	}
 	b.listener = listener
 
@@ -116,7 +92,7 @@ func (b *Broker) Start() {
 	//Need to implement transaction service
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, b.host+":"+strconv.Itoa(int(b.Port)))
+	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.Port))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
@@ -179,22 +155,22 @@ func (b *Broker) Stop() {
 func (b *Broker) Clean() {
 	b.logger.Info("clean broker")
 	_ = b.db.Destroy()
-	os.RemoveAll(b.logDir)
-	os.RemoveAll(b.dataDir)
+	os.RemoveAll(b.config.LogDir())
+	os.RemoveAll(b.config.DataDir())
 }
 
 func (b *Broker) createDirs() error {
-	if err := os.MkdirAll(b.dataDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(b.config.DataDir(), os.ModePerm); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(b.logDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(b.config.LogDir(), os.ModePerm); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (b *Broker) connectToRocksDB() error {
-	db, err := storage.NewQRocksDB("shapleq-store", b.dataDir)
+	db, err := storage.NewQRocksDB("shapleq-store", b.config.DataDir())
 	if err != nil {
 		return err
 	}

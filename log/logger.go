@@ -18,25 +18,36 @@ const (
 	Error
 )
 
+var logLevelMap = map[string]LogLevel{
+	"DEBUG":   Debug,
+	"INFO":    Info,
+	"WARNING": Warning,
+	"ERROR":   Error,
+}
+
+func LogLevelToString(logLevel LogLevel) string {
+
+	for name, level := range logLevelMap {
+		if level == logLevel {
+			return name
+		}
+	}
+	return "UNKNOWN"
+}
+
+func LogLevelFromString(logLevelString string) LogLevel {
+
+	level, exists := logLevelMap[logLevelString]
+	if !exists {
+		return -1
+	}
+	return level
+}
+
 const (
 	defaultLogFormat  = "#%.3[1]d %[2]s %[3]s [%[4]s]: %[5]s"
 	defaultTimeFormat = "2006-01-02 15:04:05"
 )
-
-func logLevelString(logLevel LogLevel) string {
-
-	logLevelStrings := []string{
-		"DEBUG",
-		"INFO",
-		"WARNING",
-		"ERROR",
-	}
-	if logLevel > -1 && int(logLevel) < len(logLevelStrings) {
-		return logLevelStrings[logLevel]
-	} else {
-		return "UNKNOWN"
-	}
-}
 
 type QLogger struct {
 	*log.Logger
@@ -102,7 +113,7 @@ func (l *QLogger) log(level LogLevel, msg string) {
 		return
 	}
 	tFmt := time.Now().Format(defaultTimeFormat)
-	_ = l.Output(3, fmt.Sprintf(defaultLogFormat, l.id, tFmt, l.packageName, logLevelString(level), msg))
+	_ = l.Output(3, fmt.Sprintf(defaultLogFormat, l.id, tFmt, l.packageName, LogLevelToString(level), msg))
 }
 
 func (l *QLogger) Debug(v ...interface{}) {

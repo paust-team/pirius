@@ -28,16 +28,18 @@ func (zp ZKPath) string() string {
 }
 
 type ZKClient struct {
-	zkAddr string
-	conn   *zk.Conn
-	logger *logger.QLogger
+	zkAddr  string
+	conn    *zk.Conn
+	timeout uint
+	logger  *logger.QLogger
 }
 
-func NewZKClient(zkAddr string) *ZKClient {
+func NewZKClient(zkAddr string, timeout uint) *ZKClient {
 	return &ZKClient{
-		zkAddr: zkAddr,
-		conn:   nil,
-		logger: logger.NewQLogger("ZkClient", logger.Info),
+		zkAddr:  zkAddr,
+		timeout: timeout,
+		conn:    nil,
+		logger:  logger.NewQLogger("ZkClient", logger.Info),
 	}
 }
 
@@ -48,7 +50,8 @@ func (z *ZKClient) WithLogger(logger *logger.QLogger) *ZKClient {
 
 func (z *ZKClient) Connect() error {
 	var err error
-	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*3, zk.WithLogger(z.logger))
+
+	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*time.Duration(z.timeout), zk.WithLogger(z.logger))
 	if err != nil {
 		err = pqerror.ZKConnectionError{ZKAddr: z.zkAddr}
 		z.logger.Error(err)

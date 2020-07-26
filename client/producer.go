@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
@@ -12,20 +13,19 @@ import (
 
 type Producer struct {
 	*ClientBase
-	brokerAddr string
-	topic      string
-	logger     *logger.QLogger
-	ctx        context.Context
-	cancel     context.CancelFunc
-	publishCh  chan *message.QMessage
+	config    *config.ProducerConfig
+	topic     string
+	logger    *logger.QLogger
+	ctx       context.Context
+	cancel    context.CancelFunc
+	publishCh chan *message.QMessage
 }
 
-func NewProducer(brokerAddr, topic string) *Producer {
+func NewProducer(config *config.ProducerConfig, topic string) *Producer {
 	l := logger.NewQLogger("Producer", logger.Info)
 	ctx, cancel := context.WithCancel(context.Background())
 	producer := &Producer{
-		ClientBase: newClientBase(),
-		brokerAddr: brokerAddr,
+		ClientBase: newClientBase(config.ClientConfigBase),
 		topic:      topic,
 		logger:     l,
 		ctx:        ctx,
@@ -35,12 +35,11 @@ func NewProducer(brokerAddr, topic string) *Producer {
 	return producer
 }
 
-func NewProducerWithContext(ctx context.Context, brokerAddr, topic string) *Producer {
+func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string) *Producer {
 	l := logger.NewQLogger("Producer", logger.Info)
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
-		ClientBase: newClientBase(),
-		brokerAddr: brokerAddr,
+		ClientBase: newClientBase(config.ClientConfigBase),
 		topic:      topic,
 		logger:     l,
 		ctx:        ctx,
@@ -48,16 +47,6 @@ func NewProducerWithContext(ctx context.Context, brokerAddr, topic string) *Prod
 		publishCh:  make(chan *message.QMessage),
 	}
 	return producer
-}
-
-func (p *Producer) WithLogLevel(level logger.LogLevel) *Producer {
-	p.logger.SetLogLevel(level)
-	return p
-}
-
-func (p *Producer) WithTimeout(timeout uint) *Producer {
-	p.setTimeout(timeout)
-	return p
 }
 
 func (p Producer) Context() context.Context {
@@ -68,7 +57,7 @@ func (p Producer) Context() context.Context {
 }
 
 func (p *Producer) Connect() error {
-	return p.connect(shapleqproto.SessionType_PUBLISHER, p.brokerAddr, p.topic)
+	return p.connect(shapleqproto.SessionType_PUBLISHER, p.topic)
 }
 
 func (p *Producer) Publish(data []byte) (common.Partition, error) {
