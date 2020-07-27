@@ -79,6 +79,7 @@ Use "shapleq [command] --help" for more information about a command.
 We support below configurations to setup broker.
 
 ```yaml
+# config.yml
 port: 1101  # broker port
 log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory
@@ -100,7 +101,7 @@ $ zkServer start
 ```
 
 #### Start broker
-- **Flags** (***Flags will override corresponding configurations***)
+- **Flags** (***Flags will override the configurations in the config file***)
 	- `-i, --config-path` config path (default: ~/.shapleq/config/broker/config.yml)
 	- `-d, --daemon` run with background
 	- `--port` port
