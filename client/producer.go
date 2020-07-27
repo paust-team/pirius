@@ -61,7 +61,12 @@ func (p *Producer) Connect() error {
 }
 
 func (p *Producer) Publish(data []byte) (common.Partition, error) {
-	if err := p.send(message.NewQMessage(message.STREAM, data)); err != nil {
+	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
+	if err != nil {
+		return common.Partition{}, err
+	}
+
+	if err := p.send(msg); err != nil {
 		return common.Partition{}, err
 	}
 
