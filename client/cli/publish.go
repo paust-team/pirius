@@ -53,7 +53,7 @@ func NewPublishCmd() *cobra.Command {
 					select {
 					case publishCh <- []byte(scanner.Text()):
 					case partition := <-partitionCh:
-						fmt.Printf("publish succeed, partition id : %d, offset : %d", partition.Id, partition.Offset)
+						fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
 					case err := <-errCh:
 						log.Fatal(err)
 					case sig := <-sigCh:
@@ -66,7 +66,7 @@ func NewPublishCmd() *cobra.Command {
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Printf("publish succeed, partition id : %d, offset : %d", partition.Id, partition.Offset)
+				fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
 			} else {
 				fmt.Println("no data to publish")
 				os.Exit(1)
