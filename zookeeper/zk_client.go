@@ -455,15 +455,30 @@ func (z *ZKClient) RemoveAllPath() {
 
 	err = z.conn.Delete(TOPICS.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /shapleq/topics ", err)
+		z.logger.Errorf("failed to delete path %s - %s ", TOPICS.string(), err)
 	}
-	z.conn.Delete(BROKERS.string(), -1)
+	err = z.conn.Delete(BROKERS.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /shapleq/brokers ", err)
+		z.logger.Errorf("failed to delete path %s - %s ", BROKERS.string(), err)
 	}
-
-	z.conn.Delete(SHAPLEQ.string(), -1)
+	err = z.conn.Delete(TOPIC_BROKERS.string(), -1)
 	if err != nil {
-		z.logger.Error("failed to delete path /shapleq ", err)
+		z.logger.Errorf("failed to delete path %s - %s ", TOPIC_BROKERS.string(), err)
+	}
+	err = z.conn.Delete(BROKERS_LOCK.string(), -1)
+	if err != nil {
+		z.logger.Errorf("failed to delete path %s - %s ", BROKERS_LOCK.string(), err)
+	}
+	err = z.conn.Delete(TOPICS_LOCK.string(), -1)
+	if err != nil {
+		z.logger.Errorf("failed to delete path %s - %s ", TOPICS_LOCK.string(), err)
+	}
+	err = z.conn.Delete(TOPIC_BROKERS_LOCK.string(), -1)
+	if err != nil {
+		z.logger.Errorf("failed to delete path %s - %s ", TOPIC_BROKERS_LOCK.string(), err)
+	}
+	err = z.conn.Delete(SHAPLEQ.string(), -1)
+	if err != nil {
+		z.logger.Errorf("failed to delete path %s - %s ", SHAPLEQ.string(), err)
 	}
 }
