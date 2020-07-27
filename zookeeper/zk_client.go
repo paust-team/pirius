@@ -382,7 +382,6 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	var brokers []string
 	err = gob.NewDecoder(buffer).Decode(&brokers)
 	if err != nil {
-		fmt.Println(err, brokersBytes)
 		err = pqerror.ZKDecodeFailError{}
 		z.logger.Error(err)
 		return nil, err
