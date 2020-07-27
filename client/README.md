@@ -2,7 +2,7 @@
 If you want ShapleQ Client only, just type `go get github.com/paust-team/ShapleQ/client`
 
 ## Configurations
-We support below configurations to setup client.
+Similar to setting up a broker, we supports the configuration below to set up a client.
 
 ```yaml
 broker:
@@ -11,8 +11,6 @@ broker:
 timeout: 3 # connection timeout (seconds)
 log-level: INFO # DEBUG/INFO/WARNING/ERROR
 ```
-
-Same as the structure for setting broker configuration.
 
 ## Usage
 Before running client cli, ShapleQ broker and zookeeper must be running
@@ -61,7 +59,7 @@ $ shapleq-cli topic describe -z [zk-host] -n [topic-name]
 ```
 
 #### Publish topic data
-***NOTE: The topic must be created before publish the data to it(see Create topic data cmd)***
+***NOTE: The topic must be created before publishing the data to it(see Create topic data command)***
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/producer/config.yml)
 	- `-n, --topic` topic name `required`
@@ -84,11 +82,11 @@ $ shapleq-cli subscribe -n [topic-name] --broker-host 172.32.0.1
 
 Subscribe command will not stop until broker had stopped or received `sigint` or `sigterm`
 
-## Development Guide [WIP]
-You can build your own application using Producer, Consumer client library.
+## Development Guide
+You can build your application using the Producer, Consumer, and Admin client library.
 
 ### Producer
-The `producer` client is a client that sends the produced data to the broker. Any developer who wants to publish data to ShapleQ Network can write the ShapleQ client application using `producer` client library.
+The `producer` client is a client that sends the produced data to the broker. Any developer who wants to publish data to ShapleQ Network can write the ShapleQ client application using the `producer` client library.
 
 #### Structs
 
@@ -96,56 +94,46 @@ The `producer` client is a client that sends the produced data to the broker. An
 
 type Producer struct {/* private variables */}
 
-// Initialize Producer struct using builder: NewProducer(zkHost string)
+// Initialize Producer struct using builder: 
+- NewProducer(config *config.ProducerConfig, topic string) *Producer
+- NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string)
 
 ```
 
 #### Callable Methods
-- `Publish(ctx context.Context, data []byte)`
-- `WaitAllPublishResponse()`
-- `Connect(ctx context.Context, topicName string) error`
+- `Context() context.Context`
+- `Publish(data []byte)`
+- `AsyncPublish(source <-chan []byte) (<-chan common.Partition, <-chan error, error)`
+- `Connect() error`
 - `Close() error`
-- `WithLogLevel(level logger.LogLevel) *Producer`
-- `WithBrokerPort(port uint16) *Producer`
-- `WithTimeout(timeout time.Duration) *Producer`
-- `WithChunkSize(size uint32) *Producer`
 
 #### Sample Code
 
 ```go
 import "github.com/paust-team/shapleq/client/producer"
 
-topic := “test”
+topicName := "test"
 
-// Initialize new Producer client with localhost zookeeper
-producerClient := producer.NewProducer(“127.0.0.1”)
-ctx := context.Background()
-if err := producerClient.Connect(ctx, topic); err != nil {
-	fmt.Println(err)
-	return
+// Initialize new Producer client with producer config
+producerConfig := config.NewProducerConfig()
+producerConfig.Load(configPath) // optional
+producer := client.NewProducer(producerConfig, topicName)
+if err := producer.Connect(); err != nil {
+	log.Fatal(err)
 }
 
 // Publish records
-publishCh, errCh := producerClient.Publish(ctx)
+// This is an example of publishing the topic data with sync mode.
+// We support async mode using goroutine too. Check out `AsyncPublish`.
 
-go func() {
-	case err:= <-errChP:
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		return
-	case <-ctx1.Done():
-		return
-}()
-
-testRecords := [][]byte{“1”, “2”, “3”, “4”, “5”}
+testRecords := [][]byte{"1", "2", "3", "4", "5"}
 for _, record := range testRecords {
-	publishCh <- record
+	partition, err := producer.Publish(record)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
 }
-
-// wait to all data saved on broker
-time.Sleep(3 * time.Second)
 
 // Close Producer client
 if err := producerClient.Close(); err != nil {
@@ -156,80 +144,66 @@ fmt.Println(“publish finished”)
 ```
 
 ### Consumer
-The `consumer` client is a client that subscribes the produced data from the broker. Any developer who wants to subscribe data related to specific topic can write the ShapleQ client application using `consumer` client library.
+The `consumer` client is a client that subscribes to the produced data from the broker. Any developer who wants to subscribe to data related to a specific topic can write the ShapleQ client application using the `consumer` client library.
 
 #### Structs
 
 ```go
 
 type Consumer struct {/* private variables */}
-// Initialize Consumer struct using builder: NewConsumer(zkHost string)
+// Initialize Consumer struct using builder: 
+- NewConsumer(config *config.ConsumerConfig, topic string) *Consumer
+- NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topic string) *Consumer
 
-type SinkData struct {
-	Error              error
+type FetchedData struct {
 	Data               []byte
 	Offset, LastOffset uint64
 }
 ```
 
 #### Callable Methods
-- `Subscribe(ctx context.Context, startOffset uint64) (chan SinkData, error)`
-- `Connect(ctx context.Context, topicName string) error`
+- `Context() context.Context`
+- `Subscribe(startOffset uint64) (<-chan FetchedData, <-chan error, error)`
+- `Connect() error`
 - `Close() error`
-- `WithLogLevel(level logger.LogLevel) *Consumer`
-- `WithBrokerPort(port uint16) *Consumer`
-- `WithTimeout(timeout time.Duration) *Consumer`
-
 
 #### Sample Code
 
 ```go
 import "github.com/paust-team/shapleq/client/consumer"
 
-topic := “test”
+topicName := "test"
 
-// Initialize new Consumer client with localhost zookeeper
-consumerClient := consumer.NewConsumer(“127.0.0.1”)
-ctx := context.Background()
-if err := consumerClient.Connect(ctx, topic); err != nil {
+consumerConfig := config.NewConsumerConfig()
+consumer := client.NewConsumer(consumerConfig, topicName)
+if err := consumer.Connect(); err != nil {
 	fmt.Println(err)
 	return
 }
-startOffset := 0
-subscribeCh, errCh := consumerClient.Subscribe(ctx, startOffset)
+
+receiveCh, subErrCh, err := consumer.Subscribe(0)
+if err != nil {
+	fmt.Println(err)
+	return
+}
 
 go func() {
-	select {
-	case err := <-errCh:
-		if err != nil {
+	defer consumer.Close()
+	for {
+		select {
+		case received := <-receiveCh:
+			fmt.Println(received.Data)
+			// add custom break condition
+			// ex)
+			// if len(actualRecords) == len(expectedRecords) {
+			//	return
+			// }
+		case err := <-subErrCh:
 			fmt.Println(err)
-			os.Exit(1)
+			return
 		}
-		return
-	case <-ctx.Done():
-		return
 	}
 }()
 
-subscribeUntil:
-for {
-	select {
-	case response:= <- subscribeCh:
-		fmt.Println("received data:", response.Data)
-
-		// break on reach end
-		if response.StartOffset == response.LastOffset  {
-			break subscribeUntil
-		}
-	case <- time.After(time.Second * 1):
-		fmt.Println("subscribe timeout")
-		return
-	}
-}
-
-if err := consumerClient.Close(); err != nil {
-	fmt.Println(err)
-	return
-}
-fmt.Println(“subscribe finished”)
 ```
+
