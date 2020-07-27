@@ -64,7 +64,7 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					errCh <- pqerror.ReadTimeOutError{}
 					return
-				} else if err != io.EOF {
+				} else if err == io.EOF {
 					errCh <- pqerror.SocketClosedError{}
 					return
 				} else {
@@ -169,7 +169,7 @@ func (s *Socket) Read() (*message.QMessage, error) {
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				return nil, pqerror.ReadTimeOutError{}
-			} else if err != io.EOF {
+			} else if err == io.EOF {
 				return nil, pqerror.SocketClosedError{}
 			} else {
 				return nil, pqerror.SocketReadError{ErrStr: err.Error()}
