@@ -7,7 +7,6 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service"
 	"github.com/paust-team/shapleq/broker/storage"
-	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
@@ -21,7 +20,6 @@ import (
 
 type Broker struct {
 	config          *config.BrokerConfig
-	Port            uint
 	host            string
 	listener        net.Listener
 	streamService   *service.StreamService
@@ -43,7 +41,6 @@ func NewBroker(config *config.BrokerConfig) *Broker {
 
 	return &Broker{
 		config:   config,
-		Port:     common.DefaultBrokerPort,
 		notifier: notifier,
 		zkClient: zkClient,
 		logger:   l,
@@ -76,14 +73,14 @@ func (b *Broker) Start() {
 	b.logger.Info("connected to zookeeper")
 
 	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", b.Port))
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", b.config.Port()))
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		b.logger.Fatalf("fail to bind address to %d : %v", b.Port, err)
+		b.logger.Fatalf("fail to bind address to %d : %s", b.config.Port(), err)
 	}
 	b.listener = listener
 
@@ -92,13 +89,13 @@ func (b *Broker) Start() {
 	//Need to implement transaction service
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.Port))
+	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.config.Port()))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
 	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
 
-	b.logger.Infof("start broker with port: %d", b.Port)
+	b.logger.Infof("start broker with port: %d", b.config.Port())
 
 	for {
 		select {
@@ -199,7 +196,7 @@ func (b *Broker) setUpZookeeper() error {
 		return err
 	}
 
-	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(int(b.Port))); err != nil {
+	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
 		return err
 	}
 
