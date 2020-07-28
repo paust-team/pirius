@@ -1,0 +1,9 @@
+broker:
+  port: 11010
+  host: localhost
+timeout: 3
+log-level: ERROR
+benchmark:
+  topic: bench_topic
+  data-count: 233
+  file-path: ~/.shapleq/bench/sample.txt # test file
