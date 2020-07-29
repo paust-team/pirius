@@ -58,8 +58,9 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 							if msg == nil {
 								return
 							}
-							err := s.handleMsg(msg, eventStream.Session)
-							errCh <- err
+							if err := s.handleMsg(msg, eventStream.Session); err != nil {
+								errCh <- err
+							}
 						}
 					}
 				}()
