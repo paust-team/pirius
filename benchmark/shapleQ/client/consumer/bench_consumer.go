@@ -1,22 +1,30 @@
 package main
 
 import (
-	"flag"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/client/config"
 	"log"
+	"os"
+	"strconv"
 )
 
 func main() {
 
-	configPath := flag.String("config", "../config.yml", "config path")
-	flag.Parse()
+	if len(os.Args) != 3 {
+		log.Fatal("Usage: ./sq-consumer-bench [topic-name] [total-data-count]")
+	}
+	topicName := os.Args[1]
+	totalCount, err := strconv.Atoi(os.Args[2])
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	configPath := "../config.yml"
 
 	consumerConfig := config.NewConsumerConfig()
-	consumerConfig.Load(*configPath)
-	consumer := client.NewConsumer(consumerConfig, consumerConfig.GetString("benchmark.topic"))
-
-	totalCount := consumerConfig.GetInt("benchmark.data-count")
+	consumerConfig.Load(configPath)
+	consumer := client.NewConsumer(consumerConfig, topicName)
 
 	if err := consumer.Connect(); err != nil {
 		log.Fatal(err)
