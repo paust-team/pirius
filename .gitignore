@@ -18,3 +18,5 @@ vendor/
 
 *.pb.go
 *.dbstorage
+
+.DS_Store
