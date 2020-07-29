@@ -33,11 +33,11 @@ const (
 
 	// 10 - broker internal error
 	ErrInternal               = 0x1000
-	ErrSockClosed             = 0x1001
-	ErrSockRead               = 0x1002
-	ErrSockWrite              = 0x1003
-	ErrSockWriteTimeOut       = 0x1004
-	ErrSockReadTimeOut        = 0x1005
+	ErrSocketClosed           = 0x1001
+	ErrSocketRead             = 0x1002
+	ErrSocketWrite            = 0x1003
+	ErrWriteTimeOut           = 0x1004
+	ErrReadTimeOut            = 0x1005
 	ErrNotEnoughBuffer        = 0x1006
 	ErrInvalidChecksum        = 0x1007
 	ErrTopicNotExist          = 0x1008

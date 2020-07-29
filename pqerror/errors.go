@@ -250,7 +250,7 @@ func (e ReadTimeOutError) Error() string {
 }
 
 func (e ReadTimeOutError) Code() PQCode {
-	return ErrSockReadTimeOut
+	return ErrReadTimeOut
 }
 
 type WriteTimeOutError struct{}
@@ -260,7 +260,7 @@ func (e WriteTimeOutError) Error() string {
 }
 
 func (e WriteTimeOutError) Code() PQCode {
-	return ErrSockWriteTimeOut
+	return ErrWriteTimeOut
 }
 
 type SocketReadError struct {
@@ -272,7 +272,7 @@ func (e SocketReadError) Error() string {
 }
 
 func (e SocketReadError) Code() PQCode {
-	return ErrSockRead
+	return ErrSocketRead
 }
 
 // May be retryable
@@ -284,7 +284,7 @@ func (e SocketWriteError) Error() string {
 	return fmt.Sprintf("error occurred while writing data to socket: %s", e.ErrStr)
 }
 func (e SocketWriteError) Code() PQCode {
-	return ErrSockWrite
+	return ErrSocketWrite
 }
 
 type SocketClosedError struct{}
@@ -293,7 +293,7 @@ func (e SocketClosedError) Error() string {
 	return "session closed"
 }
 func (e SocketClosedError) Code() PQCode {
-	return ErrSockClosed
+	return ErrSocketClosed
 }
 func (e SocketClosedError) IsSessionCloseable() {}
 
