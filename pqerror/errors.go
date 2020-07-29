@@ -369,7 +369,7 @@ func (e InvalidMsgTypeToUnpackError) Error() string {
 }
 
 func (e InvalidMsgTypeToUnpackError) Code() PQCode {
-	return ErrDBOperate
+	return ErrInvalidMsgTypeToUnpack
 }
 
 func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
