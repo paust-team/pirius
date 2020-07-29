@@ -1,5 +1,5 @@
 broker:
   port: 11010
   host: localhost
-timeout: 3
+timeout: 3 # sec
 log-level: ERROR

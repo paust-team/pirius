@@ -8,7 +8,6 @@ import (
 
 func main() {
 	brokerConfig := config.NewBrokerConfig()
-	brokerConfig.Load("broker/config.yml")
 
 	zkClient := zookeeper.NewZKClient(brokerConfig.ZKAddr(), 3)
 

@@ -24,6 +24,7 @@ func main() {
 
 	consumerConfig := config.NewConsumerConfig()
 	consumerConfig.Load(configPath)
+
 	consumer := client.NewConsumer(consumerConfig, topicName)
 
 	if err := consumer.Connect(); err != nil {
