@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	configPath := flag.String("config", "../config.yml", "config path")
+	configPath := flag.String("config", "config.yml", "config path")
 	flag.Parse()
 
 	sigCh := make(chan os.Signal, 1)

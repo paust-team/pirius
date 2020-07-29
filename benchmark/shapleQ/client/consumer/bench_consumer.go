@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	configPath := flag.String("config", "../../config.yml", "config path")
+	configPath := flag.String("config", "../config.yml", "config path")
 	flag.Parse()
 
 	consumerConfig := config.NewConsumerConfig()

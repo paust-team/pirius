@@ -1,14 +1,14 @@
-SQ_BROKER_BENCH_DIR := broker/shapleQ
-SQ_PRODUCER_BENCH_DIR := client/shapleQ/producer
-SQ_CONSUMER_BENCH_DIR := client/shapleQ/consumer
+SQ_BROKER_BENCH_DIR := shapleQ/broker
+SQ_PRODUCER_BENCH_DIR := shapleQ/client/producer
+SQ_CONSUMER_BENCH_DIR := shapleQ/client/consumer
 
 SQ_BROKER_NAME := sq-broker-bench
 SQ_PRODUCER_NAME := sq-producer-bench
 SQ_CONSUMER_NAME := sq-consumer-bench
 
-KF_BROKER_BENCH_DIR := broker/kafka
-KF_PRODUCER_BENCH_DIR := client/kafka/producer
-KF_CONSUMER_BENCH_DIR := client/kafka/consumer
+KF_BROKER_BENCH_DIR := kafka/broker
+KF_PRODUCER_BENCH_DIR := kafka/client/producer
+KF_CONSUMER_BENCH_DIR := kafka/client/consumer
 
 KF_BROKER_NAME := kf-broker-bench
 KF_PRODUCER_NAME := kf-producer-bench
