@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/client/config"
 	"log"
@@ -43,6 +44,7 @@ func main() {
 		case _, ok := <-subscribeCh:
 			if ok {
 				receivedCount++
+				fmt.Println("received")
 				if totalCount == receivedCount {
 					log.Println("consumer finished")
 					return
