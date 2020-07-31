@@ -120,6 +120,9 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 						errCh <- pqerror.WriteTimeOutError{}
 						return
+					} else if err == io.EOF {
+						errCh <- pqerror.SocketClosedError{}
+						return
 					} else {
 						errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
 						return
@@ -146,6 +149,8 @@ func (s *Socket) Write(msg *message.QMessage) error {
 	if _, err := s.conn.Write(data); err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			return pqerror.WriteTimeOutError{}
+		} else if err == io.EOF {
+			return pqerror.SocketClosedError{}
 		} else {
 			return pqerror.SocketWriteError{ErrStr: err.Error()}
 		}
