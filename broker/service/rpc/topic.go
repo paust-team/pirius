@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"errors"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/message"
@@ -31,10 +30,6 @@ func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *
 	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor)
 	err := s.zkClient.AddTopic(request.Topic.Name, topicValue)
 	if err != nil {
-		var e pqerror.ZKTargetAlreadyExistsError
-		if errors.As(err, &e) {
-			return message.NewCreateTopicResponseMsg(e)
-		}
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
