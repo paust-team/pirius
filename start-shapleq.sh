@@ -4,7 +4,7 @@ set -u
 
 zkhost=$1
 zkport=$2
-
+configpath=$3
 res=$( echo ruok | nc $zkhost $zkport )
 
 
@@ -14,4 +14,5 @@ do
   sleep 1
   res=$(echo ruok | nc $zkhost $zkport)
 done
-/go/bin/shapleq start -z "$zkhost:$zkport"
+sleep 3
+/go/bin/shapleq start --zk-host "$zkhost" --zk-port "$zkport" -i "$configpath"
