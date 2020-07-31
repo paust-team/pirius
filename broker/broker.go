@@ -105,7 +105,7 @@ func (b *Broker) Start() {
 			if err != nil {
 				b.logger.Errorf("error occurred on transaction service: %s", err)
 			}
-			return
+
 		case <-notiErrorCh:
 			return
 		case <-acceptErrCh:
