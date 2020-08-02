@@ -16,7 +16,16 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"syscall"
 )
+
+func reusePort(network, address string, conn syscall.RawConn) error {
+	return conn.Control(func(descriptor uintptr) {
+		if err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1); err != nil {
+			panic(err)
+		}
+	})
+}
 
 type Broker struct {
 	config          *config.BrokerConfig
@@ -78,7 +87,9 @@ func (b *Broker) Start() {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
 	}
 
-	listener, err := net.ListenTCP("tcp", tcpAddr)
+	listenConfig := &net.ListenConfig{Control: reusePort}
+
+	listener, err := listenConfig.Listen(brokerCtx, "tcp", tcpAddr.String())
 	if err != nil {
 		b.logger.Fatalf("fail to bind address to %d : %s", b.config.Port(), err)
 	}
