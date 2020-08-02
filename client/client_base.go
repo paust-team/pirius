@@ -98,6 +98,10 @@ func (c *ClientBase) receive() (*message.QMessage, error) {
 }
 
 func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string) error {
+	if len(topic) == 0 {
+		return pqerror.TopicNotSetError{}
+	}
+
 	err := c.connectToBroker(c.config.BrokerAddr())
 	if err != nil {
 		return err

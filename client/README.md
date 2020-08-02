@@ -2,7 +2,7 @@
 If you want ShapleQ Client only, just type `go get github.com/paust-team/ShapleQ/client`
 
 ## Configurations
-Similar to setting up a broker, we supports the configuration below to set up a client.
+Similar to setting up a broker, we support the configuration below to set up the client.
 
 ```yaml
 broker:
@@ -13,7 +13,7 @@ log-level: INFO # DEBUG/INFO/WARNING/ERROR
 ```
 
 ## Usage
-Before running client cli, ShapleQ broker and zookeeper must be running
+Before running client CLI, ShapleQ broker and zookeeper must be running
 
 ### Common Flags
 - `--broker-host` broker host
@@ -59,7 +59,7 @@ $ shapleq-cli topic describe -z [zk-host] -n [topic-name]
 ```
 
 #### Publish topic data
-***NOTE: The topic must be created before publishing the data to it(see Create topic data command)***
+***NOTE: The topic must be created before publishing the data related to it(see Create topic command)***
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/producer/config.yml)
 	- `-n, --topic` topic name `required`
@@ -80,13 +80,13 @@ $ shapleq-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-hos
 $ shapleq-cli subscribe -n [topic-name] --broker-host 172.32.0.1
 ```
 
-Subscribe command will not stop until broker had stopped or received `sigint` or `sigterm`
+Subscribe command will not stop until broker receives `sigint` or `sigterm`
 
 ## Development Guide
-You can build your application using the Producer, Consumer, and Admin client library.
+You can make your application using the Producer, Consumer and Admin client library.
 
 ### Producer
-The `producer` client is a client that sends the produced data to the broker. Any developer who wants to publish data to ShapleQ Network can write the ShapleQ client application using the `producer` client library.
+The `producer` is a client that sends the produced data to the broker. Any developer who wants to publish data to ShapleQ Network can make the ShapleQ client application using the `producer` library.
 
 #### Structs
 
@@ -114,7 +114,7 @@ import "github.com/paust-team/shapleq/client/producer"
 
 topicName := "test"
 
-// Initialize new Producer client with producer config
+// Initialize new producer with config
 producerConfig := config.NewProducerConfig()
 producerConfig.Load(configPath) // optional
 producer := client.NewProducer(producerConfig, topicName)
@@ -123,8 +123,8 @@ if err := producer.Connect(); err != nil {
 }
 
 // Publish records
-// This is an example of publishing the topic data with sync mode.
-// We support async mode using goroutine too. Check out `AsyncPublish`.
+// This is an example of publishing the data synchronously
+// We support asynchornous write using goroutine too. Check out `AsyncPublish`.
 
 testRecords := [][]byte{"1", "2", "3", "4", "5"}
 for _, record := range testRecords {
@@ -144,7 +144,7 @@ fmt.Println(“publish finished”)
 ```
 
 ### Consumer
-The `consumer` client is a client that subscribes to the produced data from the broker. Any developer who wants to subscribe to data related to a specific topic can write the ShapleQ client application using the `consumer` client library.
+The `consumer` is a client that subscribes to produced data from the broker. Any developer who wants to subscribe to the data related to a specific topic can make the ShapleQ client application using the `consumer` library.
 
 #### Structs
 
@@ -186,7 +186,7 @@ if err != nil {
 	fmt.Println(err)
 	return
 }
-
+      
 go func() {
 	defer consumer.Close()
 	for {
@@ -199,8 +199,7 @@ go func() {
 			//	return
 			// }
 		case err := <-subErrCh:
-			fmt.Println(err)
-			return
+			fmt.Println(err)			return
 		}
 	}
 }()
