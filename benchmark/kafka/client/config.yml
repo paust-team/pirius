@@ -1,3 +1,3 @@
 bootstrap:
   servers: localhost
-timeout: 10000 # ms
+timeout: 30000

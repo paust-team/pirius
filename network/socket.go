@@ -14,22 +14,17 @@ import (
 
 type Socket struct {
 	sync.Mutex
-	conn     net.Conn
-	rTimeout int
-	wTimeout int
-	closed   bool
+	conn    net.Conn
+	timeout int
+	closed  bool
 }
 
-func NewSocket(conn net.Conn, rTimeout int, wTimeout int) *Socket {
-	return &Socket{conn: conn, rTimeout: rTimeout, wTimeout: wTimeout, closed: false}
+func NewSocket(conn net.Conn, timeout int) *Socket {
+	return &Socket{conn: conn, timeout: timeout, closed: false}
 }
 
-func (s *Socket) SetReadTimeout(rTimeout int) {
-	s.rTimeout = rTimeout
-}
-
-func (s *Socket) SetWriteTimeout(wTimeout int) {
-	s.wTimeout = wTimeout
+func (s *Socket) SetTimeout(timeout int) {
+	s.timeout = timeout
 }
 
 func (s *Socket) Close() {
@@ -63,7 +58,7 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 			default:
 			}
 
-			err := s.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(s.rTimeout)))
+			err := s.conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(s.timeout)))
 			if err != nil {
 				errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
 				return
@@ -76,7 +71,6 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 						errCh <- pqerror.SocketClosedError{}
 						return
 					}
-
 					errCh <- pqerror.ReadTimeOutError{}
 					return
 				} else if err == io.EOF {
@@ -118,7 +112,7 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 		defer s.conn.Close()
 
 		for msg := range msgCh {
-			err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
+			err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.timeout)))
 			if err != nil {
 				errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
 				return
@@ -162,7 +156,7 @@ func (s *Socket) Write(msg *message.QMessage) error {
 		return pqerror.SocketClosedError{}
 	}
 
-	err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
+	err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.timeout)))
 	if err != nil {
 		return err
 	}
@@ -199,7 +193,7 @@ func (s *Socket) Read() (*message.QMessage, error) {
 	recvBuf := make([]byte, 4*1024)
 
 	for {
-		err := s.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(s.rTimeout)))
+		err := s.conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(s.timeout)))
 		if err != nil {
 			return nil, pqerror.SocketReadError{ErrStr: err.Error()}
 		}

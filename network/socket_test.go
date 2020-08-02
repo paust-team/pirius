@@ -38,7 +38,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 		defer conn.Close()
 		defer close(readDone)
 
-		sock := NewSocket(conn, 5, 5)
+		sock := NewSocket(conn, 5000)
 		msgCh, errCh := sock.ContinuousRead(ctx)
 		close(readStarted)
 		for {
@@ -68,7 +68,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 	defer conn.Close()
 
 	msgCh := make(chan *message.QMessage)
-	sock := NewSocket(conn, 3, 3)
+	sock := NewSocket(conn, 3000)
 	sock.ContinuousWrite(ctx, msgCh)
 
 	<-readStarted

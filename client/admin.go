@@ -47,7 +47,7 @@ func (a *Admin) Connect() error {
 		return err
 	}
 
-	a.socket = network.NewSocket(conn, a.config.Timeout(), a.config.Timeout())
+	a.socket = network.NewSocket(conn, a.config.Timeout())
 	a.Lock()
 	a.connected = true
 	a.Unlock()

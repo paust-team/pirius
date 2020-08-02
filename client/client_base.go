@@ -47,7 +47,7 @@ func (c *ClientBase) connectToBroker(brokerAddr string) error {
 	if err != nil {
 		return pqerror.DialFailedError{Addr: brokerAddr, Err: err}
 	}
-	c.socket = network.NewSocket(conn, c.config.Timeout(), c.config.Timeout())
+	c.socket = network.NewSocket(conn, c.config.Timeout())
 
 	c.Lock()
 	c.connected = true

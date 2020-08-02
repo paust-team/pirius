@@ -15,11 +15,11 @@ import (
 type ZKClient struct {
 	zkAddr  string
 	conn    *zk.Conn
-	timeout uint
+	timeout int
 	logger  *logger.QLogger
 }
 
-func NewZKClient(zkAddr string, timeout uint) *ZKClient {
+func NewZKClient(zkAddr string, timeout int) *ZKClient {
 	return &ZKClient{
 		zkAddr:  zkAddr,
 		timeout: timeout,
@@ -36,7 +36,7 @@ func (z *ZKClient) WithLogger(logger *logger.QLogger) *ZKClient {
 func (z *ZKClient) Connect() error {
 	var err error
 
-	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Second*time.Duration(z.timeout), zk.WithLogger(z.logger))
+	z.conn, _, err = zk.Connect([]string{z.zkAddr}, time.Millisecond*time.Duration(z.timeout), zk.WithLogger(z.logger))
 	if err != nil {
 		err = pqerror.ZKConnectionError{ZKAddr: z.zkAddr}
 		z.logger.Error(err)

@@ -1,5 +1,5 @@
 broker:
   port: 1101 # broker port
   host: localhost # broker address
-timeout: 3 # connection timeout (seconds)
+timeout: 30000 # connection timeout
 log-level: INFO # DEBUG/INFO/WARNING/ERROR

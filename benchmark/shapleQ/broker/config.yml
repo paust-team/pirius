@@ -2,7 +2,8 @@ port: 11010
 log-dir: ~/.shapleq/bench/log
 data-dir: ~/.shapleq/bench/data
 log-level: ERROR # DEBUG/INFO/WARNING/ERROR
+timeout: 30000
 zookeeper:
   port: 2181
   host: localhost
-  timeout: 5
+  timeout: 5000

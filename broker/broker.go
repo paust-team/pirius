@@ -251,7 +251,7 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 			sessionCtx, cancelSession := context.WithCancel(brokerCtx)
 
 			select {
-			case sessionCtxCh <- SessionAndContext{internals.NewSession(conn), sessionCtx, cancelSession}:
+			case sessionCtxCh <- SessionAndContext{internals.NewSession(conn, b.config.Timeout()), sessionCtx, cancelSession}:
 
 				b.logger.Info("new connection created")
 			case <-brokerCtx.Done():
