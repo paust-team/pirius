@@ -13,6 +13,7 @@ const (
 	ErrUnmarshalAnyFailed = 0x0103
 	ErrMarshalFailed      = 0x0104
 	ErrUnmarshalFailed    = 0x0105
+	ErrTopicNotSet        = 0x0106
 
 	// 02 - zookeeper related error
 	ErrZKConnection          = 0x0200

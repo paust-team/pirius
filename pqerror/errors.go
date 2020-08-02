@@ -311,7 +311,7 @@ func (e UnhandledError) Code() PQCode {
 
 func (e UnhandledError) IsBrokerStoppable() {}
 
-// message encode/decode error
+// message or field error
 type MarshalAnyFailedError struct{}
 
 func (e MarshalAnyFailedError) Error() string {
@@ -373,6 +373,18 @@ func (e InvalidMsgTypeToUnpackError) Code() PQCode {
 }
 
 func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
+
+type TopicNotSetError struct{}
+
+func (e TopicNotSetError) Error() string {
+	return "topic isn't set"
+}
+
+func (e TopicNotSetError) Code() PQCode {
+	return ErrTopicNotSet
+}
+
+func (e TopicNotSetError) IsSessionCloseable() {}
 
 // DBError
 type QRocksOperateError struct {

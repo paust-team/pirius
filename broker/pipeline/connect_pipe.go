@@ -53,6 +53,14 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 
 		for in := range inStream {
 			req := in.(*shapleq_proto.ConnectRequest)
+			if len(req.GetTopicName()) == 0 {
+				errCh <- pqerror.TopicNotSetError{}
+				return
+			}
+			if _, err := c.zkClient.GetTopic(req.GetTopicName()); err != nil {
+				errCh <- err
+				return
+			}
 
 			if c.session.State() != internals.READY {
 				err := c.session.SetState(internals.READY)
