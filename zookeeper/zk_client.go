@@ -130,8 +130,8 @@ func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
 
 	topicBytes, _, err := z.conn.Get(topicPath(topic))
 	if err != nil {
-		if err == zk.ErrNodeExists {
-			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
+		if err == zk.ErrNoNode {
+			err = pqerror.TopicNotExistError{Topic: topic}
 		} else {
 			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		}
