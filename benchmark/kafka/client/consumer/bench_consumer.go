@@ -5,13 +5,14 @@ import (
 	"github.com/paust-team/shapleq/client/config"
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"time"
 )
 
 func main() {
-
+	rand.Seed(time.Now().UnixNano())
 	if len(os.Args) != 3 {
 		log.Fatal("Usage: ./kf-consumer-bench [topic-name] [total-data-count]")
 	}
@@ -30,7 +31,7 @@ func main() {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":     clientConfig.GetString("bootstrap.servers"),
 		"broker.address.family": "v4",
-		"group.id":              "mygroup",
+		"group.id":              fmt.Sprintf("mygroup-%d", rand.Intn(1000)),
 		"session.timeout.ms":    clientConfig.Timeout(),
 		"auto.offset.reset":     "earliest"})
 
@@ -53,9 +54,9 @@ func main() {
 			log.Fatalln(err)
 		} else {
 			receivedCount++
-			fmt.Println("received")
 			if totalCount == receivedCount {
-				log.Println("consumer finished")
+				endTimestamp := time.Now().UnixNano() / 1000000
+				fmt.Println(endTimestamp)
 				return
 			}
 		}

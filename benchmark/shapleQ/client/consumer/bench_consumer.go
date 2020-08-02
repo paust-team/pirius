@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -25,7 +26,6 @@ func main() {
 
 	consumerConfig := config.NewConsumerConfig()
 	consumerConfig.Load(configPath)
-
 	consumer := client.NewConsumer(consumerConfig, topicName)
 
 	if err := consumer.Connect(); err != nil {
@@ -44,9 +44,9 @@ func main() {
 		case _, ok := <-subscribeCh:
 			if ok {
 				receivedCount++
-				fmt.Println("received")
 				if totalCount == receivedCount {
-					log.Println("consumer finished")
+					endTimestamp := time.Now().UnixNano() / 1000000
+					fmt.Println(endTimestamp)
 					return
 				}
 			} else {
