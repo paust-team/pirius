@@ -41,6 +41,7 @@ func main() {
 
 	defer c.Close()
 
+	startTimestamp := time.Now().UnixNano() / 1000000
 	err = c.Subscribe(topicName, nil)
 
 	if err != nil {
@@ -56,7 +57,7 @@ func main() {
 			receivedCount++
 			if totalCount == receivedCount {
 				endTimestamp := time.Now().UnixNano() / 1000000
-				fmt.Println(endTimestamp)
+				fmt.Println(endTimestamp - startTimestamp)
 				return
 			}
 		}
