@@ -66,14 +66,20 @@ func main() {
 	wg.Add(1)
 
 	deliveryChan := make(chan kafka.Event)
+	defer close(deliveryChan)
 
 	go func() {
 		defer wg.Done()
+		receivedCount := 0
 		for e := range deliveryChan {
 			m := e.(*kafka.Message)
 
 			if m.TopicPartition.Error != nil {
 				log.Fatal(m.TopicPartition.Error)
+			}
+			receivedCount++
+			if receivedCount == numDataCount {
+				return
 			}
 		}
 	}()
