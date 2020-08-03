@@ -25,6 +25,7 @@ func main() {
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.Load(*configPath)
 	brokerInstance := broker.NewBroker(brokerConfig)
+	defer brokerInstance.Clean()
 
 	go func() {
 		brokerInstance.Start()
