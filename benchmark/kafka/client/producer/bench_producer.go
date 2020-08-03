@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -61,30 +60,9 @@ func main() {
 	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 
-	// Delivery report handler for produced messages
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
 	deliveryChan := make(chan kafka.Event)
-	defer close(deliveryChan)
-
-	go func() {
-		defer wg.Done()
-		receivedCount := 0
-		for e := range deliveryChan {
-			m := e.(*kafka.Message)
-
-			if m.TopicPartition.Error != nil {
-				log.Fatal(m.TopicPartition.Error)
-			}
-			receivedCount++
-			if receivedCount == numDataCount {
-				return
-			}
-		}
-	}()
-
 	startTimestamp := time.Now().UnixNano() / 1000000
+
 	for i, record := range records {
 		err = p.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{Topic: &topicName, Partition: kafka.PartitionAny},
@@ -94,11 +72,18 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		e := <-deliveryChan
+		m := e.(*kafka.Message)
+
+		if m.TopicPartition.Error != nil {
+			log.Fatal(m.TopicPartition.Error)
+		}
+
 		if i == numDataCount {
 			break
 		}
 	}
 
-	wg.Wait()
 	fmt.Println(startTimestamp)
 }
