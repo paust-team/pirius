@@ -62,12 +62,12 @@ func main() {
 
 	startTimestamp := time.Now().UnixNano() / 1000000
 	for i, record := range records {
-		if i == numDataCount {
-			break
-		}
 		_, err = producer.Publish([]byte(record[0]))
 		if err != nil {
 			log.Fatal(err)
+		}
+		if i == numDataCount {
+			break
 		}
 	}
 

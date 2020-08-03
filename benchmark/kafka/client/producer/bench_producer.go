@@ -86,10 +86,6 @@ func main() {
 
 	startTimestamp := time.Now().UnixNano() / 1000000
 	for i, record := range records {
-		if i == numDataCount {
-			break
-		}
-
 		err = p.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{Topic: &topicName, Partition: kafka.PartitionAny},
 			Value:          []byte(record[0]),
@@ -97,6 +93,9 @@ func main() {
 
 		if err != nil {
 			log.Fatal(err)
+		}
+		if i == numDataCount {
+			break
 		}
 	}
 
