@@ -108,11 +108,12 @@ func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error 
 	_, err = z.conn.Create(topicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
-			err = pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)}
+			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)})
+			return nil
 		} else {
-			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+			z.logger.Error(pqerror.ZKRequestError{ZKErrStr: err.Error()})
 		}
-		z.logger.Error(err)
+
 		return err
 	}
 	return nil
@@ -321,9 +322,8 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 
 	for _, topicBroker := range topicBrokers {
 		if topicBroker == server {
-			err = pqerror.ZKTargetAlreadyExistsError{Target: server}
-			z.logger.Error(err)
-			return err
+			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: server})
+			return nil
 		}
 	}
 

@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"errors"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
@@ -83,7 +82,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			case shapleq_proto.SessionType_PUBLISHER:
 				atomic.AddInt64(&c.session.Topic().NumPubs, 1)
 				err := c.zkClient.AddTopicBroker(c.session.Topic().Name(), c.brokerAddr)
-				if err != nil && !errors.As(err, &pqerror.ZKTargetAlreadyExistsError{}) {
+				if err != nil {
 					errCh <- err
 					return
 				}
