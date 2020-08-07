@@ -13,7 +13,7 @@ var (
 	defaultLogLevel       = logger.Info
 	defaultZKPort         = 2181
 	defaultZKHost         = "localhost"
-	defaultZKTimeout uint = 3
+	defaultZKTimeout uint = 3000
 )
 
 type BrokerConfig struct {
