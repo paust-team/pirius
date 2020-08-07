@@ -40,6 +40,7 @@ PROTOBUF_DIR := $(THIRDPARTY_DIR)/protobuf
 PROTOC := $(shell which protoc)
 PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
 
+DEPLOY_TARGET := debug # debug | release
 
 .PHONY: rebuild-protobuf build-protobuf compile-protobuf
 rebuild-protobuf:
@@ -92,14 +93,14 @@ ifdef linux-os-host
 	CGO_ENABLED=1 CGO_CFLAGS="-I/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/include" \
 	CGO_LDFLAGS="-L/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/build -lrocksdb -lstdc++ -lm -lsnappy -ldl" \
 	GOOS=linux GOARCH=amd64 \
-	go build -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
+	go build -tags ${DEPLOY_TARGET} -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
 endif
 ifdef mac-os-host
-	go build -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
+	go build -tags ${DEPLOY_TARGET} -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
 endif
 
 build-client:
-	go build -o ./${CLIENT_BIN_DIR}/${CLIENT_BIN_NAME} ./${CLIENT_BIN_DIR}...
+	go build -tags ${DEPLOY_TARGET} -o ./${CLIENT_BIN_DIR}/${CLIENT_BIN_NAME} ./${CLIENT_BIN_DIR}...
 
 .PHONY: build rebuild install test
 build:
