@@ -89,7 +89,7 @@ func (b *Broker) Start() {
 
 	b.sessionMgr = internals.NewSessionManager()
 	sessionAndContextCh, acceptErrCh := b.handleNewConnections(brokerCtx)
-	//Need to implement transaction service
+
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
 	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.Port))
@@ -108,7 +108,6 @@ func (b *Broker) Start() {
 			if err != nil {
 				b.logger.Errorf("error occurred on transaction service: %s", err)
 			}
-			return
 		case <-notiErrorCh:
 			return
 		case <-acceptErrCh:
