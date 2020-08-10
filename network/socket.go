@@ -62,8 +62,7 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 				return
 			default:
 			}
-
-			err := s.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(s.rTimeout)))
+			err := s.conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(s.rTimeout)))
 			if err != nil {
 				errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
 				return
@@ -118,7 +117,7 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 		defer s.conn.Close()
 
 		for msg := range msgCh {
-			err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
+			err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.wTimeout)))
 			if err != nil {
 				errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
 				return
@@ -162,7 +161,8 @@ func (s *Socket) Write(msg *message.QMessage) error {
 		return pqerror.SocketClosedError{}
 	}
 
-	err := s.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(s.wTimeout)))
+	err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.wTimeout)))
+
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (s *Socket) Read() (*message.QMessage, error) {
 	recvBuf := make([]byte, 4*1024)
 
 	for {
-		err := s.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(s.rTimeout)))
+		err := s.conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(s.rTimeout)))
 		if err != nil {
 			return nil, pqerror.SocketReadError{ErrStr: err.Error()}
 		}

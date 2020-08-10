@@ -69,15 +69,9 @@ type Session struct {
 	wTimeout uint
 }
 
-const (
-	// default time outs (second)
-	DEFAULT_READ_TIMEOUT  int = 5
-	DEFAULT_WRITE_TIMEOUT int = 5
-)
-
-func NewSession(conn net.Conn) *Session {
+func NewSession(conn net.Conn, timeout int) *Session {
 	return &Session{
-		sock: network.NewSocket(conn, DEFAULT_READ_TIMEOUT, DEFAULT_WRITE_TIMEOUT),
+		sock: network.NewSocket(conn, timeout, timeout),
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},

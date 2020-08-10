@@ -13,7 +13,7 @@ import (
 var zkClient *ZKClient
 
 func TestMain(m *testing.M) {
-	zkClient = NewZKClient("127.0.0.1", 3)
+	zkClient = NewZKClient("127.0.0.1", 3000)
 	err := zkClient.Connect()
 
 	if err != nil {

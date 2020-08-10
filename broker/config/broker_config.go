@@ -12,8 +12,9 @@ var (
 	defaultDataDir        = fmt.Sprintf("%s/data", common.DefaultHomeDir)
 	defaultLogLevel       = logger.Info
 	defaultZKPort         = 2181
+	defaultTimeout        = 10000
 	defaultZKHost         = "localhost"
-	defaultZKTimeout uint = 3
+	defaultZKTimeout uint = 3000
 )
 
 type BrokerConfig struct {
@@ -27,6 +28,7 @@ func NewBrokerConfig() *BrokerConfig {
 	v.SetDefault("port", common.DefaultBrokerPort)
 	v.SetDefault("log-dir", defaultLogDir)
 	v.SetDefault("data-dir", defaultDataDir)
+	v.SetDefault("timeout", defaultTimeout)
 	v.SetDefault("log-level", logger.LogLevelToString(defaultLogLevel))
 	v.SetDefault("zookeeper", map[string]interface{}{
 		"port":    defaultZKPort,
@@ -44,6 +46,14 @@ func (b *BrokerConfig) Load(configPath string) *BrokerConfig {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	return b
+}
+
+func (b BrokerConfig) Timeout() int {
+	return b.GetInt("timeout")
+}
+
+func (b *BrokerConfig) SetTimeout(timeout int) {
+	b.Set("timeout", timeout)
 }
 
 func (b BrokerConfig) Port() uint {
