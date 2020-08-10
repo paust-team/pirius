@@ -295,7 +295,6 @@ func (e SocketClosedError) Error() string {
 func (e SocketClosedError) Code() PQCode {
 	return ErrSocketClosed
 }
-func (e SocketClosedError) IsSessionCloseable() {}
 
 type UnhandledError struct {
 	ErrStr string

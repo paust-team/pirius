@@ -2,6 +2,7 @@ port: 1101  # broker port
 log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory
 log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+timeout: 10000
 zookeeper:
   port: 2181
   host: localhost

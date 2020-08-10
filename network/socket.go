@@ -52,7 +52,6 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 				return
 			default:
 			}
-
 			err := s.conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(s.rTimeout)))
 			if err != nil {
 				errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
