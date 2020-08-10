@@ -384,6 +384,7 @@ func (e TopicNotSetError) Code() PQCode {
 }
 
 func (e TopicNotSetError) IsSessionCloseable() {}
+func (e TopicNotSetError) IsClientVisible()    {}
 
 // DBError
 type QRocksOperateError struct {
