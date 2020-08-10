@@ -38,7 +38,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 		defer conn.Close()
 		defer close(readDone)
 
-		sock := NewSocket(conn, 5, 5)
+		sock := NewSocket(conn, 5000, 5000)
 		msgCh, errCh := sock.ContinuousRead(ctx)
 		close(readStarted)
 		for {

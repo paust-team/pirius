@@ -70,9 +70,8 @@ type Session struct {
 }
 
 const (
-	// default time outs (second)
-	DEFAULT_READ_TIMEOUT  int = 5
-	DEFAULT_WRITE_TIMEOUT int = 5
+	DEFAULT_READ_TIMEOUT  int = 5000
+	DEFAULT_WRITE_TIMEOUT int = 5000
 )
 
 func NewSession(conn net.Conn) *Session {

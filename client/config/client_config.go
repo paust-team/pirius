@@ -14,7 +14,7 @@ type ClientConfigBase struct {
 var (
 	defaultLogLevel   = logger.Info
 	defaultBrokerHost = "localhost"
-	defaultTimeout    = 3
+	defaultTimeout    = 3000
 )
 
 func NewClientConfigBase() *ClientConfigBase {
