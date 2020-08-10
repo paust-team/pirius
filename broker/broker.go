@@ -119,6 +119,12 @@ func (b *Broker) Start() {
 					b.logger.Errorf("unhandled error occurred : %v", sessionErr.Error())
 					return
 				}
+
+				if _, ok := sessErr.PQError.(pqerror.SocketClosedError); ok {
+					b.logger.Info("socket closed")
+					continue
+				}
+
 				b.logger.Errorf("error occurred from session : %v", sessErr)
 
 				switch sessErr.PQError.(type) {
