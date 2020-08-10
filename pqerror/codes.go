@@ -47,4 +47,5 @@ const (
 	ErrPipeBuildFail          = 0x1011
 	ErrInvalidPipeType        = 0x1012
 	ErrInvalidMsgTypeToUnpack = 0x1013
+	ErrTopicBrokerNotExist    = 0x1014
 )

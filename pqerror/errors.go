@@ -218,6 +218,20 @@ func NewTopicNotExistError(topic string) TopicNotExistError {
 	return e
 }
 
+type TopicBrokerNotExistError struct {
+	Topic string
+}
+
+func (e TopicBrokerNotExistError) Error() string {
+	return fmt.Sprintf("broker for topic(%s) does not exist", e.Topic)
+}
+
+func (e TopicBrokerNotExistError) Code() PQCode {
+	return ErrTopicBrokerNotExist
+}
+
+func (e TopicBrokerNotExistError) IsSessionCloseable() {}
+
 // serialize / deserialize
 
 type InvalidChecksumError struct{}
