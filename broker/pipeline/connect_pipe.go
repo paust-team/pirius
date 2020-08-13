@@ -10,10 +10,10 @@ import (
 )
 
 type ConnectPipe struct {
-	session    *internals.Session
-	notifier   *internals.Notifier
-	zkClient   *zookeeper.ZKClient
-	brokerAddr string
+	session      *internals.Session
+	topicManager *internals.TopicManager
+	zkClient     *zookeeper.ZKClient
+	brokerAddr   string
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
@@ -21,7 +21,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	session, ok := in[0].(*internals.Session)
 	casted = casted && ok
 
-	notifier, ok := in[1].(*internals.Notifier)
+	topicManager, ok := in[1].(*internals.TopicManager)
 	casted = casted && ok
 
 	zkClient, ok := in[2].(*zookeeper.ZKClient)
@@ -35,9 +35,9 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	}
 
 	c.session = session
-	c.notifier = notifier
 	c.zkClient = zkClient
 	c.brokerAddr = brokerAddr
+	c.topicManager = topicManager
 
 	return nil
 }
@@ -70,7 +70,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			}
 			c.session.SetType(req.SessionType)
 
-			topic, err := c.notifier.LoadOrStoreTopic(req.TopicName)
+			topic, err := c.topicManager.LoadOrStoreTopic(req.TopicName)
 			if err != nil {
 				errCh <- err
 				return

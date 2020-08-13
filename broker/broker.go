@@ -27,7 +27,7 @@ type Broker struct {
 	sessionMgr      *internals.SessionManager
 	txService       *service.TransactionService
 	db              *storage.QRocksDB
-	notifier        *internals.Notifier
+	topicMgr        *internals.TopicManager
 	zkClient        *zookeeper.ZKClient
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
@@ -36,13 +36,13 @@ type Broker struct {
 
 func NewBroker(config *config.BrokerConfig) *Broker {
 
-	notifier := internals.NewNotifier()
+	topicManager := internals.NewTopicManager()
 	l := logger.NewQLogger("Broker", config.LogLevel())
 	zkClient := zookeeper.NewZKClient(config.ZKAddr(), config.ZKTimeout())
 
 	return &Broker{
 		config:   config,
-		notifier: notifier,
+		topicMgr: topicManager,
 		zkClient: zkClient,
 		logger:   l,
 		closed:   false,
@@ -73,7 +73,6 @@ func (b *Broker) Start() {
 	}
 	b.logger.Info("connected to zookeeper")
 
-	notiErrorCh := b.notifier.NotifyNews(brokerCtx)
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", b.config.Port()))
 	if err != nil {
 		b.logger.Fatalf("failed to resolve tcp address %s", err)
@@ -92,7 +91,7 @@ func (b *Broker) Start() {
 
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.notifier, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.config.Port()))
+	b.streamService = service.NewStreamService(b.db, b.topicMgr, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.config.Port()))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
@@ -108,8 +107,6 @@ func (b *Broker) Start() {
 			if err != nil {
 				b.logger.Errorf("error occurred on transaction service: %s", err)
 			}
-		case <-notiErrorCh:
-			return
 		case <-acceptErrCh:
 			return
 		case sessionErr := <-sessionErrCh:

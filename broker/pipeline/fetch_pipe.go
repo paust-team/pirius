@@ -7,13 +7,13 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"runtime"
 	"sync"
 )
 
 type FetchPipe struct {
-	session  *internals.Session
-	db       *storage.QRocksDB
-	notifier *internals.Notifier
+	session *internals.Session
+	db      *storage.QRocksDB
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -24,9 +24,6 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
-	casted = casted && ok
-
-	f.notifier, ok = in[2].(*internals.Notifier)
 	casted = casted && ok
 
 	if !casted {
@@ -118,28 +115,11 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 							first = false
 						}
 					}
-
-					if prevKey.Offset() < topic.LastOffset() {
-						continue
-					}
-					f.waitForNews(inStreamClosed, topic.Name(), prevKey.Offset())
+					runtime.Gosched()
 				}
 			}()
 		}
 	}()
 
 	return outStream, errCh, nil
-}
-
-func (f FetchPipe) waitForNews(inStreamClosed chan struct{}, topicName string, currentLastOffset uint64) {
-	subscribeChan := make(chan bool)
-	defer close(subscribeChan)
-	subscription := &internals.Subscription{TopicName: topicName, LastFetchedOffset: currentLastOffset, SubscribeChan: subscribeChan}
-	f.notifier.RegisterSubscription(subscription)
-	select {
-	case <-inStreamClosed:
-		return
-	case <-subscribeChan:
-		return
-	}
 }
