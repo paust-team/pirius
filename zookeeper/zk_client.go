@@ -50,7 +50,7 @@ func (z *ZKClient) Close() {
 }
 
 func (z *ZKClient) CreatePathsIfNotExist() error {
-	paths := []string{constants.ShapleQPath, constants.BrokersPath, constants.TopicsPath, constants.TopicBrokersPath}
+	paths := []string{constants.ShapleQPath, constants.BrokersPath, constants.TopicsPath, constants.BrokersLockPath, constants.TopicsLockPath}
 	for _, path := range paths {
 		err := z.createPathIfNotExists(path)
 		if err != nil {
@@ -72,14 +72,6 @@ func (z *ZKClient) createPathIfNotExists(path string) error {
 	return nil
 }
 
-func topicPath(topic string) string {
-	return constants.TopicsPath + "/" + topic
-}
-
-func topicLockPath(topic string) string {
-	return fmt.Sprintf("/topics-%s-lock", topic)
-}
-
 func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error {
 	tLock := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
@@ -90,17 +82,20 @@ func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error 
 		return err
 	}
 
-	_, err = z.conn.Create(topicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
+	_, err = z.conn.Create(getTopicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
-			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: topicPath(topic)})
-			return nil
+			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: getTopicPath(topic)})
 		} else {
 			z.logger.Error(pqerror.ZKRequestError{ZKErrStr: err.Error()})
+			return err
 		}
+	}
 
+	if err := z.createPathIfNotExists(getTopicBrokerPath(topic)); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -114,7 +109,7 @@ func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
 		return nil, err
 	}
 
-	topicBytes, _, err := z.conn.Get(topicPath(topic))
+	topicBytes, _, err := z.conn.Get(getTopicPath(topic))
 	if err != nil {
 		if err == zk.ErrNoNode {
 			err = pqerror.TopicNotExistError{Topic: topic}
@@ -161,7 +156,13 @@ func (z *ZKClient) RemoveTopic(topic string) error {
 		return err
 	}
 
-	if err = z.conn.Delete(topicPath(topic), -1); err != nil {
+	if err = z.conn.Delete(getTopicBrokerPath(topic), -1); err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		z.logger.Error(err)
+		return err
+	}
+
+	if err = z.conn.Delete(getTopicPath(topic), -1); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return err
@@ -299,6 +300,7 @@ func (z *ZKClient) RemoveBroker(server string) error {
 }
 
 func (z *ZKClient) AddTopicBroker(topic string, server string) error {
+
 	topicBrokers, err := z.GetTopicBrokers(topic)
 	if err != nil {
 		z.logger.Error(err)
@@ -321,16 +323,16 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 		return err
 	}
 
-	tLocks := zk.NewLock(z.conn, constants.BrokersLockPath, zk.WorldACL(zk.PermAll))
+	tLocks := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err = tLocks.Lock()
 	defer tLocks.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: constants.BrokersLockPath, ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: constants.TopicsLockPath, ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
-	_, err = z.conn.Set(constants.BrokersPath, buffer.Bytes(), -1)
+	_, err = z.conn.Set(getTopicBrokerPath(topic), buffer.Bytes(), -1)
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -341,23 +343,28 @@ func (z *ZKClient) AddTopicBroker(topic string, server string) error {
 }
 
 func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
-	tLock := zk.NewLock(z.conn, constants.BrokersLockPath, zk.WorldACL(zk.PermAll))
+	tLock := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: constants.BrokersLockPath, ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: constants.TopicsLockPath, ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return nil, err
 	}
 
-	brokersBytes, _, err := z.conn.Get(constants.BrokersPath)
+	brokersBytes, _, err := z.conn.Get(getTopicBrokerPath(topic))
 	if err != nil {
-		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		if err == zk.ErrNoNode {
+			err = pqerror.TopicBrokerNotExistError{Topic: topic}
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		}
 		z.logger.Error(err)
 		return nil, err
 	}
+
 	if len(brokersBytes) == 0 {
-		z.logger.Info("no broker exist")
+		z.logger.Info("no broker exist in TopicBrokerPath")
 		return nil, nil
 	}
 
@@ -405,16 +412,16 @@ func (z *ZKClient) RemoveTopicBroker(topic string, server string) error {
 		return err
 	}
 
-	tLock := zk.NewLock(z.conn, constants.BrokersLockPath, zk.WorldACL(zk.PermAll))
+	tLock := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err = tLock.Lock()
 	defer tLock.Unlock()
 	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: constants.BrokersLockPath, ZKErrStr: err.Error()}
+		err = pqerror.ZKLockFailError{LockPath: constants.TopicsLockPath, ZKErrStr: err.Error()}
 		z.logger.Error(err)
 		return err
 	}
 
-	_, err = z.conn.Set(constants.BrokersPath, buffer.Bytes(), -1)
+	_, err = z.conn.Set(getTopicBrokerPath(topic), buffer.Bytes(), -1)
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -433,7 +440,8 @@ func (z *ZKClient) RemoveAllPath() {
 	}
 	if topics != nil {
 		for _, topic := range topics {
-			z.conn.Delete(topicPath(topic), -1)
+			z.conn.Delete(getTopicBrokerPath(topic), -1)
+			z.conn.Delete(getTopicPath(topic), -1)
 		}
 	}
 
@@ -441,13 +449,10 @@ func (z *ZKClient) RemoveAllPath() {
 	if err != nil {
 		z.logger.Errorf("failed to delete path %s - %s ", constants.TopicsPath, err)
 	}
+
 	err = z.conn.Delete(constants.BrokersPath, -1)
 	if err != nil {
 		z.logger.Errorf("failed to delete path %s - %s ", constants.BrokersPath, err)
-	}
-	err = z.conn.Delete(constants.TopicBrokersPath, -1)
-	if err != nil {
-		z.logger.Errorf("failed to delete path %s - %s ", constants.TopicBrokersPath, err)
 	}
 	err = z.conn.Delete(constants.BrokersLockPath, -1)
 	if err != nil {
@@ -457,12 +462,16 @@ func (z *ZKClient) RemoveAllPath() {
 	if err != nil {
 		z.logger.Errorf("failed to delete path %s - %s ", constants.TopicsLockPath, err)
 	}
-	err = z.conn.Delete(constants.TopicBrokersLockPath, -1)
-	if err != nil {
-		z.logger.Errorf("failed to delete path %s - %s ", constants.TopicBrokersLockPath, err)
-	}
 	err = z.conn.Delete(constants.ShapleQPath, -1)
 	if err != nil {
 		z.logger.Errorf("failed to delete path %s - %s ", constants.ShapleQPath, err)
 	}
+}
+
+func getTopicPath(topic string) string {
+	return fmt.Sprintf("%s/%s", constants.TopicsPath, topic)
+}
+
+func getTopicBrokerPath(topic string) string {
+	return fmt.Sprintf("%s/%s/brokers", constants.TopicsPath, topic)
 }
