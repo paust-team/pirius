@@ -2,7 +2,9 @@ package storage
 
 import (
 	"encoding/binary"
+	"github.com/paust-team/shapleq/common"
 	"github.com/tecbot/gorocksdb"
+	"log"
 	"path/filepath"
 	"unsafe"
 )
@@ -30,13 +32,26 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	columnFamilyNames := []string{"default", "topic", "record"}
 
 	bbto := gorocksdb.NewDefaultBlockBasedTableOptions()
-	bbto.SetBlockCache(gorocksdb.NewLRUCache(1 << 30))
+	bbto.SetFilterPolicy(gorocksdb.NewBloomFilter(20))
+	bbto.SetNoBlockCache(true)
+	bbto.SetBlockRestartInterval(4)
+	bbto.SetIndexType(gorocksdb.KHashSearchIndexType)
 	defaultOpts := gorocksdb.NewDefaultOptions()
+	defaultOpts.SetAllowMmapReads(true)
 	defaultOpts.SetBlockBasedTableFactory(bbto)
+	defaultOpts.SetCompression(gorocksdb.NoCompression)
+	defaultOpts.SetLevel0FileNumCompactionTrigger(1)
+	defaultOpts.SetMaxBackgroundFlushes(16)
+	defaultOpts.SetMaxBackgroundCompactions(16)
+	defaultOpts.SetMaxOpenFiles(-1)
 	defaultOpts.SetCreateIfMissing(true)
 	defaultOpts.SetCreateIfMissingColumnFamilies(true)
-	defaultOpts.SetCompression(gorocksdb.SnappyCompression)
+	defaultOpts.SetWriteBufferSize(1 << 30)
+	defaultOpts.SetPrefixExtractor(gorocksdb.NewFixedPrefixTransform(common.MaxTopicLength + 1))
+	defaultOpts.SetAllowMmapWrites(false)
+
 	opts := gorocksdb.NewDefaultOptions()
+
 	db, columnFamilyHandles, err := gorocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*gorocksdb.Options{opts, opts, opts})
 	if err != nil {
 		return nil, err
@@ -91,11 +106,21 @@ type RecordKey struct {
 	isSlice bool
 }
 
+// TODO:: check topic length from caller side
+// In this method, if the topic exceeds the maximum length(MaxTopicLength),
+// an error should be returned or copied only up to the MaxTopicLength
 func NewRecordKeyFromData(topic string, offset uint64) *RecordKey {
-	data := make([]byte, len(topic)+1+int(unsafe.Sizeof(offset)))
-	copy(data, topic+"@")
-	binary.BigEndian.PutUint64(data[len(topic)+1:], offset)
-	return &RecordKey{data: data, isSlice: false}
+
+	if len(topic) > common.MaxTopicLength { // temporary
+		log.Fatalf("topic length must be <= %d", common.MaxTopicLength)
+	}
+
+	topicBytesLength := common.MaxTopicLength + 1
+	dataBytes := make([]byte, topicBytesLength+int(unsafe.Sizeof(offset)))
+	copy(dataBytes, topic+"@")
+
+	binary.BigEndian.PutUint64(dataBytes[topicBytesLength:], offset)
+	return &RecordKey{data: dataBytes, isSlice: false}
 }
 
 func NewRecordKey(slice *gorocksdb.Slice) *RecordKey {

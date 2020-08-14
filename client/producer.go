@@ -77,6 +77,7 @@ func (p *Producer) Publish(data []byte) (common.Partition, error) {
 	return p.handleMessage(res)
 }
 
+// TODO:: AsyncPublish is not working properly with tailing iterator. It can be used after supporting the back pressure
 func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, <-chan error, error) {
 	recvCh, recvErrCh, err := p.continuousReceive(p.ctx)
 	if err != nil {

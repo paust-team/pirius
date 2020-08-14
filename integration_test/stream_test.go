@@ -185,38 +185,10 @@ func TestPubSub(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	publishCh := make(chan []byte)
-	defer close(publishCh)
 
-	partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
-	if err != nil {
+	if _, err := producer.Publish(expectedRecords[0]); err != nil {
 		t.Error(err)
-		return
 	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer producer.Close()
-
-		published := 0
-		for {
-			select {
-			case err := <-pubErrCh:
-				if err != nil {
-					t.Error(err)
-					return
-				}
-			case partition := <-partitionCh:
-				fmt.Println("publish succeed, offset :", partition.Offset)
-				published++
-				if published == len(expectedRecords) {
-					return
-				}
-			}
-		}
-	}()
 
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(testLogLevel)
@@ -234,6 +206,7 @@ func TestPubSub(t *testing.T) {
 		return
 	}
 
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -242,19 +215,21 @@ func TestPubSub(t *testing.T) {
 			select {
 			case received := <-receiveCh:
 				actualRecords = append(actualRecords, received.Data)
-				fmt.Println(len(actualRecords), len(expectedRecords))
+				fmt.Println(len(actualRecords), len(expectedRecords), string(received.Data))
 				if len(actualRecords) == len(expectedRecords) {
 					return
 				}
 			case err := <-subErrCh:
-				t.Error(err)
+				t.Fatal(err)
 				return
 			}
 		}
 	}()
 
-	for _, record := range expectedRecords {
-		publishCh <- record
+	for _, record := range expectedRecords[1:] {
+		if _, err := producer.Publish(record); err != nil {
+			t.Error(err)
+		}
 	}
 
 	wg.Wait()
@@ -322,37 +297,15 @@ func TestMultiClient(t *testing.T) {
 			return nil
 		}
 
-		publishCh := make(chan []byte)
-
-		partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
-		if err != nil {
+		if _, err := producer.Publish(records[0]); err != nil {
 			t.Error(err)
-			return nil
 		}
 
 		go func() {
-			defer close(publishCh)
-			defer producer.Close()
-			published := 0
-			for {
-				select {
-				case err := <-pubErrCh:
-					if err != nil {
-						t.Error(err)
-						return
-					}
-				case <-partitionCh:
-					published++
-					if published == len(records) {
-						return
-					}
+			for _, record := range records[1:] {
+				if _, err := producer.Publish(record); err != nil {
+					t.Error(err)
 				}
-			}
-		}()
-
-		go func() {
-			for _, record := range records {
-				publishCh <- record
 			}
 		}()
 
