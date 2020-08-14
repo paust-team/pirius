@@ -21,3 +21,5 @@ const (
 	AtLeastOnce
 	ExactlyONce
 )
+
+const MaxTopicLength = 10
