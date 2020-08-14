@@ -211,7 +211,7 @@ func (e TopicNotExistError) Code() PQCode {
 	return ErrTopicNotExist
 }
 
-func (e TopicNotExistError) IsBrokerStoppable() {}
+func (e TopicNotExistError) IsSessionCloseable() {}
 
 func NewTopicNotExistError(topic string) TopicNotExistError {
 	e := TopicNotExistError{Topic: topic}
@@ -384,6 +384,7 @@ func (e TopicNotSetError) Code() PQCode {
 }
 
 func (e TopicNotSetError) IsSessionCloseable() {}
+func (e TopicNotSetError) IsClientVisible()    {}
 
 // DBError
 type QRocksOperateError struct {
