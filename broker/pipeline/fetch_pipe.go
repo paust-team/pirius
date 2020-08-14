@@ -1,7 +1,7 @@
 package pipeline
 
 import (
-	"bytes"
+	"context"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/message"
@@ -39,6 +39,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 	inStreamClosed := make(chan struct{})
 
 	once := sync.Once{}
+
 	go func() {
 		defer close(outStream)
 		defer close(errCh)
@@ -56,70 +57,71 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 				}
 			})
 
-			req := in.(*shapleq_proto.FetchRequest)
-			var fetchRes shapleq_proto.FetchResponse
+			go func(req *shapleq_proto.FetchRequest) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				resCh := f.continuousIterate(ctx, topic, req.StartOffset)
 
-			first := true
-			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
-
-			if req.StartOffset > topic.LastOffset() {
-				errCh <- pqerror.InvalidStartOffsetError{
-					Topic:       topic.Name(),
-					StartOffset: req.StartOffset,
-					LastOffset:  topic.LastOffset()}
-				return
-			}
-
-			it := f.db.Scan(storage.RecordCF)
-
-			go func() {
-				for !f.session.IsClosed() {
-					currentLastOffset := topic.LastOffset()
-					it.Seek(prevKey.Data())
-					if !first && it.Valid() {
-						it.Next()
-					}
-
-					for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
-						key := storage.NewRecordKey(it.Key())
-						keyOffset := key.Offset()
-
-						if first {
-							if keyOffset != req.StartOffset {
-								break
-							}
-						} else {
-							if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
-								break
-							}
+				for {
+					select {
+					case res, ok := <-resCh:
+						if !ok {
+							return
 						}
-
-						fetchRes.Reset()
-						fetchRes = shapleq_proto.FetchResponse{
-							Data:       it.Value().Data(),
-							LastOffset: currentLastOffset,
-							Offset:     keyOffset,
-						}
-
-						out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
+						out, err := message.NewQMessageFromMsg(message.STREAM, &res)
 						if err != nil {
 							errCh <- err
 							return
 						}
-
-						select {
-						case <-inStreamClosed:
-							return
-						case outStream <- out:
-							prevKey.SetData(key.Data())
-							first = false
-						}
+						outStream <- out
+					case <-inStreamClosed:
+						return
 					}
-					runtime.Gosched()
 				}
-			}()
+			}(in.(*shapleq_proto.FetchRequest))
 		}
 	}()
 
 	return outStream, errCh, nil
+}
+
+func (f *FetchPipe) continuousIterate(ctx context.Context, topic *internals.Topic, startOffset uint64) <-chan shapleq_proto.FetchResponse {
+
+	responseCh := make(chan shapleq_proto.FetchResponse)
+
+	go func() {
+		defer close(responseCh)
+		it := f.db.Scan(storage.RecordCF)
+
+		keyData := storage.NewRecordKeyFromData(topic.Name(), startOffset).Data()
+		it.Seek(keyData)
+		prefixData := []byte(topic.Name() + "@")
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if it.ValidForPrefix(prefixData) {
+					key := storage.NewRecordKey(it.Key())
+					keyOffset := key.Offset()
+					responseCh <- shapleq_proto.FetchResponse{
+						Data:       it.Value().Data(),
+						LastOffset: topic.LastOffset(),
+						Offset:     keyOffset,
+					}
+					keyData = it.Key().Data()
+					it.Next()
+				} else {
+					it.Seek(keyData)
+					if it.ValidForPrefix(prefixData) {
+						it.Next()
+					}
+				}
+			}
+			runtime.Gosched()
+		}
+	}()
+
+	return responseCh
 }
