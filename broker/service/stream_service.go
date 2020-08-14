@@ -12,15 +12,15 @@ import (
 )
 
 type StreamService struct {
-	DB       *storage.QRocksDB
-	Notifier *internals.Notifier
-	zKClient *zookeeper.ZKClient
-	addr     string
+	DB           *storage.QRocksDB
+	TopicManager *internals.TopicManager
+	zKClient     *zookeeper.ZKClient
+	addr         string
 }
 
-func NewStreamService(DB *storage.QRocksDB, notifier *internals.Notifier, zKClient *zookeeper.ZKClient,
+func NewStreamService(DB *storage.QRocksDB, topicManager *internals.TopicManager, zKClient *zookeeper.ZKClient,
 	addr string) *StreamService {
-	return &StreamService{DB: DB, Notifier: notifier, zKClient: zKClient, addr: addr}
+	return &StreamService{DB: DB, TopicManager: topicManager, zKClient: zKClient, addr: addr}
 }
 
 func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
@@ -133,14 +133,14 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.Notifier, s.zKClient, s.addr)
+	err = connector.Build(sess, s.TopicManager, s.zKClient, s.addr)
 	if err != nil {
 		return err, nil
 	}
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB, s.Notifier)
+	err = fetcher.Build(sess, s.DB)
 	if err != nil {
 		return err, nil
 	}
