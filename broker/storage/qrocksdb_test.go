@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -80,7 +81,8 @@ func TestQRocksDBTailingIterator(t *testing.T) {
 	it.Seek(keyData)
 	prefixData := []byte(topic + "@")
 
-	expectedByte := []byte{2}
+	count := 1000
+	expectedByte := []byte(strconv.Itoa(count - 1))
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
@@ -99,8 +101,10 @@ func TestQRocksDBTailingIterator(t *testing.T) {
 	}()
 
 	go func() {
-		time.Sleep(time.Second * 1)
-		putInt(1, expectedByte)
+		for i := 1; i < count; i++ {
+			putInt(uint64(i), []byte(strconv.Itoa(i)))
+			runtime.Gosched()
+		}
 	}()
 
 	select {
