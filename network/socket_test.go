@@ -5,6 +5,7 @@ import (
 	"context"
 	"github.com/paust-team/shapleq/message"
 	"net"
+	"strconv"
 	"testing"
 )
 
@@ -22,16 +23,21 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 	go func() {
 		conn, err := listener.Accept()
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 		serverConnCh <- conn
 	}()
 
 	readStarted := make(chan bool)
 	readDone := make(chan bool)
-	actual := [][]byte{}
-	expected := [][]byte{{'a'}, {'b'}, {'c'}}
+
+	var actual [][]byte
+	var expected [][]byte
+	var count = 100000
+
+	for i := 0; i < count; i++ {
+		expected = append(expected, []byte(strconv.Itoa(i)))
+	}
 
 	go func() {
 		conn := <-serverConnCh
@@ -41,6 +47,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 		sock := NewSocket(conn, 5000, 5000)
 		msgCh, errCh := sock.ContinuousRead(ctx)
 		close(readStarted)
+
 		for {
 			select {
 			case msg := <-msgCh:
@@ -53,8 +60,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 
 			case err := <-errCh:
 				if err != nil {
-					t.Error(err)
-					return
+					t.Fatal(err)
 				}
 			}
 		}
@@ -62,20 +68,23 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 
 	conn, err := net.Dial("tcp", ":1101")
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 	defer conn.Close()
 
 	msgCh := make(chan *message.QMessage)
-	sock := NewSocket(conn, 3, 3)
-	sock.ContinuousWrite(ctx, msgCh)
+	sock := NewSocket(conn, 5000, 5000)
+	writeErrCh := sock.ContinuousWrite(ctx, msgCh)
 
 	<-readStarted
 	for _, msg := range expected {
 		msgCh <- message.NewQMessage(message.STREAM, msg)
 	}
-	<-readDone
+	select {
+	case err := <-writeErrCh:
+		t.Fatal(err)
+	case <-readDone:
+	}
 
 	for i := 0; i < len(expected); i++ {
 		if bytes.Compare(actual[i], expected[i]) != 0 {
