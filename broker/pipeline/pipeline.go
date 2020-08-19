@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"github.com/paust-team/shapleq/pqerror"
+	"runtime"
 )
 
 type Pipeline struct {
@@ -120,7 +121,10 @@ func (p *Pipeline) Wait(ctx context.Context) error {
 				// guarantee all pipes are done if an error occurred
 				return err
 			}
+		default:
+
 		}
+		runtime.Gosched()
 	}
 }
 

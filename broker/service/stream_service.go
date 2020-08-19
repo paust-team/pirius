@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper"
+	"runtime"
 	"sync"
 )
 
@@ -43,7 +44,10 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 					wg.Add(1)
 					go s.handleEventStream(eventStream, sessionErrCh, &wg)
 				}
+			default:
+
 			}
+			runtime.Gosched()
 		}
 	}()
 
@@ -90,7 +94,10 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 						CancelSession: cancelSession}
 				}
 			}
+		default:
+
 		}
+		runtime.Gosched()
 	}
 }
 
