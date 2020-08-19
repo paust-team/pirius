@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var testLogLevel = logger.Debug
+var testLogLevel = logger.Error
 var brokerPort uint = 1101
 var brokerHost = "127.0.0.1"
 var zkAddr = "127.0.0.1"
@@ -280,6 +280,7 @@ func TestMultiClient(t *testing.T) {
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
 	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -344,6 +345,7 @@ func TestMultiClient(t *testing.T) {
 				case <-partitionCh:
 					published++
 					if published == len(records) {
+						fmt.Printf("done producer with file %s\n", fileName)
 						return
 					}
 				}
@@ -370,7 +372,7 @@ func TestMultiClient(t *testing.T) {
 	type SubscribedRecords [][]byte
 	var totalSubscribedRecords []SubscribedRecords
 
-	runConsumer := func() SubscribedRecords {
+	runConsumer := func(name string) SubscribedRecords {
 		var subscribedRecords SubscribedRecords
 
 		consumerConfig := config2.NewConsumerConfig()
@@ -396,6 +398,7 @@ func TestMultiClient(t *testing.T) {
 			case received := <-receiveCh:
 				subscribedRecords = append(subscribedRecords, received.Data)
 				if len(subscribedRecords) == len(totalPublishedRecords) {
+					fmt.Printf("done %s\n", name)
 					return subscribedRecords
 				}
 			case err := <-subErrCh:
@@ -405,8 +408,10 @@ func TestMultiClient(t *testing.T) {
 		}
 	}
 
-	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
-	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
+	consumerCount := 10
+	for i := 0; i < consumerCount; i++ {
+		totalSubscribedRecords = append(totalSubscribedRecords, runConsumer(fmt.Sprintf("consumer%d", i)))
+	}
 
 	for _, subscribedRecords := range totalSubscribedRecords {
 		if len(totalPublishedRecords) != len(subscribedRecords) {
