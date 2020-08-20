@@ -371,8 +371,10 @@ func TestMultiClient(t *testing.T) {
 	// Start consumer
 	type SubscribedRecords [][]byte
 	var totalSubscribedRecords []SubscribedRecords
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-	runConsumer := func(name string) SubscribedRecords {
+	runConsumer := func(name string) {
 		var subscribedRecords SubscribedRecords
 
 		consumerConfig := config2.NewConsumerConfig()
@@ -382,36 +384,48 @@ func TestMultiClient(t *testing.T) {
 		consumer := client.NewConsumer(consumerConfig, topic)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
-			return nil
+			wg.Done()
+			return
 		}
-
-		defer consumer.Close()
 
 		receiveCh, subErrCh, err := consumer.Subscribe(0)
 		if err != nil {
 			t.Error(err)
-			return nil
+			wg.Done()
+			return
 		}
 
-		for {
-			select {
-			case received := <-receiveCh:
-				subscribedRecords = append(subscribedRecords, received.Data)
-				if len(subscribedRecords) == len(totalPublishedRecords) {
-					fmt.Printf("done %s\n", name)
-					return subscribedRecords
+		go func() {
+			defer wg.Done()
+			defer consumer.Close()
+
+			for {
+				select {
+				case received := <-receiveCh:
+					subscribedRecords = append(subscribedRecords, received.Data)
+					if len(subscribedRecords) == len(totalPublishedRecords) {
+						fmt.Printf("done %s\n", name)
+						mu.Lock()
+						totalSubscribedRecords = append(totalSubscribedRecords, subscribedRecords)
+						mu.Unlock()
+						return
+					}
+				case err := <-subErrCh:
+					t.Error(err)
+					return
 				}
-			case err := <-subErrCh:
-				t.Error(err)
-				return subscribedRecords
 			}
-		}
+		}()
 	}
 
 	consumerCount := 10
+	wg.Add(consumerCount)
+
 	for i := 0; i < consumerCount; i++ {
-		totalSubscribedRecords = append(totalSubscribedRecords, runConsumer(fmt.Sprintf("consumer%d", i)))
+		runConsumer(fmt.Sprintf("consumer%d", i))
 	}
+
+	wg.Wait()
 
 	for _, subscribedRecords := range totalSubscribedRecords {
 		if len(totalPublishedRecords) != len(subscribedRecords) {
