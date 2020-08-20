@@ -62,10 +62,12 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 							if err := s.handleMsg(msg, eventStream.Session); err != nil {
 								errCh <- err
 							}
+						default:
 						}
 						runtime.Gosched()
 					}
 				}()
+			default:
 			}
 			runtime.Gosched()
 		}

@@ -141,7 +141,9 @@ func (b *Broker) Start() {
 				default:
 				}
 			}
+		default:
 		}
+		runtime.Gosched()
 	}
 }
 
@@ -324,6 +326,7 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 									CancelSession: sc.cancelSession}
 							}
 						}
+					default:
 					}
 					runtime.Gosched()
 				}
