@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper"
+	"runtime"
 	"sync"
 )
 
@@ -44,6 +45,7 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 					go s.handleEventStream(eventStream, sessionErrCh, &wg)
 				}
 			}
+			runtime.Gosched()
 		}
 	}()
 
@@ -91,6 +93,7 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 				}
 			}
 		}
+		runtime.Gosched()
 	}
 }
 
@@ -101,6 +104,7 @@ func convertToInterfaceChan(from <-chan *message.QMessage) chan interface{} {
 		defer close(to)
 		for msg := range from {
 			to <- msg
+			runtime.Gosched()
 		}
 	}()
 
@@ -114,6 +118,7 @@ func convertToQMessageChan(from <-chan interface{}) <-chan *message.QMessage {
 		defer close(to)
 		for any := range from {
 			to <- any.(*message.QMessage)
+			runtime.Gosched()
 		}
 	}()
 

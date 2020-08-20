@@ -118,6 +118,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 					runtime.Gosched()
 				}
 			}()
+			runtime.Gosched()
 		}
 	}()
 

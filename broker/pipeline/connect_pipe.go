@@ -6,6 +6,7 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"github.com/paust-team/shapleq/zookeeper"
+	"runtime"
 	"sync/atomic"
 )
 
@@ -98,6 +99,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			}
 
 			outStream <- out
+			runtime.Gosched()
 		}
 	}()
 

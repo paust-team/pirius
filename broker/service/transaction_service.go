@@ -10,6 +10,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	shapleqproto "github.com/paust-team/shapleq/proto"
 	"github.com/paust-team/shapleq/zookeeper"
+	"runtime"
 	"sync"
 )
 
@@ -62,9 +63,11 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 								errCh <- err
 							}
 						}
+						runtime.Gosched()
 					}
 				}()
 			}
+			runtime.Gosched()
 		}
 	}()
 
