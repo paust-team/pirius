@@ -8,7 +8,6 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	"io"
 	"net"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -106,7 +105,6 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 					data = data[processed:]
 				}
 			}
-			runtime.Gosched()
 		}
 	}()
 	return msgStream, errCh
@@ -151,7 +149,6 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 					}
 				}
 			}
-			runtime.Gosched()
 		}
 	}()
 
@@ -235,6 +232,5 @@ func (s *Socket) Read() (*message.QMessage, error) {
 				return msg, nil
 			}
 		}
-		runtime.Gosched()
 	}
 }
