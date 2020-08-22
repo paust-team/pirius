@@ -267,6 +267,8 @@ func (e ReadTimeOutError) Code() PQCode {
 	return ErrReadTimeOut
 }
 
+func (e ReadTimeOutError) IsSessionCloseable() {}
+
 type WriteTimeOutError struct{}
 
 func (e WriteTimeOutError) Error() string {
@@ -276,6 +278,8 @@ func (e WriteTimeOutError) Error() string {
 func (e WriteTimeOutError) Code() PQCode {
 	return ErrWriteTimeOut
 }
+
+func (e WriteTimeOutError) IsSessionCloseable() {}
 
 type SocketReadError struct {
 	ErrStr string
@@ -289,6 +293,8 @@ func (e SocketReadError) Code() PQCode {
 	return ErrSocketRead
 }
 
+func (e SocketReadError) IsSessionCloseable() {}
+
 // May be retryable
 type SocketWriteError struct {
 	ErrStr string
@@ -300,6 +306,8 @@ func (e SocketWriteError) Error() string {
 func (e SocketWriteError) Code() PQCode {
 	return ErrSocketWrite
 }
+
+func (e SocketWriteError) IsSessionCloseable() {}
 
 type SocketClosedError struct{}
 
