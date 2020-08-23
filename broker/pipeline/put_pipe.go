@@ -6,6 +6,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"runtime"
 	"sync"
 	"sync/atomic"
 )
@@ -71,6 +72,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			}
 
 			outStream <- out
+			runtime.Gosched()
 		}
 	}()
 

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var testLogLevel = logger.Debug
+var testLogLevel = logger.Error
 var brokerPort uint = 1101
 var brokerHost = "127.0.0.1"
 var zkAddr = "127.0.0.1"
@@ -280,6 +280,7 @@ func TestMultiClient(t *testing.T) {
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
 	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -344,6 +345,7 @@ func TestMultiClient(t *testing.T) {
 				case <-partitionCh:
 					published++
 					if published == len(records) {
+						fmt.Printf("done producer with file %s\n", fileName)
 						return
 					}
 				}
@@ -369,8 +371,10 @@ func TestMultiClient(t *testing.T) {
 	// Start consumer
 	type SubscribedRecords [][]byte
 	var totalSubscribedRecords []SubscribedRecords
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-	runConsumer := func() SubscribedRecords {
+	runConsumer := func(name string) {
 		var subscribedRecords SubscribedRecords
 
 		consumerConfig := config2.NewConsumerConfig()
@@ -380,33 +384,48 @@ func TestMultiClient(t *testing.T) {
 		consumer := client.NewConsumer(consumerConfig, topic)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
-			return nil
+			wg.Done()
+			return
 		}
-
-		defer consumer.Close()
 
 		receiveCh, subErrCh, err := consumer.Subscribe(0)
 		if err != nil {
 			t.Error(err)
-			return nil
+			wg.Done()
+			return
 		}
 
-		for {
-			select {
-			case received := <-receiveCh:
-				subscribedRecords = append(subscribedRecords, received.Data)
-				if len(subscribedRecords) == len(totalPublishedRecords) {
-					return subscribedRecords
+		go func() {
+			defer wg.Done()
+			defer consumer.Close()
+
+			for {
+				select {
+				case received := <-receiveCh:
+					subscribedRecords = append(subscribedRecords, received.Data)
+					if len(subscribedRecords) == len(totalPublishedRecords) {
+						fmt.Printf("done %s\n", name)
+						mu.Lock()
+						totalSubscribedRecords = append(totalSubscribedRecords, subscribedRecords)
+						mu.Unlock()
+						return
+					}
+				case err := <-subErrCh:
+					t.Error(err)
+					return
 				}
-			case err := <-subErrCh:
-				t.Error(err)
-				return subscribedRecords
 			}
-		}
+		}()
 	}
 
-	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
-	totalSubscribedRecords = append(totalSubscribedRecords, runConsumer())
+	consumerCount := 10
+	wg.Add(consumerCount)
+
+	for i := 0; i < consumerCount; i++ {
+		runConsumer(fmt.Sprintf("consumer%d", i))
+	}
+
+	wg.Wait()
 
 	for _, subscribedRecords := range totalSubscribedRecords {
 		if len(totalPublishedRecords) != len(subscribedRecords) {
