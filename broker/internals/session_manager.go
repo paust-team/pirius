@@ -32,10 +32,11 @@ func (s *SessionManager) RemoveSession(session *Session) {
 }
 
 func (s *SessionManager) BroadcastMsg(msg *message.QMessage) {
-	s.Lock()
-	defer s.Unlock()
-
-	for _, session := range s.sessions {
-		session.Write(msg)
-	}
+	// TODO::
+	//s.Lock()
+	//defer s.Unlock()
+	//
+	//for _, session := range s.sessions {
+	//	session.Write(msg)
+	//}
 }

@@ -13,7 +13,8 @@ import (
 
 type EventStream struct {
 	Session       *Session
-	MsgCh         <-chan *message.QMessage
+	ReadMsgCh     <-chan *message.QMessage
+	WriteMsgCh    chan<- *message.QMessage
 	Ctx           context.Context
 	CancelSession context.CancelFunc
 }
@@ -21,6 +22,12 @@ type EventStream struct {
 type SessionState struct {
 	sync.RWMutex
 	stType SessionStateType
+}
+
+type TransactionalError struct {
+	pqerror.PQError
+	Session       *Session
+	CancelSession context.CancelFunc
 }
 
 type SessionError struct {
@@ -123,7 +130,6 @@ func (s *Session) Open() {
 func (s *Session) Close() {
 	s.SetState(NONE)
 	s.sock.Close()
-
 	switch s.Type() {
 	case shapleq_proto.SessionType_PUBLISHER:
 		if atomic.LoadInt64(&s.Topic().NumPubs) > 0 {
@@ -134,6 +140,9 @@ func (s *Session) Close() {
 			atomic.AddInt64(&s.Topic().NumSubs, -1)
 		}
 	}
+}
+func (s *Session) ContinuousReadWrite() (<-chan *message.QMessage, chan<- *message.QMessage, <-chan error) {
+	return s.sock.ContinuousReadWrite()
 }
 
 func (s *Session) IsClosed() bool {
@@ -160,30 +169,4 @@ func (s *Session) SetState(nextState SessionStateType) error {
 	} else {
 		return pqerror.StateTransitionError{PrevState: s.state.stType.String(), NextState: nextState.String()}
 	}
-}
-
-func (s *Session) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, <-chan error, error) {
-
-	if s.IsClosed() {
-		return nil, nil, pqerror.SocketClosedError{}
-	}
-
-	msgCh, errCh := s.sock.ContinuousRead(ctx)
-	return msgCh, errCh, nil
-}
-
-func (s *Session) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMessage) (chan error, error) {
-	if s.IsClosed() {
-		return nil, pqerror.SocketClosedError{}
-	}
-
-	errCh := s.sock.ContinuousWrite(ctx, msgCh)
-	return errCh, nil
-}
-
-func (s *Session) Write(msg *message.QMessage) error {
-	if s.IsClosed() {
-		return pqerror.SocketClosedError{}
-	}
-	return s.sock.Write(msg)
 }

@@ -55,30 +55,42 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 }
 
 func (s *StreamService) handleEventStream(eventStream internals.EventStream, sessionErrCh chan error, wg *sync.WaitGroup) {
+
 	defer wg.Done()
 	session := eventStream.Session
-	msgCh := eventStream.MsgCh
-	sessionCtx := eventStream.Ctx
+	readCh := eventStream.ReadMsgCh
+	writeCh := eventStream.WriteMsgCh
 	cancelSession := eventStream.CancelSession
 
-	session.Open()
-	defer session.Close()
+	defer close(writeCh)
+	inletCh := make(chan *message.QMessage)
 
-	err, pl := s.newPipelineBase(session, convertToInterfaceChan(msgCh))
-
-	writeErrCh, err := session.ContinuousWrite(sessionCtx,
-		convertToQMessageChan(pl.Take(0, 0)))
+	err, pl := s.newPipelineBase(session, convertToInterfaceChan(inletCh))
 	if err != nil {
+		sessionErrCh <- err
 		return
 	}
 
-	sessionErrChs := append(pl.ErrChannels, writeErrCh)
-	errCh := pqerror.MergeErrors(sessionErrChs...)
+	// event input -> pipeline
+	go func() {
+		defer close(inletCh)
+		for readMsg := range readCh {
+			inletCh <- readMsg
+			runtime.Gosched()
+		}
+	}()
 
+	errCh := pqerror.MergeErrors(pl.ErrChannels...)
+	outletCh := pl.Take(0, 0)
 	for {
 		select {
-		case <-sessionCtx.Done():
-			return
+		case msg, ok := <-outletCh:
+			if ok {
+				writeCh <- msg.(*message.QMessage)
+			} else { // Wait for the pipeline to close
+				return
+			}
+
 		case err, ok := <-errCh:
 			if ok {
 				pqErr, ok := err.(pqerror.PQError)
@@ -95,6 +107,7 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 				}
 			}
 		default:
+
 		}
 		runtime.Gosched()
 	}
