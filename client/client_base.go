@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"errors"
 	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/message"
@@ -66,12 +65,12 @@ func (c *ClientBase) close() {
 	c.Unlock()
 }
 
-func (c *ClientBase) continuousSend(ctx context.Context, writeCh <-chan *message.QMessage) (<-chan error, error) {
+func (c *ClientBase) continuousReadWrite() (<-chan *message.QMessage, chan<- *message.QMessage, <-chan error, error) {
 	if !c.isConnected() {
-		return nil, pqerror.NotConnectedError{}
+		return nil, nil, nil, pqerror.NotConnectedError{}
 	}
-	errCh := c.socket.ContinuousWrite(ctx, writeCh)
-	return errCh, nil
+	readCh, writeCh, errCh := c.socket.ContinuousReadWrite()
+	return readCh, writeCh, errCh, nil
 }
 
 func (c *ClientBase) send(msg *message.QMessage) error {
@@ -79,15 +78,6 @@ func (c *ClientBase) send(msg *message.QMessage) error {
 		return pqerror.NotConnectedError{}
 	}
 	return c.socket.Write(msg)
-}
-
-func (c *ClientBase) continuousReceive(ctx context.Context) (<-chan *message.QMessage, <-chan error, error) {
-	if !c.isConnected() {
-		return nil, nil, pqerror.NotConnectedError{}
-	}
-
-	msgCh, errCh := c.socket.ContinuousRead(ctx)
-	return msgCh, errCh, nil
 }
 
 func (c *ClientBase) receive() (*message.QMessage, error) {

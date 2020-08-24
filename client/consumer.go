@@ -60,10 +60,6 @@ func (c *Consumer) Connect() error {
 }
 
 func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan error, error) {
-	recvCh, recvErrCh, err := c.continuousReceive(c.ctx)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	c.logger.Info("start subscribe.")
 
@@ -71,13 +67,16 @@ func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan err
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := c.send(reqMsg); err != nil {
+
+	recvCh, sendCh, socketErrCh, err := c.continuousReadWrite()
+	if err != nil {
 		return nil, nil, err
 	}
+	sendCh <- reqMsg
 
-	sinkCh := make(chan FetchedData)
 	errCh := make(chan error)
-	mergedErrCh := pqerror.MergeErrors(recvErrCh, errCh)
+	sinkCh := make(chan FetchedData)
+
 	go func() {
 		defer c.logger.Info("end subscribe")
 		defer close(sinkCh)
@@ -87,6 +86,20 @@ func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan err
 			select {
 			case <-c.ctx.Done():
 				return
+			case err, ok := <-socketErrCh:
+				if ok {
+					if pqErr, ok := err.(pqerror.PQError); ok {
+						switch pqErr.(type) {
+						case pqerror.SocketClosedError:
+							return
+						case pqerror.BrokenPipeError:
+							return
+						case pqerror.ConnResetError:
+							return
+						}
+					}
+					errCh <- err
+				}
 			case msg, ok := <-recvCh:
 				if ok {
 					data, err := c.handleMessage(msg)
@@ -95,12 +108,14 @@ func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan err
 					} else {
 						sinkCh <- FetchedData{data.Data, data.Offset, data.LastOffset}
 					}
+				} else {
+					return
 				}
 			}
 		}
 	}()
 
-	return sinkCh, mergedErrCh, nil
+	return sinkCh, errCh, nil
 }
 
 func (c *Consumer) Close() {

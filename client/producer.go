@@ -30,7 +30,6 @@ func NewProducer(config *config.ProducerConfig, topic string) *Producer {
 		logger:     l,
 		ctx:        ctx,
 		cancel:     cancel,
-		publishCh:  make(chan *message.QMessage),
 	}
 	return producer
 }
@@ -44,7 +43,6 @@ func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, 
 		logger:     l,
 		ctx:        ctx,
 		cancel:     cancel,
-		publishCh:  make(chan *message.QMessage),
 	}
 	return producer
 }
@@ -78,48 +76,43 @@ func (p *Producer) Publish(data []byte) (common.Partition, error) {
 }
 
 func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, <-chan error, error) {
-	recvCh, recvErrCh, err := p.continuousReceive(p.ctx)
-	if err != nil {
-		return nil, nil, err
-	}
 
-	convertToQMsgCh := func(from <-chan []byte) <-chan *message.QMessage {
-		to := make(chan *message.QMessage)
-
-		go func() {
-			defer close(to)
-			for {
-				select {
-				case data, ok := <-from:
-					if ok {
-						msg, _ := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
-						to <- msg
-					}
-				case <-p.ctx.Done():
-					return
-				}
-
-			}
-		}()
-
-		return to
-	}
-
-	sendErrCh, err := p.continuousSend(p.ctx, convertToQMsgCh(source))
+	recvCh, sendCh, socketErrCh, err := p.continuousReadWrite()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	errCh := make(chan error)
-	mergedErrCh := pqerror.MergeErrors(recvErrCh, sendErrCh, errCh)
 	partitionCh := make(chan common.Partition)
+
 	go func() {
+		defer p.logger.Info("end async publish")
 		defer close(partitionCh)
 		defer close(errCh)
 		for {
 			select {
 			case <-p.ctx.Done():
 				return
+			case err, ok := <-socketErrCh:
+				if ok {
+					if pqErr, ok := err.(pqerror.PQError); ok {
+						switch pqErr.(type) {
+						case pqerror.SocketClosedError:
+							return
+						case pqerror.BrokenPipeError:
+							return
+						case pqerror.ConnResetError:
+							return
+						}
+					}
+					errCh <- err
+				}
+
+			case data, ok := <-source:
+				if ok {
+					msg, _ := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
+					sendCh <- msg
+				}
 			case msg, ok := <-recvCh:
 				if ok {
 					partition, err := p.handleMessage(msg)
@@ -128,18 +121,18 @@ func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, 
 					} else {
 						partitionCh <- partition
 					}
+				} else {
+					return
 				}
-
 			}
 		}
 	}()
 
-	return partitionCh, mergedErrCh, nil
+	return partitionCh, errCh, nil
 }
 
 func (p *Producer) Close() {
 	p.cancel()
-	close(p.publishCh)
 	p.close()
 }
 
