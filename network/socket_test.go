@@ -10,8 +10,8 @@ import (
 )
 
 func TestSocket_ContinuousReadWrite(t *testing.T) {
-	ctx := context.Background()
 
+	ctx := context.Background()
 	listener, err := net.Listen("tcp", ":1101")
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 		defer close(readDone)
 
 		sock := NewSocket(conn, 5000, 5000)
-		msgCh, errCh := sock.ContinuousRead(ctx)
+		msgCh, errCh := sock.continuousRead(ctx)
 		close(readStarted)
 
 		for {
@@ -74,7 +74,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 
 	msgCh := make(chan *message.QMessage)
 	sock := NewSocket(conn, 5000, 5000)
-	writeErrCh := sock.ContinuousWrite(ctx, msgCh)
+	writeErrCh := sock.continuousWrite(ctx, msgCh)
 
 	<-readStarted
 	for _, msg := range expected {
