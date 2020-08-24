@@ -48,4 +48,6 @@ const (
 	ErrInvalidPipeType        = 0x1012
 	ErrInvalidMsgTypeToUnpack = 0x1013
 	ErrTopicBrokerNotExist    = 0x1014
+	ErrConnectionResetByPeer  = 0x1015
+	ErrBrokenPipe             = 0x1016
 )

@@ -318,6 +318,31 @@ func (e SocketClosedError) Code() PQCode {
 	return ErrSocketClosed
 }
 
+func (e SocketClosedError) IsSessionCloseable() {}
+
+type ConnResetError struct{}
+
+func (e ConnResetError) Error() string {
+	return "connection reset by peer"
+}
+func (e ConnResetError) Code() PQCode {
+	return ErrConnectionResetByPeer
+}
+
+func (e ConnResetError) IsSessionCloseable() {}
+
+type BrokenPipeError struct{}
+
+func (e BrokenPipeError) Error() string {
+	return "broken pipe"
+}
+
+func (e BrokenPipeError) Code() PQCode {
+	return ErrBrokenPipe
+}
+
+func (e BrokenPipeError) IsSessionCloseable() {}
+
 type UnhandledError struct {
 	ErrStr string
 }
