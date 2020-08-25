@@ -1,0 +1,3 @@
+bootstrap:
+  servers: 121.141.225.28
+timeout: 60000

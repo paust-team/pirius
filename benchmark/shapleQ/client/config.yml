@@ -1,0 +1,5 @@
+broker:
+  port: 11010
+  host: 121.141.225.28
+timeout: 30000
+log-level: ERROR
