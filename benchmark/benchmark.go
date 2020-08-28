@@ -86,12 +86,14 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	for i := 0; i < numConsumer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			result := client.RunConsumer(id, topic, numData-1)
+			result := client.RunConsumer(id, topic, numData)
 			cMu.Lock()
 			consumerResults = append(consumerResults, result)
 			cMu.Unlock()
 		}(i)
 	}
+
+	time.Sleep(1 * time.Second) // wait for all consumer goroutine to start
 
 	for i := 0; i < numProducer; i++ {
 		go func(id int) {
@@ -124,17 +126,18 @@ func test(topic string, numProducer int, numConsumer int, numData int) {
 
 	// Test Kafka
 	kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
-	runBenchClient(kafkaBenchClient, "preheat", 1, 10, testFilePath, 1000) // preheat
+	runBenchClient(kafkaBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
 	kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
 	saveResult(makeResult(numProducer, kfProducerResults), path+"/kf-producer-result.txt")
 	saveResult(makeResult(numConsumer, kfConsumerResults), path+"/kf-consumer-result.txt")
 
 	// Test ShapleQ
 	shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
-	runBenchClient(shapleQBenchClient, "preheat", 1, 10, testFilePath, 1000) // preheat
+	runBenchClient(shapleQBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
 	sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
 	saveResult(makeResult(numProducer, sqProducerResults), path+"/sq-producer-result.txt")
 	saveResult(makeResult(numConsumer, sqConsumerResults), path+"/sq-consumer-result.txt")
+
 }
 
 func main() {
