@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -85,16 +86,42 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	partitionCh, errCh, err := producer.AsyncPublish(publishCh)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		defer wg.Done()
+		receivedCount := 0
+		for {
+			select {
+			case <-partitionCh:
+				receivedCount++
+				if receivedCount == numData {
+					return
+				}
+			case err := <-errCh:
+				log.Fatal(err)
+			}
+			runtime.Gosched()
+		}
+	}()
+
 	startTimestamp := time.Now().UnixNano() / 1000000
 	for i, record := range records {
-		if _, err := producer.Publish([]byte(record[0])); err != nil {
-			log.Fatalln(err)
-		}
+
+		publishCh <- []byte(record[0])
 		if i+1 == numData {
 			break
 		}
+		runtime.Gosched()
 	}
 
+	wg.Wait()
 	return time.Now().UnixNano()/1000000 - startTimestamp
 }
 

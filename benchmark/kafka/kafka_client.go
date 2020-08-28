@@ -1,7 +1,6 @@
 package kafka
 
 import (
-	"bytes"
 	"context"
 	"encoding/csv"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -90,7 +90,30 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 
 	startTimestamp := time.Now().UnixNano() / 1000000
 
-	for i, record := range records {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		receivedCount := 0
+		for {
+			select {
+			case event := <-deliveryChan:
+				m := event.(*kafka.Message)
+
+				if m.TopicPartition.Error != nil {
+					log.Fatalln(m.TopicPartition.Error)
+				}
+				receivedCount++
+				if receivedCount == numData {
+					return
+				}
+			}
+			runtime.Gosched()
+		}
+	}()
+
+	for _, record := range records {
 		sendRecord := []byte(record[0])
 		err = p.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
@@ -100,22 +123,10 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 		if err != nil {
 			log.Fatalln(err)
 		}
-
-		event := <-deliveryChan
-		m := event.(*kafka.Message)
-
-		if m.TopicPartition.Error != nil {
-			log.Fatalln(m.TopicPartition.Error)
-		}
-
-		if bytes.Compare(m.Value, sendRecord) != 0 {
-			log.Fatalln("record not matched")
-		}
-		if i+1 == numData {
-			break
-		}
+		runtime.Gosched()
 	}
 
+	wg.Wait()
 	return time.Now().UnixNano()/1000000 - startTimestamp
 }
 
@@ -128,7 +139,6 @@ func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) int64 
 		"session.timeout.ms":    100000,
 		"request.timeout.ms":    k.timeout,
 		"auto.offset.reset":     "earliest",
-		"enable.auto.commit":    false,
 	})
 
 	if err != nil {
@@ -152,7 +162,6 @@ func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) int64 
 		if err != nil {
 			log.Fatalln(err)
 		} else {
-			c.Commit()
 			receivedCount++
 			if numData == receivedCount {
 				return time.Now().UnixNano()/1000000 - startTimestamp
