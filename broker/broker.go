@@ -12,6 +12,7 @@ import (
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper"
+	"golang.org/x/sys/unix"
 	"net"
 	"os"
 	"runtime"
@@ -343,7 +344,7 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 
 func reusePort(network, address string, conn syscall.RawConn) error {
 	return conn.Control(func(descriptor uintptr) {
-		if err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1); err != nil {
+		if err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
 			panic(err)
 		}
 	})
