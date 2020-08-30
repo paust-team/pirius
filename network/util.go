@@ -1,17 +1,47 @@
 package network
 
-import "net"
+import (
+	"github.com/paust-team/shapleq/pqerror"
+	"net"
+)
 
 func GetOutboundIP() (net.IP, error) {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
+			return ip, nil
+		}
+	}
 
-	return localAddr.IP, nil
+	return nil, pqerror.NotConnectedError{}
 }
 
 func IsPublicIP(IP net.IP) bool {

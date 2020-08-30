@@ -441,7 +441,7 @@ func (e DialFailedError) Code() PQCode {
 type NotConnectedError struct{}
 
 func (e NotConnectedError) Error() string {
-	return "there's no connection to any endpoint"
+	return "there's no connection to the network"
 }
 
 func (e NotConnectedError) Code() PQCode {
