@@ -26,12 +26,23 @@ type Result struct {
 	ElapsedTimes []int64
 }
 
-func makeResult(numClient int, elapsedTimes []int64) *Result {
+func makeResult(numClient int, startTimes, endTimes []int64) *Result {
 	var sum int64 = 0
 	var min int64 = 0
 	var max int64 = 0
 
-	for i, et := range elapsedTimes {
+	var minStartTime int64 = 0
+
+	var elapsedTimes []int64
+	for i, st := range startTimes {
+		if i == 0 || st < min {
+			minStartTime = st
+		}
+	}
+
+	for i, et := range endTimes {
+		et -= minStartTime
+		elapsedTimes = append(elapsedTimes, et)
 		sum += et
 		if i == 0 || et < min {
 			min = et
@@ -40,7 +51,7 @@ func makeResult(numClient int, elapsedTimes []int64) *Result {
 			max = et
 		}
 	}
-	avg := (float64(sum)) / (float64(len(elapsedTimes)))
+	avg := (float64(sum)) / (float64(len(endTimes)))
 
 	return &Result{NumClient: numClient, MinTime: min, MaxTime: max, AvgTime: avg, ElapsedTimes: elapsedTimes}
 }
@@ -112,9 +123,9 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 
 func test(topic string, numProducer int, numConsumer int, numData int, target string) {
 
-	kafkaHost := "121.141.225.28"
-	brokerHost := "121.141.225.28"
-	var brokerPort uint = 11010
+	kafkaHost := "3.35.5.233"
+	brokerHost := "3.35.5.233"
+	var brokerPort uint = 1101
 
 	path, err := os.Getwd()
 	if err != nil {
@@ -127,19 +138,16 @@ func test(topic string, numProducer int, numConsumer int, numData int, target st
 	if target == "kf" {
 		// Test Kafka
 		kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
-		runBenchClient(kafkaBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
+		runBenchClient(kafkaBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
 		kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-		saveResult(makeResult(numProducer, kfProducerResults), path+"/kf-producer-result.txt")
-		saveResult(makeResult(numConsumer, kfConsumerResults), path+"/kf-consumer-result.txt")
+		saveResult(makeResult(numConsumer, kfProducerResults, kfConsumerResults), path+"/kf-result.txt")
 	} else {
 		// Test ShapleQ
 		shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
-		runBenchClient(shapleQBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
+		runBenchClient(shapleQBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
 		sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-		saveResult(makeResult(numProducer, sqProducerResults), path+"/sq-producer-result.txt")
-		saveResult(makeResult(numConsumer, sqConsumerResults), path+"/sq-consumer-result.txt")
+		saveResult(makeResult(numConsumer, sqProducerResults, sqConsumerResults), path+"/sq-result.txt")
 	}
-
 }
 
 func main() {
