@@ -12,6 +12,7 @@ import (
 	"github.com/paust-team/shapleq/zookeeper"
 	"log"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -310,6 +311,10 @@ func TestMultiClient(t *testing.T) {
 		return
 	}
 
+	admin.Close()
+	Sleep(1)
+	fmt.Println("before pub/sub", runtime.NumGoroutine())
+
 	runProducer := func(fileName string) [][]byte {
 		records := getRecordsFromFile(fileName)
 
@@ -317,6 +322,7 @@ func TestMultiClient(t *testing.T) {
 		producerConfig.SetLogLevel(testLogLevel)
 		producerConfig.SetBrokerHost(brokerHost)
 		producerConfig.SetBrokerPort(brokerPort)
+		producerConfig.SetTimeout(100000)
 		producer := client.NewProducer(producerConfig, topic)
 		if err := producer.Connect(); err != nil {
 			t.Error(err)
@@ -381,6 +387,7 @@ func TestMultiClient(t *testing.T) {
 		consumerConfig.SetLogLevel(testLogLevel)
 		consumerConfig.SetBrokerHost(brokerHost)
 		consumerConfig.SetBrokerPort(brokerPort)
+		consumerConfig.SetTimeout(30000)
 		consumer := client.NewConsumer(consumerConfig, topic)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
@@ -426,6 +433,8 @@ func TestMultiClient(t *testing.T) {
 	}
 
 	wg.Wait()
+
+	fmt.Println("after wait", runtime.NumGoroutine())
 
 	for _, subscribedRecords := range totalSubscribedRecords {
 		if len(totalPublishedRecords) != len(subscribedRecords) {

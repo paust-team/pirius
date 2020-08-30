@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:29c5e0b5357d9855d3a22b5dd2bacdea0cd5674c1aaae9c329cfb14fed0250b8"
+  name = "github.com/confluentinc/confluent-kafka-go"
+  packages = ["kafka/librdkafka"]
+  pruneopts = "UT"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
+
+[[projects]]
   digest = "1:80057945464ffb5b0da1f026beb8df0e8dbd098eaf771a349291bed2cd29a83e"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -215,6 +223,14 @@
   version = "v1.21.0"
 
 [[projects]]
+  digest = "1:18812cf52c2e73491bf74d2a85e51bd1ce371327b9a0e49762c80c505dfe591d"
+  name = "gopkg.in/confluentinc/confluent-kafka-go.v1"
+  packages = ["kafka"]
+  pruneopts = "UT"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
+
+[[projects]]
   digest = "1:2a8ce9278a57dba0bca00383d26744e88324c2696ad8538b3f7a69067d02d78c"
   name = "gopkg.in/ini.v1"
   packages = ["."]
@@ -242,6 +258,7 @@
     "github.com/spf13/pflag",
     "github.com/spf13/viper",
     "github.com/tecbot/gorocksdb",
+    "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
