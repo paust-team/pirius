@@ -62,7 +62,7 @@ func (s *BenchShapleQClient) DeleteTopic(topic string) {
 	}
 }
 
-func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) int64 {
+func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp int64) {
 
 	producer := client.NewProducer(&config.ProducerConfig{s.config}, topic)
 
@@ -111,7 +111,7 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 		}
 	}()
 
-	startTimestamp := time.Now().UnixNano() / 1000000
+	startTimestamp = time.Now().UnixNano() / 1000000
 	for i, record := range records {
 
 		publishCh <- []byte(record[0])
@@ -122,10 +122,10 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 	}
 
 	wg.Wait()
-	return time.Now().UnixNano()/1000000 - startTimestamp
+	return
 }
 
-func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) int64 {
+func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (endTimestamp int64) {
 
 	consumer := client.NewConsumer(&config.ConsumerConfig{s.config}, topic)
 
@@ -139,17 +139,18 @@ func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) int6
 		log.Fatalln(err)
 	}
 
-	var startTimestamp int64 = 0
 	receivedCount := 0
-	startTimestamp = time.Now().UnixNano() / 1000000
+
 	for {
 		select {
 		case _, ok := <-subscribeCh:
 			if ok {
 				receivedCount++
 				if numData == receivedCount {
-					return time.Now().UnixNano()/1000000 - startTimestamp
+					endTimestamp = time.Now().UnixNano() / 1000000
+					return
 				}
+
 			} else {
 				log.Fatalln("not enough data")
 			}
@@ -160,5 +161,5 @@ func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) int6
 		runtime.Gosched()
 	}
 
-	return time.Now().UnixNano()/1000000 - startTimestamp
+	return
 }

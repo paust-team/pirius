@@ -56,7 +56,7 @@ func (k *BenchKafkaClient) DeleteTopic(topic string) {
 	}
 }
 
-func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, numData int) int64 {
+func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp int64) {
 
 	p, err := kafka.NewProducer(
 		&kafka.ConfigMap{
@@ -88,7 +88,7 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 
 	deliveryChan := make(chan kafka.Event)
 
-	startTimestamp := time.Now().UnixNano() / 1000000
+	startTimestamp = time.Now().UnixNano() / 1000000
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -127,10 +127,10 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 	}
 
 	wg.Wait()
-	return time.Now().UnixNano()/1000000 - startTimestamp
+	return
 }
 
-func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) int64 {
+func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) (endTimestamp int64) {
 
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":     k.brokerHost,
@@ -153,9 +153,7 @@ func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) int64 
 		log.Fatalln(err)
 	}
 
-	var startTimestamp int64 = 0
 	receivedCount := 0
-	startTimestamp = time.Now().UnixNano() / 1000000
 
 	for {
 		_, err := c.ReadMessage(k.timeout)
@@ -164,11 +162,12 @@ func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) int64 
 		} else {
 			receivedCount++
 			if numData == receivedCount {
-				return time.Now().UnixNano()/1000000 - startTimestamp
+				endTimestamp = time.Now().UnixNano() / 1000000
+				return
 			}
 		}
 		runtime.Gosched()
 	}
 
-	return time.Now().UnixNano()/1000000 - startTimestamp
+	return
 }
