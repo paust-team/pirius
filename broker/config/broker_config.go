@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	defaultHostname       = "127.0.0.1"
 	defaultLogDir         = fmt.Sprintf("%s/log", common.DefaultHomeDir)
 	defaultDataDir        = fmt.Sprintf("%s/data", common.DefaultHomeDir)
 	defaultLogLevel       = logger.Info
@@ -25,6 +26,7 @@ func NewBrokerConfig() *BrokerConfig {
 
 	v := viper.New()
 
+	v.SetDefault("hostname", defaultHostname)
 	v.SetDefault("port", common.DefaultBrokerPort)
 	v.SetDefault("log-dir", defaultLogDir)
 	v.SetDefault("data-dir", defaultDataDir)
@@ -54,6 +56,14 @@ func (b BrokerConfig) Timeout() int {
 
 func (b *BrokerConfig) SetTimeout(timeout int) {
 	b.Set("timeout", timeout)
+}
+
+func (b BrokerConfig) Hostname() string {
+	return b.GetString("hostname")
+}
+
+func (b *BrokerConfig) SetHostname(name string) {
+	b.Set("hostname", name)
 }
 
 func (b BrokerConfig) Port() uint {

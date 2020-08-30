@@ -1,3 +1,4 @@
+hostname: 127.0.0.1
 port: 11010
 log-dir: ~/.shapleq/bench/log
 data-dir: ~/.shapleq/bench/data
