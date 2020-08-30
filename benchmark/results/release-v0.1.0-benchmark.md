@@ -16,7 +16,7 @@
 * Single partition
 * Replication factor : 1
 * Single producer
-* Thousand dataset
+* 10,000 dataset
 ## Independent Variables
 * The number of consumers
 
