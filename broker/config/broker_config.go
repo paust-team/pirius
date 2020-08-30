@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/network"
 	"github.com/spf13/viper"
 )
 
@@ -25,6 +26,12 @@ func NewBrokerConfig() *BrokerConfig {
 
 	v := viper.New()
 
+	host, err := network.GetOutboundIP()
+	if err != nil {
+		panic(err)
+	}
+
+	v.SetDefault("hostname", host.String())
 	v.SetDefault("port", common.DefaultBrokerPort)
 	v.SetDefault("log-dir", defaultLogDir)
 	v.SetDefault("data-dir", defaultDataDir)
@@ -54,6 +61,14 @@ func (b BrokerConfig) Timeout() int {
 
 func (b *BrokerConfig) SetTimeout(timeout int) {
 	b.Set("timeout", timeout)
+}
+
+func (b BrokerConfig) Hostname() string {
+	return b.GetString("hostname")
+}
+
+func (b *BrokerConfig) SetHostname(name string) {
+	b.Set("hostname", name)
 }
 
 func (b BrokerConfig) Port() uint {

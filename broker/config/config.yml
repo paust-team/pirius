@@ -1,3 +1,4 @@
+hostname: 127.0.0.1 # broker host name
 port: 1101  # broker port
 log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory

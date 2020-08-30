@@ -9,7 +9,6 @@ import (
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
-	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper"
 	"golang.org/x/sys/unix"
@@ -23,7 +22,6 @@ import (
 
 type Broker struct {
 	config          *config.BrokerConfig
-	host            string
 	listener        net.Listener
 	streamService   *service.StreamService
 	sessionMgr      *internals.SessionManager
@@ -93,7 +91,7 @@ func (b *Broker) Start() {
 
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.topicMgr, b.zkClient, fmt.Sprintf("%s:%d", b.host, b.config.Port()))
+	b.streamService = service.NewStreamService(b.db, b.topicMgr, b.zkClient, fmt.Sprintf("%s:%d", b.config.Hostname(), b.config.Port()))
 	b.txService = service.NewTransactionService(b.db, b.zkClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
@@ -185,17 +183,7 @@ func (b *Broker) connectToRocksDB() error {
 }
 
 func (b *Broker) setUpZookeeper() error {
-	host, err := network.GetOutboundIP()
-	if err != nil {
-		b.logger.Error(err)
-		return err
-	}
 
-	if !network.IsPublicIP(host) {
-		b.logger.Warning("cannot attach to broker from external network")
-	}
-
-	b.host = host.String()
 	b.zkClient = b.zkClient.WithLogger(b.logger)
 	if err := b.zkClient.Connect(); err != nil {
 		return err
@@ -205,7 +193,7 @@ func (b *Broker) setUpZookeeper() error {
 		return err
 	}
 
-	if err := b.zkClient.AddBroker(host.String() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
+	if err := b.zkClient.AddBroker(b.config.Hostname() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
 		return err
 	}
 
@@ -213,10 +201,10 @@ func (b *Broker) setUpZookeeper() error {
 }
 
 func (b *Broker) tearDownZookeeper() {
-	_ = b.zkClient.RemoveBroker(b.host)
+	_ = b.zkClient.RemoveBroker(b.config.Hostname())
 	topics, _ := b.zkClient.GetTopics()
 	for _, topic := range topics {
-		_ = b.zkClient.RemoveTopicBroker(topic, b.host)
+		_ = b.zkClient.RemoveTopicBroker(topic, b.config.Hostname())
 	}
 	b.zkClient.Close()
 }
