@@ -110,7 +110,7 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	return producerResults, consumerResults
 }
 
-func test(topic string, numProducer int, numConsumer int, numData int) {
+func test(topic string, numProducer int, numConsumer int, numData int, target string) {
 
 	kafkaHost := "121.141.225.28"
 	brokerHost := "121.141.225.28"
@@ -124,25 +124,27 @@ func test(topic string, numProducer int, numConsumer int, numData int) {
 	testFilePath := path + "/test-dataset.tsv"
 	timeout := 30000 * time.Millisecond
 
-	// Test Kafka
-	kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
-	runBenchClient(kafkaBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
-	kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-	saveResult(makeResult(numProducer, kfProducerResults), path+"/kf-producer-result.txt")
-	saveResult(makeResult(numConsumer, kfConsumerResults), path+"/kf-consumer-result.txt")
-
-	// Test ShapleQ
-	shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
-	runBenchClient(shapleQBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
-	sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-	saveResult(makeResult(numProducer, sqProducerResults), path+"/sq-producer-result.txt")
-	saveResult(makeResult(numConsumer, sqConsumerResults), path+"/sq-consumer-result.txt")
+	if target == "kf" {
+		// Test Kafka
+		kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
+		runBenchClient(kafkaBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
+		kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+		saveResult(makeResult(numProducer, kfProducerResults), path+"/kf-producer-result.txt")
+		saveResult(makeResult(numConsumer, kfConsumerResults), path+"/kf-consumer-result.txt")
+	} else {
+		// Test ShapleQ
+		shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
+		runBenchClient(shapleQBenchClient, "preheat", 1, 10, testFilePath, 10000) // preheat
+		sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+		saveResult(makeResult(numProducer, sqProducerResults), path+"/sq-producer-result.txt")
+		saveResult(makeResult(numConsumer, sqConsumerResults), path+"/sq-consumer-result.txt")
+	}
 
 }
 
 func main() {
-	if len(os.Args) != 5 {
-		log.Fatal("Usage: ./benchmark [topic] [num-producer] [num-consumer] [num-data]")
+	if len(os.Args) != 6 {
+		log.Fatal("Usage: ./benchmark [topic] [num-producer] [num-consumer] [num-data] [sq|kf]")
 	}
 
 	topic := os.Args[1]
@@ -158,6 +160,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	testTarget := os.Args[5]
 
-	test(topic, numProducer, numConsumer, numData)
+	test(topic, numProducer, numConsumer, numData, testTarget)
 }
