@@ -1,4 +1,4 @@
-version: '3'
+version: '3.7'
 
 services:
   zk1:
@@ -29,7 +29,6 @@ services:
       ZOO_MY_ID: 3
       ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=0.0.0.0:2888:3888;2181
       ZOO_4LW_COMMANDS_WHITELIST: ruok
-
   sq1:
     image: shapleq
     ports:
@@ -41,7 +40,10 @@ services:
       - zk1
       - zk2
       - zk3
-
+    volumes:
+      - type: bind
+        source: "../../broker/config/config.yml"
+        target: /go/src/github.com/paust-team/shapleq/config.yml
   sq2:
     image: shapleq
     ports:
@@ -53,7 +55,10 @@ services:
       - zk1
       - zk2
       - zk3
-
+    volumes:
+      - type: bind
+        source: "../../broker/config/config.yml"
+        target: /go/src/github.com/paust-team/shapleq/config.yml
   sq3:
     image: shapleq
     ports:
@@ -65,3 +70,7 @@ services:
       - zk1
       - zk2
       - zk3
+    volumes:
+      - type: bind
+        source: "../../broker/config/config.yml"
+        target: /go/src/github.com/paust-team/shapleq/config.yml

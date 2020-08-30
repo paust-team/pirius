@@ -1,0 +1,24 @@
+version: '3.7'
+
+services:
+  zookeeper:
+    image: zookeeper
+    hostname: zookeeper
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_4LW_COMMANDS_WHITELIST: ruok
+  shapleq:
+    image: shapleq
+    ports:
+      - 1101:1101
+    environment:
+      ZK_ADDR: zookeeper
+      ZK_PORT: 2181
+    depends_on:
+      - zookeeper
+    volumes:
+      - type: bind
+        source: "../../broker/config/config.yml"
+        target: /go/src/github.com/paust-team/shapleq/config.yml

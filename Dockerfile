@@ -27,6 +27,7 @@ RUN make build
 
 FROM alpine:latest
 RUN apk add --no-cache libstdc++ snappy
+
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 COPY --from=builder /go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/build/librocksdb.* /usr/local/lib/
@@ -34,9 +35,9 @@ COPY --from=builder /go/src/github.com/paust-team/shapleq/broker/cmd/shapleq/sha
 COPY --from=builder /go/src/github.com/paust-team/shapleq/start-shapleq.sh /go/bin/start-shapleq.sh
 
 WORKDIR /go/bin
-RUN chown shapleuser /go
+RUN chown -R shapleuser /go
 USER shapleuser:shapleuser
 EXPOSE 1101
 ENV ZK_ADDR=127.0.0.1
 ENV ZK_PORT=2181
-ENTRYPOINT ["sh", "-c", "/go/bin/start-shapleq.sh $ZK_ADDR $ZK_PORT"]
+ENTRYPOINT ["sh", "-c", "/go/bin/start-shapleq.sh $ZK_ADDR $ZK_PORT /go/src/github.com/paust-team/shapleq/config.yml"]
