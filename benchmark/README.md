@@ -4,3 +4,5 @@
 * Covid-19 Twitter chatter dataset is used https://github.com/thepanacealab/covid19_twitter  as data stream in the tests.
 * Several test cases going to be added in accordance with future releases.
 
+## Results
+[release-v0.1.0 benchmark](https://github.com/paust-team/shapleq/blob/master/benchmark/results/release-v0.1.0-benchmark)
