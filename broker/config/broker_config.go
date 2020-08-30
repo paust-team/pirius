@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
+	"github.com/paust-team/shapleq/network"
 	"github.com/spf13/viper"
 )
 
 var (
-	defaultHostname       = "127.0.0.1"
 	defaultLogDir         = fmt.Sprintf("%s/log", common.DefaultHomeDir)
 	defaultDataDir        = fmt.Sprintf("%s/data", common.DefaultHomeDir)
 	defaultLogLevel       = logger.Info
@@ -26,7 +26,12 @@ func NewBrokerConfig() *BrokerConfig {
 
 	v := viper.New()
 
-	v.SetDefault("hostname", defaultHostname)
+	host, err := network.GetOutboundIP()
+	if err != nil {
+		panic(err)
+	}
+
+	v.SetDefault("hostname", host.String())
 	v.SetDefault("port", common.DefaultBrokerPort)
 	v.SetDefault("log-dir", defaultLogDir)
 	v.SetDefault("data-dir", defaultDataDir)
