@@ -5,4 +5,4 @@
 * Several test cases going to be added in accordance with future releases.
 
 ## Results
-[release-v0.1.0 benchmark](https://github.com/paust-team/shapleq/blob/master/benchmark/results/release-v0.1.0-benchmark)
+[release-v0.1.0 benchmark](https://github.com/paust-team/shapleq/blob/master/benchmark/results/release-v0.1.0-benchmark.md)
