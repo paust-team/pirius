@@ -28,9 +28,11 @@ const (
 
 	// 03 - rocksdb related error
 	ErrDBOperate        = 0x0300
-	ErrAlreadyConnected = 0x0301
-	ErrDialFailed       = 0x0302
-	ErrNotConnected     = 0x0303
+
+	// 04 - network related error
+	ErrNotConnected     = 0x0400
+	ErrAlreadyConnected = 0x0401
+	ErrDialFailed       = 0x0402
 
 	// 10 - broker internal error
 	ErrInternal               = 0x1000
