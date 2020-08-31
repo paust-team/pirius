@@ -62,7 +62,7 @@ func (s *BenchShapleQClient) DeleteTopic(topic string) {
 	}
 }
 
-func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp int64) {
+func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
 	producer := client.NewProducer(&config.ProducerConfig{s.config}, topic)
 
@@ -122,10 +122,11 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 	}
 
 	wg.Wait()
+	endTimestamp = time.Now().UnixNano() / 1000000
 	return
 }
 
-func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (endTimestamp int64) {
+func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
 	consumer := client.NewConsumer(&config.ConsumerConfig{s.config}, topic)
 
@@ -140,7 +141,7 @@ func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (end
 	}
 
 	receivedCount := 0
-
+	startTimestamp = time.Now().UnixNano() / 1000000
 	for {
 		select {
 		case _, ok := <-subscribeCh:

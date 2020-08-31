@@ -56,12 +56,12 @@ func (k *BenchKafkaClient) DeleteTopic(topic string) {
 	}
 }
 
-func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp int64) {
+func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
 	p, err := kafka.NewProducer(
 		&kafka.ConfigMap{
 			"bootstrap.servers":                     k.brokerHost,
-			"batch.size":                            1,
+			"batch.num.messages":                    1,
 			"linger.ms":                             0,
 			"acks":                                  1,
 			"retries":                               5,
@@ -127,10 +127,11 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 	}
 
 	wg.Wait()
+	endTimestamp = time.Now().UnixNano() / 1000000
 	return
 }
 
-func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) (endTimestamp int64) {
+func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":     k.brokerHost,
@@ -154,7 +155,7 @@ func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) (endTi
 	}
 
 	receivedCount := 0
-
+	startTimestamp = time.Now().UnixNano() / 1000000
 	for {
 		_, err := c.ReadMessage(k.timeout)
 		if err != nil {
