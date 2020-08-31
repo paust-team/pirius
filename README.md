@@ -80,6 +80,7 @@ We support below configurations to setup broker.
 
 ```yaml
 # config.yml
+hostname: 127.0.0.1 # broker hostname
 port: 1101  # broker port
 log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory
