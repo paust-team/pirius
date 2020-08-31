@@ -22,9 +22,9 @@ $ go get github.com/paust-team/ShapleQ
 $ cd $GOPATH/github.com/paust-team/ShapleQ
 $ docker build -t shapleq .
 ```
-3. Run docker compose
+3. Run docker compose. Docker-compose examples are in the `examples/docker` directory.
 ```
-$ docker-compose up
+$ docker-compose -f {file name} up
 ```
 
 ### Build & Install From Source
