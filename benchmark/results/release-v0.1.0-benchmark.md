@@ -24,3 +24,6 @@
 * Elapsed time - Difference between the timestamp that producer starts to produce and the timestamp that all of consumers consumed all dataset.
 
 ## Result
+* Since few features exist in ShapleQ on this release, the response of the publish request arrives faster than Kafka. Therefore, the elapsed time of ShapleQ going to increase in later releases.
+
+<img width="419" alt="result" src="https://user-images.githubusercontent.com/44288167/91693216-a646a400-eba5-11ea-9f71-fc5d4e50ab00.png">
