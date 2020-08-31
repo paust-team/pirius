@@ -26,4 +26,4 @@
 ## Result
 * Since few features exist in ShapleQ on this release, the response of the publish request arrives faster than Kafka. Therefore, the elapsed time of ShapleQ going to increase in later releases.
 
-<img width="419" alt="result" src="https://user-images.githubusercontent.com/44288167/91693216-a646a400-eba5-11ea-9f71-fc5d4e50ab00.png">
+<img width="415" alt="스크린샷 2020-08-31 오후 4 20 32" src="https://user-images.githubusercontent.com/44288167/91693416-f6256b00-eba5-11ea-8e6a-f63f7bd4b736.png">
