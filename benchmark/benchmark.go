@@ -14,10 +14,14 @@ import (
 type BenchClient interface {
 	CreateTopic(string)
 	DeleteTopic(string)
-	RunProducer(int, string, string, int) int64
-	RunConsumer(int, string, int) int64
+	RunProducer(int, string, string, int) (int64, int64)
+	RunConsumer(int, string, int) (int64, int64)
 }
 
+type TimePair struct {
+	Start int64
+	End   int64
+}
 type Result struct {
 	NumClient    int
 	MinTime      int64
@@ -26,7 +30,7 @@ type Result struct {
 	ElapsedTimes []int64
 }
 
-func makeResult(numClient int, startTimes, endTimes []int64) *Result {
+func makeTotalResult(numClient int, producerTimes, consumerTimes []TimePair) *Result {
 	var sum int64 = 0
 	var min int64 = 0
 	var max int64 = 0
@@ -34,24 +38,48 @@ func makeResult(numClient int, startTimes, endTimes []int64) *Result {
 	var minStartTime int64 = 0
 
 	var elapsedTimes []int64
-	for i, st := range startTimes {
-		if i == 0 || st < min {
-			minStartTime = st
+	for i, t := range producerTimes {
+		if i == 0 || t.Start < min {
+			minStartTime = t.Start
 		}
 	}
 
-	for i, et := range endTimes {
-		et -= minStartTime
-		elapsedTimes = append(elapsedTimes, et)
-		sum += et
-		if i == 0 || et < min {
-			min = et
+	for i, t := range consumerTimes {
+		endTime := t.End
+		endTime -= minStartTime
+		elapsedTimes = append(elapsedTimes, endTime)
+		sum += endTime
+		if i == 0 || endTime < min {
+			min = endTime
 		}
-		if i == 0 || et > max {
-			max = et
+		if i == 0 || endTime > max {
+			max = endTime
 		}
 	}
-	avg := (float64(sum)) / (float64(len(endTimes)))
+	avg := (float64(sum)) / (float64(len(consumerTimes)))
+
+	return &Result{NumClient: numClient, MinTime: min, MaxTime: max, AvgTime: avg, ElapsedTimes: elapsedTimes}
+}
+
+func makeResult(numClient int, resultTimes []TimePair) *Result {
+	var sum int64 = 0
+	var min int64 = 0
+	var max int64 = 0
+
+	var elapsedTimes []int64
+
+	for i, t := range resultTimes {
+		endTime := t.End - t.Start
+		elapsedTimes = append(elapsedTimes, endTime)
+		sum += endTime
+		if i == 0 || endTime < min {
+			min = endTime
+		}
+		if i == 0 || endTime > max {
+			max = endTime
+		}
+	}
+	avg := (float64(sum)) / (float64(len(resultTimes)))
 
 	return &Result{NumClient: numClient, MinTime: min, MaxTime: max, AvgTime: avg, ElapsedTimes: elapsedTimes}
 }
@@ -77,13 +105,13 @@ func saveResult(result *Result, path string) {
 }
 
 func runBenchClient(client BenchClient, topic string, numProducer int, numConsumer int,
-	filePath string, numData int) ([]int64, []int64) {
+	filePath string, numData int) ([]TimePair, []TimePair) {
 
 	client.CreateTopic(topic)
 	defer client.DeleteTopic(topic)
 
-	var producerResults []int64
-	var consumerResults []int64
+	var producerResults []TimePair
+	var consumerResults []TimePair
 
 	pMu := sync.Mutex{}
 	cMu := sync.Mutex{}
@@ -97,9 +125,9 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	for i := 0; i < numConsumer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			result := client.RunConsumer(id, topic, numData)
+			start, end := client.RunConsumer(id, topic, numData)
 			cMu.Lock()
-			consumerResults = append(consumerResults, result)
+			consumerResults = append(consumerResults, TimePair{start, end})
 			cMu.Unlock()
 		}(i)
 	}
@@ -109,9 +137,9 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	for i := 0; i < numProducer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			result := client.RunProducer(id, topic, filePath, numData-1)
+			start, end := client.RunProducer(id, topic, filePath, numData-1)
 			pMu.Lock()
-			producerResults = append(producerResults, result)
+			producerResults = append(producerResults, TimePair{start, end})
 			pMu.Unlock()
 		}(i)
 	}
@@ -121,7 +149,49 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	return producerResults, consumerResults
 }
 
-func test(topic string, numProducer int, numConsumer int, numData int, target string) {
+func runBenchClientStored(client BenchClient, topic string, numProducer int, numConsumer int,
+	filePath string, numData int) ([]TimePair, []TimePair) {
+
+	client.CreateTopic(topic)
+	defer client.DeleteTopic(topic)
+
+	var producerResults []TimePair
+	var consumerResults []TimePair
+
+	pMu := sync.Mutex{}
+	cMu := sync.Mutex{}
+
+	wg := sync.WaitGroup{}
+	wg.Add(numProducer)
+
+	for i := 0; i < numProducer; i++ {
+		go func(id int) {
+			defer wg.Done()
+			start, end := client.RunProducer(id, topic, filePath, numData)
+			pMu.Lock()
+			producerResults = append(producerResults, TimePair{start, end})
+			pMu.Unlock()
+		}(i)
+	}
+	wg.Wait()
+
+	wg.Add(numConsumer)
+	for i := 0; i < numConsumer; i++ {
+		go func(id int) {
+			defer wg.Done()
+			start, end := client.RunConsumer(id, topic, numData)
+			cMu.Lock()
+			consumerResults = append(consumerResults, TimePair{start, end})
+			cMu.Unlock()
+		}(i)
+	}
+
+	wg.Wait()
+
+	return producerResults, consumerResults
+}
+
+func test(topic string, numProducer int, numConsumer int, numData int, target string, testLiveData bool) {
 
 	kafkaHost := "3.35.5.233"
 	brokerHost := "3.35.5.233"
@@ -135,18 +205,34 @@ func test(topic string, numProducer int, numConsumer int, numData int, target st
 	testFilePath := path + "/test-dataset.tsv"
 	timeout := 30000 * time.Millisecond
 
-	if target == "kf" {
-		// Test Kafka
-		kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
-		runBenchClient(kafkaBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
-		kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-		saveResult(makeResult(numConsumer, kfProducerResults, kfConsumerResults), path+"/kf-result.txt")
+	if testLiveData {
+		if target == "kf" {
+			// Test Kafka
+			kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
+			runBenchClient(kafkaBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
+			kfProducerResults, kfConsumerResults := runBenchClient(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+			saveResult(makeTotalResult(numConsumer, kfProducerResults, kfConsumerResults), path+"/kf-result.txt")
+		} else {
+			// Test ShapleQ
+			shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
+			runBenchClient(shapleQBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
+			sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+			saveResult(makeTotalResult(numConsumer, sqProducerResults, sqConsumerResults), path+"/sq-result.txt")
+		}
 	} else {
-		// Test ShapleQ
-		shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
-		runBenchClient(shapleQBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
-		sqProducerResults, sqConsumerResults := runBenchClient(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
-		saveResult(makeResult(numConsumer, sqProducerResults, sqConsumerResults), path+"/sq-result.txt")
+		if target == "kf" {
+			// Test Kafka
+			kafkaBenchClient := kafka.NewBenchKafkaClient(kafkaHost, timeout)
+			runBenchClientStored(kafkaBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
+			_, kfConsumerResults := runBenchClientStored(kafkaBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+			saveResult(makeResult(numConsumer, kfConsumerResults), path+"/kf-result-stored.txt")
+		} else {
+			// Test ShapleQ
+			shapleQBenchClient := shapleQ.NewBenchShapleQClient(brokerHost, brokerPort, timeout)
+			runBenchClientStored(shapleQBenchClient, "preheat", 1, 1, testFilePath, 10000) // preheat
+			_, sqConsumerResults := runBenchClientStored(shapleQBenchClient, topic, numProducer, numConsumer, testFilePath, numData)
+			saveResult(makeResult(numConsumer, sqConsumerResults), path+"/sq-result-stored.txt")
+		}
 	}
 }
 
@@ -170,5 +256,5 @@ func main() {
 	}
 	testTarget := os.Args[5]
 
-	test(topic, numProducer, numConsumer, numData, testTarget)
+	test(topic, numProducer, numConsumer, numData, testTarget, true)
 }
