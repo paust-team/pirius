@@ -119,6 +119,7 @@ func (b *Broker) Start() {
 
 				if _, ok := sessErr.PQError.(pqerror.SocketClosedError); ok {
 					b.logger.Info("socket closed")
+					sessErr.CancelSession()
 					continue
 				}
 
@@ -267,11 +268,11 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 		defer close(sessionErrCh)
 		defer wg.Wait()
 
-		for sc := range scCh {
+		for sessAndCtx := range scCh {
 			txMsgCh := make(chan *message.QMessage)
 			streamMsgCh := make(chan *message.QMessage)
 			wg.Add(1)
-			go func() {
+			go func(sc SessionAndContext) {
 				defer close(txMsgCh)
 				defer close(streamMsgCh)
 				defer wg.Done()
@@ -289,9 +290,10 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 
 				for {
 					select {
-					case <-sc.ctx.Done():
-						return
-					case msg := <-msgCh:
+					case msg, ok := <-msgCh:
+						if !ok {
+							return
+						}
 						if msg != nil {
 							if msg.Type() == message.TRANSACTION {
 								txMsgCh <- msg
@@ -300,7 +302,10 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 							}
 						}
 
-					case err := <-errCh:
+					case err, ok := <-errCh:
+						if !ok {
+							return
+						}
 						if err != nil {
 							pqErr, ok := err.(pqerror.PQError)
 							if !ok {
@@ -319,10 +324,10 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 					}
 					runtime.Gosched()
 				}
-			}()
+			}(sessAndCtx)
 
-			transactionalEvents <- internals.EventStream{sc.session, txMsgCh, sc.ctx, sc.cancelSession}
-			streamingEvents <- internals.EventStream{sc.session, streamMsgCh, sc.ctx, sc.cancelSession}
+			transactionalEvents <- internals.EventStream{sessAndCtx.session, txMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
+			streamingEvents <- internals.EventStream{sessAndCtx.session, streamMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
 			runtime.Gosched()
 		}
 	}()

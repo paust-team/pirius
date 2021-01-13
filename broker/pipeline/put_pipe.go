@@ -42,8 +42,8 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 
 	once := sync.Once{}
 	go func() {
-		defer close(outStream)
 		defer close(errCh)
+		defer close(outStream)
 
 		for in := range inStream {
 			topic := p.session.Topic()
