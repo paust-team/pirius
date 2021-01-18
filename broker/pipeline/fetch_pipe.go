@@ -40,9 +40,9 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 
 	once := sync.Once{}
 	go func() {
-		defer close(outStream)
 		defer close(errCh)
-		defer close(inStreamClosed)
+		defer close(outStream)
+		wg := &sync.WaitGroup{}
 
 		for in := range inStream {
 			topic := f.session.Topic()
@@ -72,54 +72,69 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 
 			it := f.db.Scan(storage.RecordCF)
 
+			wg.Add(1)
 			go func() {
-				for !f.session.IsClosed() {
-					currentLastOffset := topic.LastOffset()
-					it.Seek(prevKey.Data())
-					if !first && it.Valid() {
-						it.Next()
-					}
-
-					for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
-						key := storage.NewRecordKey(it.Key())
-						keyOffset := key.Offset()
-
-						if first {
-							if keyOffset != req.StartOffset {
-								break
-							}
-						} else {
-							if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
-								break
-							}
-						}
-
-						fetchRes.Reset()
-						fetchRes = shapleq_proto.FetchResponse{
-							Data:       it.Value().Data(),
-							LastOffset: currentLastOffset,
-							Offset:     keyOffset,
-						}
-
-						out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
-						if err != nil {
-							errCh <- err
+				defer wg.Done()
+				for {
+					select {
+					case <-inStreamClosed:
+						return
+					default:
+						if f.session.IsClosed() {
 							return
 						}
 
-						select {
-						case <-inStreamClosed:
-							return
-						case outStream <- out:
-							prevKey.SetData(key.Data())
-							first = false
+						currentLastOffset := topic.LastOffset()
+						it.Seek(prevKey.Data())
+						if !first && it.Valid() {
+							it.Next()
+						}
+
+						for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
+							key := storage.NewRecordKey(it.Key())
+							keyOffset := key.Offset()
+
+							if first {
+								if keyOffset != req.StartOffset {
+									break
+								}
+							} else {
+								if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
+									break
+								}
+							}
+
+							fetchRes.Reset()
+							fetchRes = shapleq_proto.FetchResponse{
+								Data:       it.Value().Data(),
+								LastOffset: currentLastOffset,
+								Offset:     keyOffset,
+							}
+
+							out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
+							if err != nil {
+								errCh <- err
+								return
+							}
+
+							select {
+							case <-inStreamClosed:
+								return
+							case outStream <- out:
+								prevKey.SetData(key.Data())
+								first = false
+							}
 						}
 					}
+
 					runtime.Gosched()
 				}
 			}()
 			runtime.Gosched()
 		}
+
+		close(inStreamClosed)
+		wg.Wait()
 	}()
 
 	return outStream, errCh, nil

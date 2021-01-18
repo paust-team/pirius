@@ -48,8 +48,8 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 	errCh := make(chan error)
 
 	go func() {
-		defer close(outStream)
 		defer close(errCh)
+		defer close(outStream)
 
 		for in := range inStream {
 			req := in.(*shapleq_proto.ConnectRequest)

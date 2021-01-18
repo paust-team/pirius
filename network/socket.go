@@ -10,6 +10,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -36,6 +37,7 @@ func (s *Socket) SetWriteTimeout(wTimeout int) {
 func (s *Socket) Close() {
 	s.Lock()
 	s.closed = true
+	s.conn.Close()
 	s.Unlock()
 }
 
@@ -51,12 +53,9 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 	var data []byte
 	recvBuf := make([]byte, 4*1024)
 	processed := 0
-
 	go func() {
 		defer close(msgStream)
 		defer close(errCh)
-		defer s.conn.Close()
-
 		for {
 			select {
 			case <-ctx.Done():
@@ -78,6 +77,9 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 					}
 
 					errCh <- pqerror.ReadTimeOutError{}
+					return
+				} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+					errCh <- pqerror.SocketClosedError{}
 					return
 				} else if err == io.EOF {
 					errCh <- pqerror.SocketClosedError{}
@@ -116,43 +118,50 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
-		defer s.conn.Close()
+		wg := sync.WaitGroup{}
 
 		for msg := range msgCh {
-			err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.wTimeout)))
-			if err != nil {
-				errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				data, err := Serialize(msg)
-				if err != nil {
-					errCh <- err
+			wg.Add(1)
+			go func(message *message.QMessage) {
+				defer wg.Done()
+				select {
+				case <-ctx.Done():
 					return
-				}
-				if _, err := s.conn.Write(data); err != nil {
-					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-						if s.IsClosed() {
-							errCh <- pqerror.SocketClosedError{}
-							return
-						}
-						errCh <- pqerror.WriteTimeOutError{}
-						return
-					} else if err == io.EOF {
-						errCh <- pqerror.SocketClosedError{}
-						return
-					} else {
+				default:
+					err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.wTimeout)))
+					if err != nil {
 						errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
 						return
 					}
+					data, err := Serialize(message)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if _, err := s.conn.Write(data); err != nil {
+						if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+							if s.IsClosed() {
+								errCh <- pqerror.SocketClosedError{}
+								return
+							}
+							errCh <- pqerror.WriteTimeOutError{}
+							return
+						} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+							errCh <- pqerror.SocketClosedError{}
+							return
+						} else if err == io.EOF {
+							errCh <- pqerror.SocketClosedError{}
+							return
+						} else {
+							errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
+							return
+						}
+					}
 				}
-			}
+			}(msg)
 			runtime.Gosched()
 		}
+		wg.Wait()
 	}()
 
 	return errCh
@@ -178,10 +187,11 @@ func (s *Socket) Write(msg *message.QMessage) error {
 	if _, err := s.conn.Write(data); err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			if s.IsClosed() {
-				s.conn.Close()
 				return pqerror.SocketClosedError{}
 			}
 			return pqerror.WriteTimeOutError{}
+		} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+			return pqerror.SocketClosedError{}
 		} else if err == io.EOF {
 			return pqerror.SocketClosedError{}
 		} else {
@@ -211,10 +221,11 @@ func (s *Socket) Read() (*message.QMessage, error) {
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				if s.IsClosed() {
-					s.conn.Close()
 					return nil, pqerror.SocketClosedError{}
 				}
 				return nil, pqerror.ReadTimeOutError{}
+			} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+				return nil, pqerror.SocketClosedError{}
 			} else if err == io.EOF {
 				return nil, pqerror.SocketClosedError{}
 			} else {

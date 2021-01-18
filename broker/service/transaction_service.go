@@ -38,7 +38,6 @@ func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *
 
 func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, eventStreamCh <-chan internals.EventStream) <-chan error {
 	errCh := make(chan error)
-
 	var wg sync.WaitGroup
 	go func() {
 		defer func() {
@@ -49,24 +48,26 @@ func (s *TransactionService) HandleEventStreams(brokerCtx context.Context, event
 			select {
 			case <-brokerCtx.Done():
 				return
-			case eventStream := <-eventStreamCh:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for {
-						select {
-						case msg := <-eventStream.MsgCh:
-							if msg == nil {
-								return
+			case eventStream, ok := <-eventStreamCh:
+				if ok {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						for {
+							select {
+							case msg := <-eventStream.MsgCh:
+								if msg == nil {
+									return
+								}
+								if err := s.handleMsg(msg, eventStream.Session); err != nil {
+									errCh <- err
+								}
+							default:
 							}
-							if err := s.handleMsg(msg, eventStream.Session); err != nil {
-								errCh <- err
-							}
-						default:
+							runtime.Gosched()
 						}
-						runtime.Gosched()
-					}
-				}()
+					}()
+				}
 			default:
 			}
 			runtime.Gosched()
