@@ -118,46 +118,50 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
-		waitUntilFinished := false
+		wg := sync.WaitGroup{}
+
 		for msg := range msgCh {
-			select {
-			case <-ctx.Done():
-				waitUntilFinished = true
-			default:
-				if !waitUntilFinished {
+			wg.Add(1)
+			go func(message *message.QMessage) {
+				defer wg.Done()
+				select {
+				case <-ctx.Done():
+					return
+				default:
 					err := s.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * time.Duration(s.wTimeout)))
 					if err != nil {
 						errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
-						waitUntilFinished = true
+						return
 					}
-					data, err := Serialize(msg)
+					data, err := Serialize(message)
 					if err != nil {
 						errCh <- err
-						waitUntilFinished = true
+						return
 					}
 					if _, err := s.conn.Write(data); err != nil {
 						if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 							if s.IsClosed() {
 								errCh <- pqerror.SocketClosedError{}
-								waitUntilFinished = true
+								return
 							}
 							errCh <- pqerror.WriteTimeOutError{}
-							waitUntilFinished = true
+							return
 						} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 							errCh <- pqerror.SocketClosedError{}
-							waitUntilFinished = true
+							return
 						} else if err == io.EOF {
 							errCh <- pqerror.SocketClosedError{}
-							waitUntilFinished = true
+							return
 						} else {
 							errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
-							waitUntilFinished = true
+							return
 						}
 					}
 				}
-			}
+			}(msg)
 			runtime.Gosched()
 		}
+		wg.Wait()
 	}()
 
 	return errCh
