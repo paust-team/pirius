@@ -2,7 +2,7 @@
 Reference of ShapleQ Broker and Client for golang.
 
 ## Introduction
-ShapleQ has a great mission to offer delivery of data streams over distribute network. ShapleQ is specialized in delivering data on a circumstance that the number of consumers is greater than the number of producers. 
+ShapleQ has a great mission to offer delivery of data streams over distribute network in real-time.
 
 ### Brokers
 Brokers connect data streams between producers and consumers. It also operates the flow of data transformation on request of consumer applications. Broker network is composed of multiple brokers and it behaves like a single broker. Clients don't have to specify a particular broker. Additionally, brokers store data temporarily according to its policy, so that clients can utilize the broker network as a storage system.
