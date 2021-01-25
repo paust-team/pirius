@@ -6,3 +6,4 @@
 
 ## Results
 [release-v0.1.0 benchmark](https://github.com/paust-team/shapleq/blob/master/benchmark/results/release-v0.1.0-benchmark.md)
+[release-v0.1.1 benchmark](https://github.com/paust-team/shapleq/blob/master/benchmark/results/release-v0.1.1-benchmark.md)
