@@ -1,7 +1,7 @@
 GOPATH	:= $(shell go env GOPATH)
 GIT_DIR := $(shell git rev-parse --git-dir 2>/dev/null || true)
 NPROC := $(shell nproc)
-THIRDPARTY_DIR := $(abspath thirdparty)
+THIRDPARTY_DIR := $(abspath _thirdparty)
 
 mac-os-host := $(findstring Darwin, $(shell uname))
 linux-os-host := $(findstring Linux, $(shell uname))
@@ -90,8 +90,8 @@ endif
 .PHONY: build-broker build-client
 build-broker:
 ifdef linux-os-host
-	CGO_ENABLED=1 CGO_CFLAGS="-I/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/include" \
-	CGO_LDFLAGS="-L/go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/build -lrocksdb -lstdc++ -lm -lsnappy -ldl" \
+	CGO_ENABLED=1 CGO_CFLAGS="-I$(PWD)/_thirdparty/rocksdb/include" \
+	CGO_LDFLAGS="-L$(PWD)/_thirdparty/rocksdb/build -lrocksdb -lstdc++ -lm -lsnappy -ldl" \
 	GOOS=linux GOARCH=amd64 \
 	go build -tags ${DEPLOY_TARGET} -o ./${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ./${BROKER_BIN_DIR}...
 endif
@@ -104,13 +104,13 @@ build-client:
 
 .PHONY: build rebuild install test
 build:
-	if [ -d $(GIT_DIR) ]; then \
-		git submodule update --init --recursive; \
-	fi
+#if [ -d $(GIT_DIR) ]; then \
+#		git submodule update --init --recursive; \
+#	fi
 	make build-protobuf
 	make compile-protobuf
 	make build-rocksdb
-	dep ensure
+	go mod tidy
 	make build-broker
 	make build-client
 	make install-config
