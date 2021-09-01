@@ -2,7 +2,6 @@ package network
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
@@ -50,9 +49,10 @@ func (s *Socket) IsClosed() bool {
 func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, <-chan error) {
 	msgStream := make(chan *message.QMessage)
 	errCh := make(chan error)
-	var data []byte
+	var msgBuf []byte
 	recvBuf := make([]byte, 4*1024)
-	processed := 0
+
+	processedByteIndex := 0
 	go func() {
 		defer close(msgStream)
 		defer close(errCh)
@@ -91,9 +91,9 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 			}
 
 			if n > 0 {
-				data = append(data, recvBuf[:n]...)
+				msgBuf = append(msgBuf, recvBuf[:n]...)
 				for {
-					msg, err := Deserialize(data)
+					msg, err := message.NewQMessage(msgBuf)
 
 					if err != nil {
 						if errors.As(err, &pqerror.NotEnoughBufferError{}) {
@@ -104,8 +104,8 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 					}
 
 					msgStream <- msg
-					processed = binary.Size(&Header{}) + len(msg.Data)
-					data = data[processed:]
+					processedByteIndex = message.HeaderSize + int(msg.Length())
+					msgBuf = msgBuf[processedByteIndex:]
 				}
 			}
 			runtime.Gosched()
@@ -133,7 +133,7 @@ func (s *Socket) ContinuousWrite(ctx context.Context, msgCh <-chan *message.QMes
 						errCh <- pqerror.SocketWriteError{ErrStr: err.Error()}
 						return
 					}
-					data, err := Serialize(message)
+					data, err := message.Serialize()
 					if err != nil {
 						errCh <- err
 						return
@@ -179,7 +179,7 @@ func (s *Socket) Write(msg *message.QMessage) error {
 		return err
 	}
 
-	data, err := Serialize(msg)
+	data, err := msg.Serialize()
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (s *Socket) Read() (*message.QMessage, error) {
 		return nil, pqerror.SocketClosedError{}
 	}
 
-	var data []byte
+	var msgBuf []byte
 	recvBuf := make([]byte, 4*1024)
 
 	for {
@@ -234,9 +234,9 @@ func (s *Socket) Read() (*message.QMessage, error) {
 		}
 
 		if n > 0 {
-			data = append(data, recvBuf[:n]...)
+			msgBuf = append(msgBuf, recvBuf[:n]...)
 			for {
-				msg, err := Deserialize(data)
+				msg, err := message.NewQMessage(msgBuf)
 				if err != nil {
 					if errors.As(err, &pqerror.NotEnoughBufferError{}) {
 						break
