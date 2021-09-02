@@ -1,10 +1,12 @@
 package message
 
 import (
+	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/paust-team/shapleq/pqerror"
+	"hash/crc32"
 )
 
 // message type
@@ -13,27 +15,92 @@ const (
 	STREAM      uint16 = 1
 )
 
-type QMessage struct {
-	msgType uint16
-	Data    []byte
+type qHeader struct {
+	len      uint32
+	checksum uint32
+	msgType  uint16
 }
 
-func NewQMessage(msgType uint16, data []byte) *QMessage {
-	return &QMessage{msgType: msgType, Data: data}
+var (
+	emptyHeader  = &qHeader{}
+	HeaderSize   = binary.Size(emptyHeader)
+	lenSize      = binary.Size(emptyHeader.len)
+	checksumSize = binary.Size(emptyHeader.checksum)
+)
+
+var (
+	lenIdx      = lenSize
+	checksumIdx = lenIdx + checksumSize
+	msgTypeIdx  = HeaderSize
+)
+
+type QMessage struct {
+	header qHeader
+	Data   []byte
+}
+
+func NewQMessage(buf []byte) (*QMessage, error) {
+	bufLen := len(buf)
+
+	// check header
+	if bufLen < HeaderSize {
+		return nil, pqerror.NotEnoughBufferError{}
+	}
+
+	actualDataLen := binary.BigEndian.Uint32(buf[0:lenIdx])
+	actualChecksum := binary.BigEndian.Uint32(buf[lenIdx:checksumIdx])
+	msgType := binary.BigEndian.Uint16(buf[checksumIdx:msgTypeIdx])
+
+	// check data
+	receivedDataLen := bufLen - HeaderSize
+	if receivedDataLen < int(actualDataLen) {
+		return nil, pqerror.NotEnoughBufferError{}
+	}
+
+	data := buf[HeaderSize : HeaderSize+int(actualDataLen)]
+	if actualChecksum != crc32.ChecksumIEEE(data) {
+		return nil, pqerror.InvalidChecksumError{}
+	}
+
+	return &QMessage{
+		header: qHeader{checksum: actualChecksum, len: actualDataLen, msgType: msgType},
+		Data:   data,
+	}, nil
 }
 
 func NewQMessageFromMsg(msgType uint16, msg proto.Message) (*QMessage, error) {
-	qMessage := &QMessage{}
-	qMessage.msgType = msgType
-	if err := qMessage.PackFrom(msg); err != nil {
-		return nil, err
+	anyMsg, err := ptypes.MarshalAny(msg)
+	if err != nil {
+		return nil, pqerror.MarshalAnyFailedError{}
+	}
+	data, err := proto.Marshal(anyMsg)
+	if err != nil {
+		return nil, pqerror.MarshalFailedError{}
 	}
 
-	return qMessage, nil
+	return &QMessage{
+		header: qHeader{checksum: crc32.ChecksumIEEE(data), len: uint32(len(data)), msgType: msgType},
+		Data:   data,
+	}, nil
+}
+
+func (q *QMessage) Serialize() ([]byte, error) {
+	serialized := make([]byte, HeaderSize, HeaderSize+int(q.header.len))
+
+	binary.BigEndian.PutUint32(serialized[0:lenIdx], q.header.len)
+	binary.BigEndian.PutUint32(serialized[lenIdx:checksumIdx], q.header.checksum)
+	binary.BigEndian.PutUint16(serialized[checksumIdx:msgTypeIdx], q.header.msgType)
+
+	serialized = append(serialized, q.Data...)
+	return serialized, nil
+}
+
+func (q *QMessage) Length() uint32 {
+	return q.header.len
 }
 
 func (q *QMessage) Type() uint16 {
-	return q.msgType
+	return q.header.msgType
 }
 
 func (q *QMessage) Is(msg proto.Message) bool {
@@ -85,17 +152,4 @@ func (q *QMessage) UnpackAs(msg proto.Message) (proto.Message, error) {
 		return nil, pqerror.InvalidMsgTypeToUnpackError{Type: anyMsg.TypeUrl}
 	}
 	return msg, nil
-}
-
-func (q *QMessage) PackFrom(msg proto.Message) error {
-	anyMsg, err := ptypes.MarshalAny(msg)
-	if err != nil {
-		return pqerror.MarshalAnyFailedError{}
-	}
-	data, err := proto.Marshal(anyMsg)
-	if err != nil {
-		return pqerror.MarshalFailedError{}
-	}
-	q.Data = data
-	return nil
 }
