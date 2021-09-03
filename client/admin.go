@@ -86,7 +86,7 @@ func (a *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Mess
 		return err
 	}
 
-	if err := receivedMsg.UnpackTo(responseMsg); err != nil {
+	if _, err := receivedMsg.UnpackTo(responseMsg); err != nil {
 		err = errors.New("unhandled error occurred")
 		a.logger.Error(err)
 		return err

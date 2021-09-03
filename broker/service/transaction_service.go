@@ -81,22 +81,22 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 
 	var resMsg proto.Message
 
-	if reqMsg, err := msg.UnpackAs(&shapleqproto.CreateTopicRequest{}); err == nil {
+	if reqMsg, err := msg.UnpackTo(&shapleqproto.CreateTopicRequest{}); err == nil {
 		resMsg = s.rpcService.CreateTopic(reqMsg.(*shapleqproto.CreateTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DeleteTopicRequest{}); err == nil {
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.DeleteTopicRequest{}); err == nil {
 		resMsg = s.rpcService.DeleteTopic(reqMsg.(*shapleqproto.DeleteTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.ListTopicRequest{}); err == nil {
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.ListTopicRequest{}); err == nil {
 		resMsg = s.rpcService.ListTopic(reqMsg.(*shapleqproto.ListTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DescribeTopicRequest{}); err == nil {
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.DescribeTopicRequest{}); err == nil {
 		resMsg = s.rpcService.DescribeTopic(reqMsg.(*shapleqproto.DescribeTopicRequest))
 
-	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.Ping{}); err == nil {
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.Ping{}); err == nil {
 		resMsg = s.rpcService.Heartbeat(reqMsg.(*shapleqproto.Ping))
 
-	} else if reqMsg, err := msg.UnpackAs(&shapleqproto.DiscoverBrokerRequest{}); err == nil {
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.DiscoverBrokerRequest{}); err == nil {
 		resMsg = s.rpcService.DiscoverBroker(reqMsg.(*shapleqproto.DiscoverBrokerRequest))
 	} else {
 		return errors.New("invalid message to handle")

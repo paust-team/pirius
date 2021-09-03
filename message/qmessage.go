@@ -120,24 +120,7 @@ func (q *QMessage) Any() (*any.Any, error) {
 	return anyMsg, nil
 }
 
-func (q *QMessage) UnpackTo(msg proto.Message) error {
-	anyMsg, err := q.Any()
-	if err != nil {
-		return err
-	}
-
-	if ptypes.Is(anyMsg, msg) {
-		err := ptypes.UnmarshalAny(anyMsg, msg)
-		if err != nil {
-			return pqerror.UnmarshalAnyFailedError{}
-		}
-	} else {
-		return pqerror.InvalidMsgTypeToUnpackError{Type: anyMsg.TypeUrl}
-	}
-	return nil
-}
-
-func (q *QMessage) UnpackAs(msg proto.Message) (proto.Message, error) {
+func (q *QMessage) UnpackTo(msg proto.Message) (proto.Message, error) {
 	anyMsg, err := q.Any()
 	if err != nil {
 		return nil, err

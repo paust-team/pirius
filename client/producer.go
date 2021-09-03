@@ -144,11 +144,11 @@ func (p *Producer) Close() {
 }
 
 func (p *Producer) handleMessage(msg *message.QMessage) (common.Partition, error) {
-	if res, err := msg.UnpackAs(&shapleqproto.PutResponse{}); err == nil {
+	if res, err := msg.UnpackTo(&shapleqproto.PutResponse{}); err == nil {
 		putRes := res.(*shapleqproto.PutResponse)
 		p.logger.Debug("received response - offset: %d", putRes.Partition.Offset)
 		return common.Partition{Id: putRes.Partition.PartitionId, Offset: putRes.Partition.Offset}, nil
-	} else if res, err := msg.UnpackAs(&shapleqproto.Ack{}); err == nil {
+	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return common.Partition{}, errors.New(res.(*shapleqproto.Ack).GetMsg())
 	} else {
 		return common.Partition{}, errors.New("received invalid type of message")

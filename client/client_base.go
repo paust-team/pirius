@@ -121,17 +121,16 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 		return err
 	}
 
-	discoverRes := &shapleqproto.DiscoverBrokerResponse{}
-	err = res.UnpackTo(discoverRes)
+	discoverRes, err := res.UnpackTo(&shapleqproto.DiscoverBrokerResponse{})
 	if err != nil {
 		return err
 	}
 
-	if pqerror.PQCode(discoverRes.ErrorCode) != pqerror.Success {
-		return errors.New(discoverRes.ErrorMessage)
+	if pqerror.PQCode(discoverRes.(*shapleqproto.DiscoverBrokerResponse).ErrorCode) != pqerror.Success {
+		return errors.New(discoverRes.(*shapleqproto.DiscoverBrokerResponse).ErrorMessage)
 	}
 
-	newAddr := discoverRes.GetAddress()
+	newAddr := discoverRes.(*shapleqproto.DiscoverBrokerResponse).GetAddress()
 	c.close()
 	if err = c.connectToBroker(newAddr); err != nil {
 		return err
@@ -155,8 +154,7 @@ func (c *ClientBase) initStream(sessionType shapleqproto.SessionType, topic stri
 	if err != nil {
 		return err
 	}
-	connectRes := &shapleqproto.ConnectResponse{}
-	if err := res.UnpackTo(connectRes); err != nil {
+	if _, err := res.UnpackTo(&shapleqproto.ConnectResponse{}); err != nil {
 		return err
 	}
 	return nil
