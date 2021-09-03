@@ -14,21 +14,12 @@ func TestQMessage(t *testing.T) {
 		t.Error(err)
 	}
 
-	if msg.Is(&shapleqproto.FetchRequest{}) {
-		t.Error("should be false")
-	}
-
-	if !msg.Is(&shapleqproto.PutRequest{}) {
-		t.Error("should be true")
-	}
-
-	putMsg := &shapleqproto.PutRequest{}
-	if err := msg.UnpackTo(putMsg); err != nil {
+	putMsg, err := msg.UnpackTo(&shapleqproto.PutRequest{})
+	if err != nil {
 		t.Error(err)
 	}
 
-	if bytes.Compare(testByte, putMsg.Data) != 0 {
+	if bytes.Compare(testByte, putMsg.(*shapleqproto.PutRequest).Data) != 0 {
 		t.Error("bytes not equal")
 	}
-
 }

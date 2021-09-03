@@ -31,12 +31,13 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 	readStarted := make(chan bool)
 	readDone := make(chan bool)
 
-	var actual [][]byte
-	var expected [][]byte
-	var count = 100000
+	var actual []*message.QMessage
+	var expected []*message.QMessage
+	var count = 1000
 
 	for i := 0; i < count; i++ {
-		expected = append(expected, []byte(strconv.Itoa(i)))
+		msg, _ := message.NewQMessageFromMsg(message.STREAM, message.NewAckMsg(uint32(i), "msg-"+strconv.Itoa(i)))
+		expected = append(expected, msg)
 	}
 
 	go func() {
@@ -52,7 +53,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 			select {
 			case msg := <-msgCh:
 				if msg != nil {
-					actual = append(actual, msg.Data)
+					actual = append(actual, msg)
 					if len(actual) == len(expected) {
 						return
 					}
@@ -78,7 +79,7 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 
 	<-readStarted
 	for _, msg := range expected {
-		msgCh <- message.NewQMessage(message.STREAM, msg)
+		msgCh <- msg
 	}
 	select {
 	case err := <-writeErrCh:
@@ -87,8 +88,15 @@ func TestSocket_ContinuousReadWrite(t *testing.T) {
 	}
 
 	for i := 0; i < len(expected); i++ {
-		if bytes.Compare(actual[i], expected[i]) != 0 {
-			t.Errorf("received message is different from sent message. actual: %s, expected: %s", actual[i], expected[i])
+		found := false
+		for j := 0; j < len(actual); j++ {
+			if bytes.Compare(actual[j].Data, expected[i].Data) == 0 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected message is not received. expected: %s", expected[i].Data)
 		}
 	}
 }
