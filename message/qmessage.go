@@ -26,12 +26,16 @@ var (
 	HeaderSize   = binary.Size(emptyHeader)
 	lenSize      = binary.Size(emptyHeader.len)
 	checksumSize = binary.Size(emptyHeader.checksum)
+	msgTypeSize  = binary.Size(emptyHeader.msgType)
 )
 
 var (
-	lenIdx      = lenSize
-	checksumIdx = lenIdx + checksumSize
-	msgTypeIdx  = HeaderSize
+	lenStartIdx      = 0
+	lenEndIdx        = lenStartIdx + lenSize
+	checksumStartIdx = lenEndIdx
+	checksumEndIdx   = checksumStartIdx + checksumSize
+	msgTypeStartIdx  = checksumEndIdx
+	msgTypeEndIdx    = msgTypeStartIdx + msgTypeSize
 )
 
 type QMessage struct {
@@ -47,9 +51,9 @@ func NewQMessage(buf []byte) (*QMessage, error) {
 		return nil, pqerror.NotEnoughBufferError{}
 	}
 
-	actualDataLen := binary.BigEndian.Uint32(buf[0:lenIdx])
-	actualChecksum := binary.BigEndian.Uint32(buf[lenIdx:checksumIdx])
-	msgType := binary.BigEndian.Uint16(buf[checksumIdx:msgTypeIdx])
+	actualDataLen := binary.BigEndian.Uint32(buf[lenStartIdx:lenEndIdx])
+	actualChecksum := binary.BigEndian.Uint32(buf[checksumStartIdx:checksumEndIdx])
+	msgType := binary.BigEndian.Uint16(buf[msgTypeStartIdx:msgTypeEndIdx])
 
 	// check data
 	receivedDataLen := bufLen - HeaderSize
@@ -87,9 +91,9 @@ func NewQMessageFromMsg(msgType uint16, msg proto.Message) (*QMessage, error) {
 func (q *QMessage) Serialize() ([]byte, error) {
 	serialized := make([]byte, HeaderSize, HeaderSize+int(q.header.len))
 
-	binary.BigEndian.PutUint32(serialized[0:lenIdx], q.header.len)
-	binary.BigEndian.PutUint32(serialized[lenIdx:checksumIdx], q.header.checksum)
-	binary.BigEndian.PutUint16(serialized[checksumIdx:msgTypeIdx], q.header.msgType)
+	binary.BigEndian.PutUint32(serialized[lenStartIdx:lenEndIdx], q.header.len)
+	binary.BigEndian.PutUint32(serialized[checksumStartIdx:checksumEndIdx], q.header.checksum)
+	binary.BigEndian.PutUint16(serialized[msgTypeStartIdx:msgTypeEndIdx], q.header.msgType)
 
 	serialized = append(serialized, q.Data...)
 	return serialized, nil
