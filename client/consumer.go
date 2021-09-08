@@ -114,12 +114,12 @@ type FetchedData struct {
 }
 
 func (c *Consumer) handleMessage(msg *message.QMessage) (FetchedData, error) {
-	if res, err := msg.UnpackAs(&shapleqproto.FetchResponse{}); err == nil {
+	if res, err := msg.UnpackTo(&shapleqproto.FetchResponse{}); err == nil {
 		fetchRes := res.(*shapleqproto.FetchResponse)
 		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d, offset: %d",
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset))
 		return FetchedData{Data: fetchRes.Data, Offset: fetchRes.Offset, LastOffset: fetchRes.LastOffset}, nil
-	} else if res, err := msg.UnpackAs(&shapleqproto.Ack{}); err == nil {
+	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return FetchedData{}, errors.New(res.(*shapleqproto.Ack).Msg)
 	} else {
 		return FetchedData{}, errors.New("received invalid type of message")

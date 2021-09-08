@@ -12,8 +12,7 @@ func IsConnectRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &shapleqproto.ConnectRequest{}
-	err := msg.UnpackTo(pb)
+	pb, err := msg.UnpackTo(&shapleqproto.ConnectRequest{})
 	if err != nil {
 		return nil, false
 	}
@@ -25,8 +24,7 @@ func IsFetchRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &shapleqproto.FetchRequest{}
-	err := msg.UnpackTo(pb)
+	pb, err := msg.UnpackTo(&shapleqproto.FetchRequest{})
 	if err != nil {
 		return nil, false
 	}
@@ -38,8 +36,7 @@ func IsPutRequest(data interface{}) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	pb := &shapleqproto.PutRequest{}
-	err := msg.UnpackTo(pb)
+	pb, err := msg.UnpackTo(&shapleqproto.PutRequest{})
 	if err != nil {
 		return nil, false
 	}
