@@ -59,7 +59,7 @@ func (c *Consumer) Connect() error {
 	return c.connect(shapleqproto.SessionType_SUBSCRIBER, c.topic)
 }
 
-func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan error, error) {
+func (c *Consumer) Subscribe(startOffset uint64, maxBatchSize uint32, flushInterval uint32) (<-chan FetchedData, <-chan error, error) {
 	recvCh, recvErrCh, err := c.continuousReceive(c.ctx)
 	if err != nil {
 		return nil, nil, err
@@ -67,7 +67,7 @@ func (c *Consumer) Subscribe(startOffset uint64) (<-chan FetchedData, <-chan err
 
 	c.logger.Info("start subscribe.")
 
-	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(startOffset))
+	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(startOffset, maxBatchSize, flushInterval))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,7 +109,7 @@ func (c *Consumer) Close() {
 }
 
 type FetchedData struct {
-	Data               []byte
+	Data               [][]byte
 	Offset, LastOffset uint64
 }
 
@@ -118,7 +118,13 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (FetchedData, error) {
 		fetchRes := res.(*shapleqproto.FetchResponse)
 		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d, offset: %d",
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset))
-		return FetchedData{Data: fetchRes.Data, Offset: fetchRes.Offset, LastOffset: fetchRes.LastOffset}, nil
+		data := [][]byte{fetchRes.Data}
+		return FetchedData{Data: data, Offset: fetchRes.Offset, LastOffset: fetchRes.LastOffset}, nil
+	} else if res, err := msg.UnpackTo(&shapleqproto.BatchFetchResponse{}); err == nil {
+		fetchRes := res.(*shapleqproto.BatchFetchResponse)
+		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d",
+			fetchRes.Batched, fetchRes.LastOffset))
+		return FetchedData{Data: fetchRes.Batched, LastOffset: fetchRes.LastOffset}, nil
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return FetchedData{}, errors.New(res.(*shapleqproto.Ack).Msg)
 	} else {

@@ -109,8 +109,9 @@ func NewPutResponseMsg(offset uint64) *shapleqproto.PutResponse {
 	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, Partition: partition}
 }
 
-func NewFetchRequestMsg(startOffset uint64) *shapleqproto.FetchRequest {
-	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, StartOffset: startOffset}
+func NewFetchRequestMsg(startOffset uint64, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
+	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, StartOffset: startOffset, MaxBatchSize: maxBatchSize,
+		FlushInterval: flushInterval}
 }
 
 func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *shapleqproto.FetchResponse {
@@ -119,6 +120,11 @@ func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *shapleq
 	}
 
 	return &shapleqproto.FetchResponse{Magic: MAGIC_NUM, Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
+}
+
+func NewBatchFetchResponseMsg(batched [][]byte, lastOffset uint64) *shapleqproto.BatchFetchResponse {
+
+	return &shapleqproto.BatchFetchResponse{Magic: MAGIC_NUM, Batched: batched, LastOffset: lastOffset}
 }
 
 func NewAckMsg(code uint32, msg string) *shapleqproto.Ack {

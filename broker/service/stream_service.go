@@ -130,7 +130,7 @@ func convertToQMessageChan(from <-chan interface{}) <-chan *message.QMessage {
 
 func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan interface{}) (error, *pipeline.Pipeline) {
 	// build pipeline
-	var dispatcher, connector, fetcher, putter, zipper pipeline.Pipe
+	var dispatcher, connector, fetcher, collector, putter, zipper pipeline.Pipe
 	var err error
 
 	dispatcher = &pipeline.DispatchPipe{}
@@ -153,6 +153,13 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 		return err, nil
 	}
 	fetchPipe := pipeline.NewPipe("fetch", &fetcher)
+
+	collector = &pipeline.CollectPipe{}
+	err = collector.Build(sess)
+	if err != nil {
+		return err, nil
+	}
+	collectPipe := pipeline.NewPipe("collect", &collector)
 
 	putter = &pipeline.PutPipe{}
 	err = putter.Build(sess, s.DB)
@@ -182,7 +189,10 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	if err = pl.Add(putPipe, dispatchPipe.Outlets[2]); err != nil {
 		return err, nil
 	}
-	if err = pl.Add(zipPipe, connectPipe.Outlets[0], fetchPipe.Outlets[0], putPipe.Outlets[0]); err != nil {
+	if err = pl.Add(collectPipe, fetchPipe.Outlets[0]); err != nil {
+		return err, nil
+	}
+	if err = pl.Add(zipPipe, connectPipe.Outlets[0], collectPipe.Outlets[0], putPipe.Outlets[0]); err != nil {
 		return err, nil
 	}
 
