@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
-	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"runtime"
@@ -58,6 +57,8 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 
 			req := in.(*shapleq_proto.FetchRequest)
 			var fetchRes shapleq_proto.FetchResponse
+			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
+			f.session.SetFlushInterval(req.GetFlushInterval())
 
 			first := true
 			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
@@ -111,16 +112,10 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 								Offset:     keyOffset,
 							}
 
-							out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
-							if err != nil {
-								errCh <- err
-								return
-							}
-
 							select {
 							case <-inStreamClosed:
 								return
-							case outStream <- out:
+							case outStream <- fetchRes:
 								prevKey.SetData(key.Data())
 								first = false
 							}

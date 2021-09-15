@@ -1,0 +1,121 @@
+package pipeline
+
+import (
+	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/message"
+	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"runtime"
+	"sync"
+	"time"
+)
+
+type CollectPipe struct {
+	session       *internals.Session
+	queue         chan shapleq_proto.FetchResponse
+	startTime     time.Time
+	maxBatchSize  int
+	flushInterval int64
+}
+
+func (c *CollectPipe) Build(in ...interface{}) error {
+	casted := true
+	var ok bool
+
+	c.session, ok = in[0].(*internals.Session)
+	casted = casted && ok
+
+	if !casted {
+		return pqerror.PipeBuildFailError{PipeName: "collect"}
+	}
+
+	return nil
+}
+
+func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan error, error) {
+	outStream := make(chan interface{})
+	errCh := make(chan error)
+	inStreamClosed := make(chan struct{})
+
+	go func() {
+		defer close(errCh)
+		defer close(outStream)
+
+		once := sync.Once{}
+		var handleFetchResponse func(response shapleq_proto.FetchResponse)
+
+		for in := range inStream {
+			once.Do(func() {
+				c.maxBatchSize = int(c.session.MaxBatchSize())
+				c.flushInterval = int64(c.session.FlushInterval())
+				c.startTime = time.Now()
+
+				if c.maxBatchSize > 1 {
+					c.queue = make(chan shapleq_proto.FetchResponse, c.maxBatchSize)
+					go c.watchQueue(inStreamClosed, outStream, errCh)
+					handleFetchResponse = func(fetchRes shapleq_proto.FetchResponse) {
+						c.queue <- fetchRes
+					}
+				} else {
+					handleFetchResponse = func(fetchRes shapleq_proto.FetchResponse) {
+						out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
+						if err != nil {
+							errCh <- err
+							return
+						}
+						outStream <- out
+					}
+				}
+			})
+
+			handleFetchResponse(in.(shapleq_proto.FetchResponse))
+		}
+		close(inStreamClosed)
+	}()
+
+	return outStream, errCh, nil
+}
+
+func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
+	var collected []shapleq_proto.FetchResponse
+
+	for {
+		select {
+		case <-inStreamClosed:
+			return
+		case data := <-c.queue:
+			collected = append(collected, data)
+			if len(collected) >= c.maxBatchSize {
+				if err := c.flush(collected, outStream); err != nil {
+					errCh <- err
+				}
+				collected = nil
+			}
+		default:
+			if time.Since(c.startTime).Milliseconds() >= c.flushInterval {
+				if err := c.flush(collected, outStream); err != nil {
+					errCh <- err
+				}
+				collected = nil
+			}
+		}
+		runtime.Gosched()
+	}
+}
+
+func (c *CollectPipe) flush(data []shapleq_proto.FetchResponse, outStream chan interface{}) error {
+	c.startTime = time.Now()
+	var batched [][]byte
+	var lastOffset uint64 = 0
+	for _, fetchRes := range data {
+		batched = append(batched, fetchRes.GetData())
+		lastOffset = fetchRes.GetLastOffset()
+	}
+	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(batched, lastOffset))
+	if err != nil {
+		return err
+	}
+	outStream <- out
+
+	return nil
+}

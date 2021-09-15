@@ -61,12 +61,14 @@ var stateTransition = map[SessionStateType][]SessionStateType{
 }
 
 type Session struct {
-	sock     *network.Socket
-	state    *SessionState
-	sessType shapleq_proto.SessionType
-	topic    *Topic
-	rTimeout uint
-	wTimeout uint
+	sock          *network.Socket
+	state         *SessionState
+	sessType      shapleq_proto.SessionType
+	topic         *Topic
+	rTimeout      uint
+	wTimeout      uint
+	maxBatchSize  uint32 // for fetch
+	flushInterval uint32 // for fetch
 }
 
 func NewSession(conn net.Conn, timeout int) *Session {
@@ -75,7 +77,9 @@ func NewSession(conn net.Conn, timeout int) *Session {
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
-		topic: nil,
+		topic:         nil,
+		maxBatchSize:  1,
+		flushInterval: 100,
 	}
 }
 
@@ -94,10 +98,6 @@ func (s *Session) WithWriteTimeout(wTimeout int) *Session {
 	return s
 }
 
-func (s *Session) SetTopic(topic *Topic) {
-	s.topic = topic
-}
-
 func (s *Session) Type() shapleq_proto.SessionType {
 	return s.sessType
 }
@@ -108,6 +108,26 @@ func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 
 func (s *Session) Topic() *Topic {
 	return s.topic
+}
+
+func (s *Session) SetTopic(topic *Topic) {
+	s.topic = topic
+}
+
+func (s *Session) MaxBatchSize() uint32 {
+	return s.maxBatchSize
+}
+
+func (s *Session) SetMaxBatchSize(maxBatchSize uint32) {
+	s.maxBatchSize = maxBatchSize
+}
+
+func (s *Session) FlushInterval() uint32 {
+	return s.flushInterval
+}
+
+func (s *Session) SetFlushInterval(flushInterval uint32) {
+	s.flushInterval = flushInterval
 }
 
 func (s *Session) State() SessionStateType {

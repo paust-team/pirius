@@ -208,6 +208,8 @@ message PutResponse {
 message FetchRequest {
     int32 magic = 1;
     uint64 start_offset = 2;
+    uint32 max_batch_size = 3;
+    uint32 flush_interval = 4;
 }
 
 message FetchResponse {
@@ -216,7 +218,12 @@ message FetchResponse {
     Partition partition = 3;
     uint64 last_offset = 4;
     uint64 offset = 5;
-    bool publishing = 6;
+}
+
+message BatchFetchResponse {
+    int32 magic = 1;
+    repeated bytes batched = 2;
+    uint64 last_offset = 4;
 }
 
 message Ack {

@@ -1,6 +1,6 @@
 GOPATH	:= $(shell go env GOPATH)
 GIT_DIR := $(shell git rev-parse --git-dir 2>/dev/null || true)
-NPROC := $(shell nproc)
+NPROC := 4
 THIRDPARTY_DIR := $(abspath _thirdparty)
 
 mac-os-host := $(findstring Darwin, $(shell uname))
@@ -104,9 +104,9 @@ build-client:
 
 .PHONY: build rebuild install test
 build:
-#if [ -d $(GIT_DIR) ]; then \
-#		git submodule update --init --recursive; \
-#	fi
+	if [ -d $(GIT_DIR) ]; then \
+		git submodule update --init --recursive; \
+	fi
 	make build-protobuf
 	make compile-protobuf
 	make build-rocksdb

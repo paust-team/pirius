@@ -228,7 +228,7 @@ func TestPubSub(t *testing.T) {
 		return
 	}
 
-	receiveCh, subErrCh, err := consumer.Subscribe(0)
+	receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
 	if err != nil {
 		t.Error(err)
 		return
@@ -241,7 +241,7 @@ func TestPubSub(t *testing.T) {
 		for {
 			select {
 			case received := <-receiveCh:
-				actualRecords = append(actualRecords, received.Data)
+				actualRecords = append(actualRecords, received.Data[0])
 				fmt.Println(len(actualRecords), len(expectedRecords))
 				if len(actualRecords) == len(expectedRecords) {
 					return
@@ -393,7 +393,7 @@ func TestMultiClient(t *testing.T) {
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(0)
+		receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
 		if err != nil {
 			t.Error(err)
 			wg.Done()
@@ -407,7 +407,7 @@ func TestMultiClient(t *testing.T) {
 			for {
 				select {
 				case received := <-receiveCh:
-					subscribedRecords = append(subscribedRecords, received.Data)
+					subscribedRecords = append(subscribedRecords, received.Data[0])
 					if len(subscribedRecords) == len(totalPublishedRecords) {
 						fmt.Printf("done %s\n", name)
 						mu.Lock()
@@ -430,6 +430,180 @@ func TestMultiClient(t *testing.T) {
 		runConsumer(fmt.Sprintf("consumer%d", i))
 	}
 
+	wg.Wait()
+
+	for _, subscribedRecords := range totalSubscribedRecords {
+		if len(totalPublishedRecords) != len(subscribedRecords) {
+			t.Error("Length Mismatch - Expected records: ", len(totalPublishedRecords), ", Received records: ", len(subscribedRecords))
+		}
+
+		for _, record := range subscribedRecords {
+			if !contains(totalPublishedRecords, record) {
+				t.Error("Record is not exists: ", record)
+			}
+		}
+	}
+}
+
+func TestBatchClient(t *testing.T) {
+	topic := "topic4"
+	var maxBatchSize uint32 = 32
+	var flushInterval uint32 = 200
+
+	//zk client to reset
+	zkClient := zookeeper.NewZKClient(zkAddr, 3000)
+	if err := zkClient.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+	defer zkClient.Close()
+	defer zkClient.RemoveAllPath()
+
+	brokerConfig := config.NewBrokerConfig()
+	brokerConfig.SetLogLevel(testLogLevel)
+	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetTimeout(100000)
+	brokerInstance := broker.NewBroker(brokerConfig)
+	bwg := sync.WaitGroup{}
+	bwg.Add(1)
+	defer brokerInstance.Clean()
+	defer bwg.Wait()
+	defer brokerInstance.Stop()
+
+	go func() {
+		defer bwg.Done()
+		brokerInstance.Start()
+	}()
+
+	Sleep(1)
+
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetBrokerHost(brokerHost)
+	adminConfig.SetBrokerPort(brokerPort)
+	admin := client.NewAdmin(adminConfig)
+	if err := admin.Connect(); err != nil {
+		t.Error(err)
+		return
+	}
+
+	if err := admin.CreateTopic(topic, "meta", 1, 1); err != nil {
+		t.Error(err)
+		return
+	}
+
+	admin.Close()
+	Sleep(1)
+
+	runProducer := func(fileName string) [][]byte {
+		records := getRecordsFromFile(fileName)
+
+		producerConfig := config2.NewProducerConfig()
+		producerConfig.SetLogLevel(testLogLevel)
+		producerConfig.SetBrokerHost(brokerHost)
+		producerConfig.SetBrokerPort(brokerPort)
+		producerConfig.SetTimeout(100000)
+		producer := client.NewProducer(producerConfig, topic)
+		if err := producer.Connect(); err != nil {
+			t.Error(err)
+			return nil
+		}
+
+		publishCh := make(chan []byte)
+
+		partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
+		if err != nil {
+			t.Error(err)
+			return nil
+		}
+
+		go func() {
+			defer close(publishCh)
+			defer producer.Close()
+			published := 0
+			for {
+				select {
+				case err := <-pubErrCh:
+					if err != nil {
+						t.Error(err)
+						return
+					}
+				case <-partitionCh:
+					published++
+					if published == len(records) {
+						fmt.Printf("done producer with file %s\n", fileName)
+						return
+					}
+				}
+			}
+		}()
+
+		go func() {
+			for _, record := range records {
+				publishCh <- record
+			}
+		}()
+
+		return records
+	}
+
+	// Start producer
+	var totalPublishedRecords [][]byte
+	totalPublishedRecords = append(totalPublishedRecords, runProducer("data1.txt")...)
+
+	// Start consumer
+	type SubscribedRecords [][]byte
+	var totalSubscribedRecords []SubscribedRecords
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	runConsumer := func(name string) {
+		var subscribedRecords SubscribedRecords
+
+		consumerConfig := config2.NewConsumerConfig()
+		consumerConfig.SetLogLevel(testLogLevel)
+		consumerConfig.SetBrokerHost(brokerHost)
+		consumerConfig.SetBrokerPort(brokerPort)
+		consumerConfig.SetTimeout(30000)
+		consumer := client.NewConsumer(consumerConfig, topic)
+		if err := consumer.Connect(); err != nil {
+			t.Error(err)
+			wg.Done()
+			return
+		}
+
+		receiveCh, subErrCh, err := consumer.Subscribe(0, maxBatchSize, flushInterval)
+		if err != nil {
+			t.Error(err)
+			wg.Done()
+			return
+		}
+
+		go func() {
+			defer wg.Done()
+			defer consumer.Close()
+
+			for {
+				select {
+				case received := <-receiveCh:
+					subscribedRecords = append(subscribedRecords, received.Data...)
+					if len(subscribedRecords) == len(totalPublishedRecords) {
+						fmt.Printf("done %s\n", name)
+						mu.Lock()
+						totalSubscribedRecords = append(totalSubscribedRecords, subscribedRecords)
+						mu.Unlock()
+						return
+					}
+				case err := <-subErrCh:
+					t.Error(err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Add(1)
+	runConsumer(fmt.Sprintf("consumer%d", 1))
 	wg.Wait()
 
 	for _, subscribedRecords := range totalSubscribedRecords {
