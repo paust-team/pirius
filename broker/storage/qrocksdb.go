@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/tecbot/gorocksdb"
 	"path/filepath"
 	"unsafe"
@@ -57,9 +58,14 @@ func (db QRocksDB) GetRecord(topic string, offset uint64) (*gorocksdb.Slice, err
 	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
-func (db QRocksDB) PutRecord(topic string, offset uint64, data []byte) error {
+func (db QRocksDB) PutRecord(topic string, offset uint64, nodeId string, seqNum uint64, data []byte) error {
+	if len(nodeId) != 32 {
+		return errors.New("invalid length for node id")
+	}
 	key := NewRecordKeyFromData(topic, offset)
-	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data(), data)
+	value := NewRecordValueFromData(nodeId, seqNum, data)
+
+	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data(), value.Data())
 }
 
 func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
@@ -102,28 +108,77 @@ func NewRecordKey(slice *gorocksdb.Slice) *RecordKey {
 	return &RecordKey{Slice: slice, isSlice: true}
 }
 
-func (key RecordKey) Data() []byte {
-	if key.isSlice {
-		return key.Slice.Data()
+func (k RecordKey) Data() []byte {
+	if k.isSlice {
+		return k.Slice.Data()
 	}
-	return key.data
+	return k.data
 }
 
-func (key *RecordKey) SetData(data []byte) {
-	copy(key.data, data)
+func (k *RecordKey) SetData(data []byte) {
+	copy(k.data, data)
 }
 
-func (key RecordKey) Size() int {
-	if key.isSlice {
-		return key.Slice.Size()
+func (k RecordKey) Size() int {
+	if k.isSlice {
+		return k.Slice.Size()
 	}
-	return len(key.data)
+	return len(k.data)
 }
 
-func (key RecordKey) Topic() string {
-	return string(key.Data()[:key.Size()-int(unsafe.Sizeof(uint64(0)))-1])
+func (k RecordKey) Topic() string {
+	return string(k.Data()[:k.Size()-int(unsafe.Sizeof(uint64(0)))-1])
 }
 
-func (key RecordKey) Offset() uint64 {
-	return binary.BigEndian.Uint64(key.Data()[key.Size()-int(unsafe.Sizeof(uint64(0))):])
+func (k RecordKey) Offset() uint64 {
+	return binary.BigEndian.Uint64(k.Data()[k.Size()-int(unsafe.Sizeof(uint64(0))):])
+}
+
+type RecordValue struct {
+	*gorocksdb.Slice
+	data    []byte
+	isSlice bool
+}
+
+func NewRecordValueFromData(nodeId string, seqNum uint64, publishedData []byte) *RecordValue {
+	meta := make([]byte, len(nodeId)+int(unsafe.Sizeof(seqNum)))
+	copy(meta, nodeId)
+	binary.BigEndian.PutUint64(meta[len(nodeId):], seqNum)
+
+	data := append(meta[:], publishedData[:]...)
+	return &RecordValue{data: data, isSlice: false}
+}
+
+func NewRecordValue(slice *gorocksdb.Slice) *RecordValue {
+	return &RecordValue{Slice: slice, isSlice: true}
+}
+
+func (v RecordValue) Data() []byte {
+	if v.isSlice {
+		return v.Slice.Data()
+	}
+	return v.data
+}
+
+func (v *RecordValue) SetData(data []byte) {
+	copy(v.data, data)
+}
+
+func (v RecordValue) Size() int {
+	if v.isSlice {
+		return v.Slice.Size()
+	}
+	return len(v.data)
+}
+
+func (v RecordValue) NodeId() string {
+	return string(v.Data()[:32])
+}
+
+func (v RecordValue) SeqNum() uint64 {
+	return binary.BigEndian.Uint64(v.Data()[32 : 32+int(unsafe.Sizeof(uint64(0)))])
+}
+
+func (v RecordValue) PublishedData() []byte {
+	return v.Data()[32+int(unsafe.Sizeof(uint64(0))):]
 }

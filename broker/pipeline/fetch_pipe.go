@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"runtime"
@@ -43,6 +44,9 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 		defer close(outStream)
 		wg := &sync.WaitGroup{}
 
+		defer wg.Wait()
+		defer close(inStreamClosed)
+
 		for in := range inStream {
 			topic := f.session.Topic()
 			once.Do(func() {
@@ -56,7 +60,6 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			})
 
 			req := in.(*shapleq_proto.FetchRequest)
-			var fetchRes shapleq_proto.FetchResponse
 			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
@@ -105,12 +108,8 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 								}
 							}
 
-							fetchRes.Reset()
-							fetchRes = shapleq_proto.FetchResponse{
-								Data:       it.Value().Data(),
-								LastOffset: currentLastOffset,
-								Offset:     keyOffset,
-							}
+							value := storage.NewRecordValue(it.Value())
+							fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), currentLastOffset)
 
 							select {
 							case <-inStreamClosed:
@@ -127,9 +126,6 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			}()
 			runtime.Gosched()
 		}
-
-		close(inStreamClosed)
-		wg.Wait()
 	}()
 
 	return outStream, errCh, nil

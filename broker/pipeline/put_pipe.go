@@ -59,7 +59,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 
 			req := in.(*shapleq_proto.PutRequest)
 			offset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
-			err := p.db.PutRecord(topic.Name(), offset, req.Data)
+			err := p.db.PutRecord(topic.Name(), offset, p.session.NodeId(), req.SeqNum, req.Data)
 			if err != nil {
 				errCh <- err
 				return
