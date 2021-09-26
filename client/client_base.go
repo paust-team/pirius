@@ -22,13 +22,15 @@ type ClientBase struct {
 	socket    *network.Socket
 	connected bool
 	config    *config.ClientConfigBase
+	nodeId    string
 }
 
-func newClientBase(config *config.ClientConfigBase) *ClientBase {
+func newClientBase(nodeId string, config *config.ClientConfigBase) *ClientBase {
 	return &ClientBase{
 		Mutex:     sync.Mutex{},
 		connected: false,
 		config:    config,
+		nodeId:    nodeId,
 	}
 }
 
@@ -143,7 +145,11 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 }
 
 func (c *ClientBase) initStream(sessionType shapleqproto.SessionType, topic string) error {
-	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectRequestMsg(sessionType, topic))
+	if len(c.nodeId) != 32 {
+		return pqerror.InvalidNodeIdError{Id: c.nodeId}
+	}
+
+	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectRequestMsg(sessionType, c.nodeId, topic))
 	if err != nil {
 		return err
 	}

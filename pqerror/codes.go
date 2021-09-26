@@ -14,6 +14,7 @@ const (
 	ErrMarshalFailed      = 0x0104
 	ErrUnmarshalFailed    = 0x0105
 	ErrTopicNotSet        = 0x0106
+	ErrInvalidNodeId      = 0x0107
 
 	// 02 - zookeeper related error
 	ErrZKConnection          = 0x0200
@@ -27,7 +28,7 @@ const (
 	ErrZKRequest             = 0x0208
 
 	// 03 - rocksdb related error
-	ErrDBOperate        = 0x0300
+	ErrDBOperate = 0x0300
 
 	// 04 - network related error
 	ErrNotConnected     = 0x0400
