@@ -68,6 +68,9 @@ func NewStartCmd() *cobra.Command {
 				brokerConfig.Load(configPath)
 				brokerInstance := broker.NewBroker(brokerConfig)
 
+				if cmd.Flags().Changed("clear") {
+					defer brokerInstance.Clean()
+				}
 				sigCh := make(chan os.Signal, 1)
 				defer close(sigCh)
 				signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -103,6 +106,7 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().StringVar(&zkHost, "zk-host", "", "zookeeper host")
 	startCmd.Flags().UintVar(&zkPort, "zk-port", 0, "zookeeper port")
 	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
+	startCmd.Flags().BoolP("clear", "c", false, "DANGER: use this option only if you intend to reset data directory after broker is terminated")
 
 	brokerConfig.BindPFlags(startCmd.Flags())
 	brokerConfig.BindPFlag("zookeeper.host", startCmd.Flags().Lookup("zk-host"))
