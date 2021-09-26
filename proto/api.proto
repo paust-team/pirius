@@ -176,6 +176,7 @@ message ConnectRequest {
     int32 magic = 1;
     SessionType session_type = 2;
     string topic_name = 3;
+    string node_id = 4;
 }
 
 message ConnectResponse {
@@ -198,6 +199,7 @@ message Pong {
 message PutRequest {
     int32 magic = 1;
     bytes data = 2;
+    uint64 seq_num = 3;
 }
 
 message PutResponse {
@@ -215,15 +217,22 @@ message FetchRequest {
 message FetchResponse {
     int32 magic = 1;
     bytes data = 2;
-    Partition partition = 3;
-    uint64 last_offset = 4;
-    uint64 offset = 5;
+    uint64 offset = 3;
+    uint64 seq_num = 4;
+    string node_id = 5;
+    uint64 last_offset = 6;
 }
 
-message BatchFetchResponse {
+message BatchedFetchResponse {
+    message Fetched {
+        bytes data = 1;
+        uint64 offset = 2;
+        uint64 seq_num = 3;
+        string node_id = 4;
+    }
     int32 magic = 1;
-    repeated bytes batched = 2;
-    uint64 last_offset = 4;
+    repeated Fetched items = 2;
+    uint64 last_offset = 3;
 }
 
 message Ack {
