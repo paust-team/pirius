@@ -118,9 +118,14 @@ func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId strin
 	return &shapleqproto.FetchResponse{Data: data, Offset: offset, SeqNum: seqNum, NodeId: nodeId, LastOffset: lastOffset}
 }
 
-func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse, lastOffset uint64) *shapleqproto.BatchedFetchResponse {
+func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqproto.BatchedFetchResponse {
 	var items []*shapleqproto.BatchedFetchResponse_Fetched
+	var lastOffset uint64 = 0
+
 	for _, fetched := range batched {
+		if lastOffset < fetched.LastOffset {
+			lastOffset = fetched.LastOffset
+		}
 		items = append(items, &shapleqproto.BatchedFetchResponse_Fetched{
 			Data:   fetched.Data,
 			Offset: fetched.Offset,
