@@ -176,7 +176,6 @@ message ConnectRequest {
     int32 magic = 1;
     SessionType session_type = 2;
     string topic_name = 3;
-    string node_id = 4;
 }
 
 message ConnectResponse {
@@ -200,6 +199,7 @@ message PutRequest {
     int32 magic = 1;
     bytes data = 2;
     uint64 seq_num = 3;
+    string node_id = 4;
 }
 
 message PutResponse {

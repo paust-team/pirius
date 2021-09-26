@@ -89,16 +89,16 @@ func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *shapleqpro
 }
 
 // Stream messages
-func NewConnectRequestMsg(sessionType shapleqproto.SessionType, nodeId string, topicName string) *shapleqproto.ConnectRequest {
-	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, NodeId: nodeId, TopicName: topicName}
+func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topicName string) *shapleqproto.ConnectRequest {
+	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName}
 }
 
 func NewConnectResponseMsg() *shapleqproto.ConnectResponse {
 	return &shapleqproto.ConnectResponse{Magic: MAGIC_NUM}
 }
 
-func NewPutRequestMsg(data []byte, seqNum uint64) *shapleqproto.PutRequest {
-	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum}
+func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string) *shapleqproto.PutRequest {
+	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId}
 }
 
 func NewPutResponseMsg(offset uint64) *shapleqproto.PutResponse {

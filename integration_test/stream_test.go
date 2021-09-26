@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/shapleq/broker/config"
 	"github.com/paust-team/shapleq/client"
 	config2 "github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/zookeeper"
 	"log"
@@ -129,6 +130,7 @@ func TestPubSub(t *testing.T) {
 		{'1', '2', '3', '4', '5', '6'},
 	}
 	topic := "topic1"
+	nodeId := common.GenerateNodeId()
 	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
@@ -185,7 +187,7 @@ func TestPubSub(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	publishCh := make(chan []byte)
+	publishCh := make(chan *client.PublishData)
 	defer close(publishCh)
 
 	partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
@@ -241,8 +243,8 @@ func TestPubSub(t *testing.T) {
 		for {
 			select {
 			case received := <-receiveCh:
-				actualRecords = append(actualRecords, received.Data[0])
-				fmt.Println(len(actualRecords), len(expectedRecords))
+				actualRecords = append(actualRecords, received.Items[0].Data)
+				fmt.Printf("received fetch result. seq = %d, node id = %s\n", received.Items[0].SeqNum, received.Items[0].NodeId)
 				if len(actualRecords) == len(expectedRecords) {
 					return
 				}
@@ -253,8 +255,12 @@ func TestPubSub(t *testing.T) {
 		}
 	}()
 
-	for _, record := range expectedRecords {
-		publishCh <- record
+	for index, record := range expectedRecords {
+		publishCh <- &client.PublishData{
+			Data:   record,
+			NodeId: nodeId,
+			SeqNum: uint64(index),
+		}
 	}
 
 	wg.Wait()
@@ -314,6 +320,7 @@ func TestMultiClient(t *testing.T) {
 	Sleep(1)
 
 	runProducer := func(fileName string) [][]byte {
+		nodeId := common.GenerateNodeId()
 		records := getRecordsFromFile(fileName)
 
 		producerConfig := config2.NewProducerConfig()
@@ -327,7 +334,7 @@ func TestMultiClient(t *testing.T) {
 			return nil
 		}
 
-		publishCh := make(chan []byte)
+		publishCh := make(chan *client.PublishData)
 
 		partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
 		if err != nil {
@@ -357,8 +364,12 @@ func TestMultiClient(t *testing.T) {
 		}()
 
 		go func() {
-			for _, record := range records {
-				publishCh <- record
+			for index, record := range records {
+				publishCh <- &client.PublishData{
+					Data:   record,
+					NodeId: nodeId,
+					SeqNum: uint64(index),
+				}
 			}
 		}()
 
@@ -407,7 +418,7 @@ func TestMultiClient(t *testing.T) {
 			for {
 				select {
 				case received := <-receiveCh:
-					subscribedRecords = append(subscribedRecords, received.Data[0])
+					subscribedRecords = append(subscribedRecords, received.Items[0].Data)
 					if len(subscribedRecords) == len(totalPublishedRecords) {
 						fmt.Printf("done %s\n", name)
 						mu.Lock()
@@ -496,6 +507,7 @@ func TestBatchClient(t *testing.T) {
 	Sleep(1)
 
 	runProducer := func(fileName string) [][]byte {
+		nodeId := common.GenerateNodeId()
 		records := getRecordsFromFile(fileName)
 
 		producerConfig := config2.NewProducerConfig()
@@ -509,7 +521,7 @@ func TestBatchClient(t *testing.T) {
 			return nil
 		}
 
-		publishCh := make(chan []byte)
+		publishCh := make(chan *client.PublishData)
 
 		partitionCh, pubErrCh, err := producer.AsyncPublish(publishCh)
 		if err != nil {
@@ -539,8 +551,12 @@ func TestBatchClient(t *testing.T) {
 		}()
 
 		go func() {
-			for _, record := range records {
-				publishCh <- record
+			for index, record := range records {
+				publishCh <- &client.PublishData{
+					Data:   record,
+					NodeId: nodeId,
+					SeqNum: uint64(index),
+				}
 			}
 		}()
 
@@ -586,7 +602,10 @@ func TestBatchClient(t *testing.T) {
 			for {
 				select {
 				case received := <-receiveCh:
-					subscribedRecords = append(subscribedRecords, received.Data...)
+					for _, data := range received.Items {
+						subscribedRecords = append(subscribedRecords, data.Data)
+					}
+
 					if len(subscribedRecords) == len(totalPublishedRecords) {
 						fmt.Printf("done %s\n", name)
 						mu.Lock()
@@ -602,8 +621,9 @@ func TestBatchClient(t *testing.T) {
 		}()
 	}
 
-	wg.Add(1)
+	wg.Add(2)
 	runConsumer(fmt.Sprintf("consumer%d", 1))
+	runConsumer(fmt.Sprintf("consumer%d", 2))
 	wg.Wait()
 
 	for _, subscribedRecords := range totalSubscribedRecords {

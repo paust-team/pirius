@@ -64,7 +64,6 @@ type Session struct {
 	sock          *network.Socket
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
-	nodeId        string
 	topic         *Topic
 	rTimeout      uint
 	wTimeout      uint
@@ -105,14 +104,6 @@ func (s *Session) Type() shapleq_proto.SessionType {
 
 func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
-}
-
-func (s *Session) NodeId() string {
-	return s.nodeId
-}
-
-func (s *Session) SetNodeId(id string) {
-	s.nodeId = id
 }
 
 func (s *Session) Topic() *Topic {

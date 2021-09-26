@@ -57,10 +57,6 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 				errCh <- pqerror.TopicNotSetError{}
 				return
 			}
-			if len(req.GetNodeId()) != 32 {
-				errCh <- pqerror.InvalidNodeIdError{Id: req.GetNodeId()}
-				return
-			}
 			if _, err := c.zkClient.GetTopic(req.GetTopicName()); err != nil {
 				errCh <- err
 				return
@@ -74,7 +70,6 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 				}
 			}
 			c.session.SetType(req.SessionType)
-			c.session.SetNodeId(req.NodeId)
 
 			topic, err := c.topicManager.LoadOrStoreTopic(req.TopicName)
 			if err != nil {

@@ -62,9 +62,9 @@ func (s *BenchShapleQClient) DeleteTopic(topic string) {
 	}
 }
 
-func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
+func (s *BenchShapleQClient) RunProducer(id string, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
-	producer := client.NewProducer(&config.ProducerConfig{s.config}, topic)
+	producer := client.NewProducer(id, &config.ProducerConfig{s.config}, topic)
 
 	if err := producer.Connect(); err != nil {
 		log.Fatalln(err)
@@ -126,16 +126,16 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 	return
 }
 
-func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (startTimestamp, endTimestamp int64) {
+func (s *BenchShapleQClient) RunConsumer(id string, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
-	consumer := client.NewConsumer(&config.ConsumerConfig{s.config}, topic)
+	consumer := client.NewConsumer(id, &config.ConsumerConfig{ClientConfigBase: s.config}, topic)
 
 	if err := consumer.Connect(); err != nil {
 		log.Fatalln(err)
 	}
 	defer consumer.Close()
 
-	subscribeCh, errCh, err := consumer.Subscribe(0)
+	subscribeCh, errCh, err := consumer.Subscribe(0, 1, 0)
 	if err != nil {
 		log.Fatalln(err)
 	}
