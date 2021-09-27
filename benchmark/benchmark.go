@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/paust-team/shapleq/benchmark/kafka"
 	"github.com/paust-team/shapleq/benchmark/shapleQ"
+	"github.com/paust-team/shapleq/common"
 	"log"
 	"os"
 	"strconv"
@@ -14,8 +15,8 @@ import (
 type BenchClient interface {
 	CreateTopic(string)
 	DeleteTopic(string)
-	RunProducer(int, string, string, int) (int64, int64)
-	RunConsumer(int, string, int) (int64, int64)
+	RunProducer(string, string, string, int) (int64, int64)
+	RunConsumer(string, string, int) (int64, int64)
 }
 
 type TimePair struct {
@@ -120,12 +121,12 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	wg.Add(numProducer)
 	wg.Add(numConsumer)
 
-	client.RunProducer(0, topic, filePath, 1) // pre send one data for shapleQ consumer
+	client.RunProducer(common.GenerateNodeId(), topic, filePath, 1) // pre send one data for shapleQ consumer
 
 	for i := 0; i < numConsumer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			start, end := client.RunConsumer(id, topic, numData)
+			start, end := client.RunConsumer(common.GenerateNodeId(), topic, numData)
 			cMu.Lock()
 			consumerResults = append(consumerResults, TimePair{start, end})
 			cMu.Unlock()
@@ -137,7 +138,7 @@ func runBenchClient(client BenchClient, topic string, numProducer int, numConsum
 	for i := 0; i < numProducer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			start, end := client.RunProducer(id, topic, filePath, numData-1)
+			start, end := client.RunProducer(common.GenerateNodeId(), topic, filePath, numData-1)
 			pMu.Lock()
 			producerResults = append(producerResults, TimePair{start, end})
 			pMu.Unlock()
@@ -167,7 +168,7 @@ func runBenchClientStored(client BenchClient, topic string, numProducer int, num
 	for i := 0; i < numProducer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			start, end := client.RunProducer(id, topic, filePath, numData)
+			start, end := client.RunProducer(common.GenerateNodeId(), topic, filePath, numData)
 			pMu.Lock()
 			producerResults = append(producerResults, TimePair{start, end})
 			pMu.Unlock()
@@ -179,7 +180,7 @@ func runBenchClientStored(client BenchClient, topic string, numProducer int, num
 	for i := 0; i < numConsumer; i++ {
 		go func(id int) {
 			defer wg.Done()
-			start, end := client.RunConsumer(id, topic, numData)
+			start, end := client.RunConsumer(common.GenerateNodeId(), topic, numData)
 			cMu.Lock()
 			consumerResults = append(consumerResults, TimePair{start, end})
 			cMu.Unlock()

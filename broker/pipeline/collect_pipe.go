@@ -93,7 +93,7 @@ func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan in
 				collected = nil
 			}
 		default:
-			if time.Since(c.startTime).Milliseconds() >= c.flushInterval {
+			if len(collected) > 0 && time.Since(c.startTime).Milliseconds() >= c.flushInterval {
 				if err := c.flush(collected, outStream); err != nil {
 					errCh <- err
 				}

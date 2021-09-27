@@ -56,7 +56,7 @@ func (k *BenchKafkaClient) DeleteTopic(topic string) {
 	}
 }
 
-func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
+func (k *BenchKafkaClient) RunProducer(id string, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
 	p, err := kafka.NewProducer(
 		&kafka.ConfigMap{
@@ -131,7 +131,7 @@ func (k *BenchKafkaClient) RunProducer(id int, topic string, filePath string, nu
 	return
 }
 
-func (k *BenchKafkaClient) RunConsumer(id int, topic string, numData int) (startTimestamp, endTimestamp int64) {
+func (k *BenchKafkaClient) RunConsumer(id string, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":     k.brokerHost,
