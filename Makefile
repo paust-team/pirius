@@ -64,9 +64,6 @@ compile-protobuf: $(PROTOC_GEN_GO)
 
 .PHONY: rebuild-rocksdb build-rocksdb
 rebuild-rocksdb:
-	if [ -d $(ROCKSDB_BUILD_DIR) ]; then \
-		cd $(ROCKSDB_BUILD_DIR) && make clean; \
-	fi
 	rm -rf $(ROCKSDB_BUILD_DIR)
 	mkdir -p $(ROCKSDB_BUILD_DIR)
 ifdef mac-os-host
