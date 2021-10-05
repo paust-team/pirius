@@ -2,7 +2,9 @@ package common
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"os"
+	"strings"
 )
 
 var (
@@ -21,3 +23,8 @@ const (
 	AtLeastOnce
 	ExactlyONce
 )
+
+func GenerateNodeId() string {
+	id, _ := uuid.NewUUID()
+	return strings.Replace(id.String(), "-", "", -1)
+}

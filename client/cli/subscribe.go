@@ -37,7 +37,7 @@ func NewSubscribeCmd() *cobra.Command {
 			defer consumer.Close()
 			defer fmt.Println("done subscribe")
 
-			subscribeCh, errCh, err := consumer.Subscribe(startOffset)
+			subscribeCh, errCh, err := consumer.Subscribe(startOffset, 1, 0)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -45,7 +45,7 @@ func NewSubscribeCmd() *cobra.Command {
 			for {
 				select {
 				case response := <-subscribeCh:
-					fmt.Println("received topic data:", response.Data)
+					fmt.Println("received topic data:", response.Items[0].Data)
 				case sig := <-sigCh:
 					fmt.Println("received signal:", sig)
 					return

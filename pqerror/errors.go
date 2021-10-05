@@ -400,6 +400,21 @@ func (e TopicNotSetError) Code() PQCode {
 func (e TopicNotSetError) IsSessionCloseable() {}
 func (e TopicNotSetError) IsClientVisible()    {}
 
+type InvalidNodeIdError struct {
+	Id string
+}
+
+func (e InvalidNodeIdError) Error() string {
+	return fmt.Sprintf("invalid node id: %s. It should be 32-length string", e.Id)
+}
+
+func (e InvalidNodeIdError) Code() PQCode {
+	return ErrInvalidNodeId
+}
+
+func (e InvalidNodeIdError) IsSessionCloseable() {}
+func (e InvalidNodeIdError) IsClientVisible()    {}
+
 // DBError
 type QRocksOperateError struct {
 	ErrStr string

@@ -22,6 +22,7 @@ type ClientBase struct {
 	socket    *network.Socket
 	connected bool
 	config    *config.ClientConfigBase
+	nodeId    string
 }
 
 func newClientBase(config *config.ClientConfigBase) *ClientBase {

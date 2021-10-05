@@ -33,6 +33,7 @@ func NewPublishCmd() *cobra.Command {
 			}
 
 			defer producer.Close()
+			nodeId := common.GenerateNodeId()
 
 			if cmd.Flags().Changed("file-path") {
 				f, err := os.Open(filePath)
@@ -41,7 +42,7 @@ func NewPublishCmd() *cobra.Command {
 				}
 				defer f.Close()
 
-				publishCh := make(chan []byte)
+				publishCh := make(chan *client.PublishData)
 				partitionCh, errCh, err := producer.AsyncPublish(publishCh)
 				if err != nil {
 					log.Fatal(err)
@@ -49,9 +50,10 @@ func NewPublishCmd() *cobra.Command {
 				defer close(publishCh)
 				scanner := bufio.NewScanner(f)
 
+				seq := 0
 				for scanner.Scan() {
 					select {
-					case publishCh <- []byte(scanner.Text()):
+					case publishCh <- &client.PublishData{Data: []byte(scanner.Text()), NodeId: nodeId, SeqNum: uint64(seq)}:
 					case partition := <-partitionCh:
 						fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
 					case err := <-errCh:
@@ -60,9 +62,10 @@ func NewPublishCmd() *cobra.Command {
 						fmt.Println("received signal:", sig)
 						return
 					}
+					seq += 1
 				}
 			} else if len(args) > 0 {
-				partition, err := producer.Publish([]byte(args[0]))
+				partition, err := producer.Publish(&client.PublishData{Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
 				if err != nil {
 					log.Fatal(err)
 				}

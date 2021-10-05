@@ -60,8 +60,14 @@ func (p *Producer) Connect() error {
 	return p.connect(shapleqproto.SessionType_PUBLISHER, p.topic)
 }
 
-func (p *Producer) Publish(data []byte) (common.Partition, error) {
-	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
+type PublishData struct {
+	Data   []byte
+	SeqNum uint64
+	NodeId string
+}
+
+func (p *Producer) Publish(data *PublishData) (common.Partition, error) {
+	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId))
 	if err != nil {
 		return common.Partition{}, err
 	}
@@ -77,13 +83,15 @@ func (p *Producer) Publish(data []byte) (common.Partition, error) {
 	return p.handleMessage(res)
 }
 
-func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, <-chan error, error) {
+func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan common.Partition, <-chan error, error) {
 	recvCh, recvErrCh, err := p.continuousReceive(p.ctx)
+	errCh := make(chan error)
+
 	if err != nil {
 		return nil, nil, err
 	}
 
-	convertToQMsgCh := func(from <-chan []byte) <-chan *message.QMessage {
+	convertToQMsgCh := func(from <-chan *PublishData) <-chan *message.QMessage {
 		to := make(chan *message.QMessage)
 
 		go func() {
@@ -92,13 +100,16 @@ func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, 
 				select {
 				case data, ok := <-from:
 					if ok {
-						msg, _ := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data))
-						to <- msg
+						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId))
+						if err != nil {
+							errCh <- err
+						} else {
+							to <- msg
+						}
 					}
 				case <-p.ctx.Done():
 					return
 				}
-
 			}
 		}()
 
@@ -110,7 +121,6 @@ func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, 
 		return nil, nil, err
 	}
 
-	errCh := make(chan error)
 	mergedErrCh := pqerror.MergeErrors(recvErrCh, sendErrCh, errCh)
 	partitionCh := make(chan common.Partition)
 	go func() {
@@ -129,7 +139,6 @@ func (p *Producer) AsyncPublish(source <-chan []byte) (<-chan common.Partition, 
 						partitionCh <- partition
 					}
 				}
-
 			}
 		}
 	}()

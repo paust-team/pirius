@@ -97,8 +97,8 @@ func NewConnectResponseMsg() *shapleqproto.ConnectResponse {
 	return &shapleqproto.ConnectResponse{Magic: MAGIC_NUM}
 }
 
-func NewPutRequestMsg(data []byte) *shapleqproto.PutRequest {
-	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data}
+func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string) *shapleqproto.PutRequest {
+	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId}
 }
 
 func NewPutResponseMsg(offset uint64) *shapleqproto.PutResponse {
@@ -114,17 +114,26 @@ func NewFetchRequestMsg(startOffset uint64, maxBatchSize uint32, flushInterval u
 		FlushInterval: flushInterval}
 }
 
-func NewFetchResponseMsg(data []byte, lastOffset uint64, offset uint64) *shapleqproto.FetchResponse {
-	partition := &shapleqproto.Partition{
-		PartitionId: 1, Offset: 0,
-	}
-
-	return &shapleqproto.FetchResponse{Magic: MAGIC_NUM, Partition: partition, Data: data, LastOffset: lastOffset, Offset: offset}
+func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId string, lastOffset uint64) *shapleqproto.FetchResponse {
+	return &shapleqproto.FetchResponse{Data: data, Offset: offset, SeqNum: seqNum, NodeId: nodeId, LastOffset: lastOffset}
 }
 
-func NewBatchFetchResponseMsg(batched [][]byte, lastOffset uint64) *shapleqproto.BatchFetchResponse {
+func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqproto.BatchedFetchResponse {
+	var items []*shapleqproto.BatchedFetchResponse_Fetched
+	var lastOffset uint64 = 0
 
-	return &shapleqproto.BatchFetchResponse{Magic: MAGIC_NUM, Batched: batched, LastOffset: lastOffset}
+	for _, fetched := range batched {
+		if lastOffset < fetched.LastOffset {
+			lastOffset = fetched.LastOffset
+		}
+		items = append(items, &shapleqproto.BatchedFetchResponse_Fetched{
+			Data:   fetched.Data,
+			Offset: fetched.Offset,
+			SeqNum: fetched.SeqNum,
+			NodeId: fetched.NodeId,
+		})
+	}
+	return &shapleqproto.BatchedFetchResponse{Magic: MAGIC_NUM, Items: items, LastOffset: lastOffset}
 }
 
 func NewAckMsg(code uint32, msg string) *shapleqproto.Ack {

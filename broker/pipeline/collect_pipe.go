@@ -4,7 +4,7 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleq_proto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"runtime"
 	"sync"
 	"time"
@@ -12,7 +12,7 @@ import (
 
 type CollectPipe struct {
 	session       *internals.Session
-	queue         chan shapleq_proto.FetchResponse
+	queue         chan *shapleqproto.FetchResponse
 	startTime     time.Time
 	maxBatchSize  int
 	flushInterval int64
@@ -40,9 +40,10 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 	go func() {
 		defer close(errCh)
 		defer close(outStream)
+		defer close(inStreamClosed)
 
 		once := sync.Once{}
-		var handleFetchResponse func(response shapleq_proto.FetchResponse)
+		var handleFetchResponse func(response *shapleqproto.FetchResponse)
 
 		for in := range inStream {
 			once.Do(func() {
@@ -51,14 +52,14 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 				c.startTime = time.Now()
 
 				if c.maxBatchSize > 1 {
-					c.queue = make(chan shapleq_proto.FetchResponse, c.maxBatchSize)
+					c.queue = make(chan *shapleqproto.FetchResponse, c.maxBatchSize)
 					go c.watchQueue(inStreamClosed, outStream, errCh)
-					handleFetchResponse = func(fetchRes shapleq_proto.FetchResponse) {
+					handleFetchResponse = func(fetchRes *shapleqproto.FetchResponse) {
 						c.queue <- fetchRes
 					}
 				} else {
-					handleFetchResponse = func(fetchRes shapleq_proto.FetchResponse) {
-						out, err := message.NewQMessageFromMsg(message.STREAM, &fetchRes)
+					handleFetchResponse = func(fetchRes *shapleqproto.FetchResponse) {
+						out, err := message.NewQMessageFromMsg(message.STREAM, fetchRes)
 						if err != nil {
 							errCh <- err
 							return
@@ -68,16 +69,16 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 				}
 			})
 
-			handleFetchResponse(in.(shapleq_proto.FetchResponse))
+			handleFetchResponse(in.(*shapleqproto.FetchResponse))
 		}
-		close(inStreamClosed)
+
 	}()
 
 	return outStream, errCh, nil
 }
 
 func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
-	var collected []shapleq_proto.FetchResponse
+	var collected []*shapleqproto.FetchResponse
 
 	for {
 		select {
@@ -92,7 +93,7 @@ func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan in
 				collected = nil
 			}
 		default:
-			if time.Since(c.startTime).Milliseconds() >= c.flushInterval {
+			if len(collected) > 0 && time.Since(c.startTime).Milliseconds() >= c.flushInterval {
 				if err := c.flush(collected, outStream); err != nil {
 					errCh <- err
 				}
@@ -103,15 +104,10 @@ func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan in
 	}
 }
 
-func (c *CollectPipe) flush(data []shapleq_proto.FetchResponse, outStream chan interface{}) error {
+func (c *CollectPipe) flush(fetchResults []*shapleqproto.FetchResponse, outStream chan interface{}) error {
 	c.startTime = time.Now()
-	var batched [][]byte
-	var lastOffset uint64 = 0
-	for _, fetchRes := range data {
-		batched = append(batched, fetchRes.GetData())
-		lastOffset = fetchRes.GetLastOffset()
-	}
-	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(batched, lastOffset))
+
+	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(fetchResults))
 	if err != nil {
 		return err
 	}

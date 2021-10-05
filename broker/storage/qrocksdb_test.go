@@ -34,19 +34,28 @@ func TestQRocksDBRecord(t *testing.T) {
 
 	expected := []byte{1, 2, 3, 4, 5}
 	topic := "test_topic"
-	if db.PutRecord(topic, 0, expected) != nil {
+	nodeId := "f47ac10b58cc037285670e02b2c3d479"
+	var seqNum uint64 = 10
+	if db.PutRecord(topic, 0, nodeId, seqNum, expected) != nil {
 		t.Error(err)
 		return
 	}
 
-	result, err := db.GetRecord(topic, 0)
+	record, err := db.GetRecord(topic, 0)
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if bytes.Compare(expected, result.Data()) != 0 {
-		t.Error("Not Equal")
+	value := NewRecordValue(record)
+	if bytes.Compare(expected, value.PublishedData()) != 0 {
+		t.Error("Published bytes are not Equal")
+	}
+	if nodeId != value.NodeId() {
+		t.Error("Node id is not equal")
+	}
+	if seqNum != value.SeqNum() {
+		t.Error("seq num is not equal")
 	}
 }

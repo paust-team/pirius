@@ -62,7 +62,7 @@ func (s *BenchShapleQClient) DeleteTopic(topic string) {
 	}
 }
 
-func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
+func (s *BenchShapleQClient) RunProducer(id string, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
 	producer := client.NewProducer(&config.ProducerConfig{s.config}, topic)
 
@@ -72,7 +72,7 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 
 	defer producer.Close()
 
-	publishCh := make(chan []byte)
+	publishCh := make(chan *client.PublishData)
 	defer close(publishCh)
 
 	testFile, err := os.Open(filePath)
@@ -113,8 +113,11 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 
 	startTimestamp = time.Now().UnixNano() / 1000000
 	for i, record := range records {
-
-		publishCh <- []byte(record[0])
+		publishCh <- &client.PublishData{
+			Data:   []byte(record[0]),
+			NodeId: id,
+			SeqNum: uint64(i),
+		}
 		if i+1 == numData {
 			break
 		}
@@ -126,16 +129,16 @@ func (s *BenchShapleQClient) RunProducer(id int, topic string, filePath string, 
 	return
 }
 
-func (s *BenchShapleQClient) RunConsumer(id int, topic string, numData int) (startTimestamp, endTimestamp int64) {
+func (s *BenchShapleQClient) RunConsumer(id string, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
-	consumer := client.NewConsumer(&config.ConsumerConfig{s.config}, topic)
+	consumer := client.NewConsumer(&config.ConsumerConfig{ClientConfigBase: s.config}, topic)
 
 	if err := consumer.Connect(); err != nil {
 		log.Fatalln(err)
 	}
 	defer consumer.Close()
 
-	subscribeCh, errCh, err := consumer.Subscribe(0)
+	subscribeCh, errCh, err := consumer.Subscribe(0, 1, 0)
 	if err != nil {
 		log.Fatalln(err)
 	}
