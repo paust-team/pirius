@@ -7,12 +7,14 @@ import (
 )
 
 type Topic struct {
-	name                   string
-	Size, NumPubs, NumSubs int64
+	name             string
+	meta             *TopicMeta
+	NumPubs, NumSubs int64
+	lastOffset       uint64
 }
 
-func NewTopic(topicName string) *Topic {
-	return &Topic{topicName, 0, 0, 0}
+func NewTopic(topicName string, topicMeta *TopicMeta) *Topic {
+	return &Topic{topicName, topicMeta, 0, 0, topicMeta.LastOffset()}
 }
 
 func (t Topic) Name() string {
@@ -20,11 +22,13 @@ func (t Topic) Name() string {
 }
 
 func (t *Topic) LastOffset() uint64 {
-	size := atomic.LoadInt64(&t.Size)
-	if size == 0 {
-		return 0
-	}
-	return uint64(size - 1)
+	return atomic.LoadUint64(&t.lastOffset)
+}
+
+func (t *Topic) IncreaseLastOffset() uint64 {
+	lastOffset := atomic.AddUint64(&t.lastOffset, 1)
+	t.meta.SetLastOffset(lastOffset)
+	return lastOffset
 }
 
 type TopicMeta struct {
@@ -35,11 +39,17 @@ func NewTopicMeta(data []byte) *TopicMeta {
 	return &TopicMeta{data: data}
 }
 
-func NewTopicMetaFromValues(description string, numPartitions uint32, replicationFactor uint32) *TopicMeta {
-	data := make([]byte, len(description)+int(unsafe.Sizeof(numPartitions))+int(unsafe.Sizeof(replicationFactor)))
+func NewTopicMetaFromValues(description string, numPartitions uint32, replicationFactor uint32, lastOffset uint64) *TopicMeta {
+	dSize := len(description)
+	nSize := int(unsafe.Sizeof(numPartitions))
+	rSize := int(unsafe.Sizeof(replicationFactor))
+	lSize := int(unsafe.Sizeof(lastOffset))
+
+	data := make([]byte, dSize+nSize+rSize+lSize)
 	copy(data, description)
-	binary.BigEndian.PutUint32(data[len(description):], numPartitions)
-	binary.BigEndian.PutUint32(data[len(description)+int(unsafe.Sizeof(numPartitions)):], replicationFactor)
+	binary.BigEndian.PutUint32(data[dSize:], numPartitions)
+	binary.BigEndian.PutUint32(data[dSize+nSize:], replicationFactor)
+	binary.BigEndian.PutUint64(data[dSize+nSize+rSize:], lastOffset)
 
 	return &TopicMeta{data: data}
 }
@@ -52,17 +62,29 @@ func (key TopicMeta) Size() int {
 	return len(key.data)
 }
 
-func (key TopicMeta) TopicMeta() string {
-	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return string(key.Data()[:key.Size()-uint32Len*2])
+func (key TopicMeta) Description() string {
+	descriptionLen := key.Size() - int(unsafe.Sizeof(uint32(0)))*2 - int(unsafe.Sizeof(uint64(0)))
+	return string(key.Data()[:descriptionLen])
 }
 
 func (key TopicMeta) NumPartitions() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len*2 : key.Size()-uint32Len])
+	uint64Len := int(unsafe.Sizeof(uint64(0)))
+	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len*2-uint64Len : key.Size()-uint32Len-uint64Len])
 }
 
 func (key TopicMeta) ReplicationFactor() uint32 {
 	uint32Len := int(unsafe.Sizeof(uint32(0)))
-	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len:])
+	uint64Len := int(unsafe.Sizeof(uint64(0)))
+	return binary.BigEndian.Uint32(key.Data()[key.Size()-uint32Len-uint64Len : key.Size()-uint64Len])
+}
+
+func (key TopicMeta) LastOffset() uint64 {
+	uint64Len := int(unsafe.Sizeof(uint64(0)))
+	return binary.BigEndian.Uint64(key.Data()[key.Size()-uint64Len:])
+}
+
+func (key *TopicMeta) SetLastOffset(lastOffset uint64) {
+	uint64Len := int(unsafe.Sizeof(uint64(0)))
+	binary.BigEndian.PutUint64(key.Data()[key.Size()-uint64Len:], lastOffset)
 }

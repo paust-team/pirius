@@ -27,7 +27,7 @@ func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *top
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
-	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor, 0)
 	err := s.zkClient.AddTopic(request.Topic.Name, topicValue)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
@@ -62,5 +62,5 @@ func (s topicRPCService) DescribeTopic(request *shapleqproto.DescribeTopicReques
 		return message.NewDescribeTopicResponseMsg("", "", 0, 0, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.TopicMeta(), topicValue.NumPartitions(), topicValue.ReplicationFactor(), nil)
+	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.Description(), topicValue.NumPartitions(), topicValue.ReplicationFactor(), nil)
 }

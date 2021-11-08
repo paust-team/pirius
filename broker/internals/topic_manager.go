@@ -21,7 +21,8 @@ func NewTopicManager() *TopicManager {
 }
 
 func (t *TopicManager) LoadOrStoreTopic(topicName string) (*Topic, error) {
-	value, _ := t.topicMap.LoadOrStore(topicName, NewTopic(topicName))
+	// TODO:: load topic meta from zk
+	value, _ := t.topicMap.LoadOrStore(topicName, NewTopic(topicName, &TopicMeta{}))
 	topic, ok := value.(*Topic)
 	if !ok {
 		return nil, pqerror.TopicNotExistError{Topic: topicName}

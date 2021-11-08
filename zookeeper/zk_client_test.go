@@ -60,11 +60,12 @@ func TestZKClient_AddBroker(t *testing.T) {
 
 func TestZKClient_AddTopic(t *testing.T) {
 	expectedTopic := "topic1"
-	expectedTopicMeta := "topicMeta1"
+	expectedTopicDescription := "topicMeta1"
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
+	var expectedLastOffset uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicDescription, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
 	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -87,8 +88,8 @@ func TestZKClient_AddTopic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if targetTopicValue.TopicMeta() != expectedTopicMeta {
-		t.Fatal("topic meta not matched ", expectedTopicMeta, targetTopicValue.TopicMeta())
+	if targetTopicValue.Description() != expectedTopicDescription {
+		t.Fatal("topic description not matched ", expectedTopicDescription, targetTopicValue.Description())
 	}
 
 	if targetTopicValue.NumPartitions() != expectedNumPartitions {
@@ -99,6 +100,9 @@ func TestZKClient_AddTopic(t *testing.T) {
 		t.Fatal("replication factor not matched ", expectedReplicationFactor, targetTopicValue.ReplicationFactor())
 	}
 
+	if targetTopicValue.LastOffset() != expectedLastOffset {
+		t.Fatal("last offset not matched ", expectedLastOffset, targetTopicValue.LastOffset())
+	}
 }
 
 func TestZKClient_AddTopicBroker(t *testing.T) {
@@ -106,8 +110,9 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	expectedTopicMeta := "topicMeta1"
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
+	var expectedLastOffset uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
 	err := zkClient.AddTopic(expectedTopic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -150,8 +155,9 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 	expectedTopicMeta := "topicMeta1"
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
+	var expectedLastOffset uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
 	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -200,8 +206,9 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	expectedTopicMeta := "topicMeta1"
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
+	var expectedLastOffset uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor)
+	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
 	err := zkClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
