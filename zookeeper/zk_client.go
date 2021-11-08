@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/paust-team/shapleq/broker/internals"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper/constants"
@@ -72,7 +71,7 @@ func (z *ZKClient) createPathIfNotExists(path string) error {
 	return nil
 }
 
-func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error {
+func (z *ZKClient) AddTopic(topic string, topicData []byte) error {
 	tLock := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -82,7 +81,7 @@ func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error 
 		return err
 	}
 
-	_, err = z.conn.Create(getTopicPath(topic), topicMeta.Data(), 0, zk.WorldACL(zk.PermAll))
+	_, err = z.conn.Create(getTopicPath(topic), topicData, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
 			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: getTopicPath(topic)})
@@ -99,7 +98,7 @@ func (z *ZKClient) AddTopic(topic string, topicMeta *internals.TopicMeta) error 
 	return nil
 }
 
-func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
+func (z *ZKClient) GetTopicData(topic string) ([]byte, error) {
 	tLock := zk.NewLock(z.conn, constants.TopicsLockPath, zk.WorldACL(zk.PermAll))
 	err := tLock.Lock()
 	defer tLock.Unlock()
@@ -120,7 +119,7 @@ func (z *ZKClient) GetTopic(topic string) (*internals.TopicMeta, error) {
 		return nil, err
 	}
 
-	return internals.NewTopicMeta(topicBytes), nil
+	return topicBytes, nil
 }
 
 func (z *ZKClient) GetTopics() ([]string, error) {
@@ -234,7 +233,7 @@ func (z *ZKClient) GetBrokers() ([]string, error) {
 	}
 
 	if len(brokersBytes) == 0 {
-		z.logger.Info("no broker exist")
+		z.logger.Info("no broker exists")
 		return nil, nil
 	}
 
@@ -364,7 +363,7 @@ func (z *ZKClient) GetTopicBrokers(topic string) ([]string, error) {
 	}
 
 	if len(brokersBytes) == 0 {
-		z.logger.Info("no broker exist in TopicBrokerPath")
+		z.logger.Info("no broker exists in TopicBrokerPath")
 		return nil, nil
 	}
 

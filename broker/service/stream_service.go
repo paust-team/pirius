@@ -162,7 +162,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	collectPipe := pipeline.NewPipe("collect", &collector)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB)
+	err = putter.Build(sess, s.DB, s.zKClient)
 	if err != nil {
 		return err, nil
 	}

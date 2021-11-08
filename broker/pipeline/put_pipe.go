@@ -6,14 +6,15 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 	"runtime"
 	"sync"
-	"sync/atomic"
 )
 
 type PutPipe struct {
-	session *internals.Session
-	db      *storage.QRocksDB
+	session  *internals.Session
+	db       *storage.QRocksDB
+	zkClient *zookeeper.ZKClient
 }
 
 func (p *PutPipe) Build(in ...interface{}) error {
@@ -26,12 +27,16 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	db, ok := in[1].(*storage.QRocksDB)
 	casted = casted && ok
 
+	zkClient, ok := in[2].(*zookeeper.ZKClient)
+	casted = casted && ok
+
 	if !casted {
 		return pqerror.PipeBuildFailError{PipeName: "put"}
 	}
 
 	p.session = session
 	p.db = db
+	p.zkClient = zkClient
 
 	return nil
 }
@@ -58,17 +63,17 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			})
 
 			req := in.(*shapleq_proto.PutRequest)
-			offset := uint64(atomic.AddInt64(&topic.Size, 1) - 1)
+			offsetToWrite := topic.IncreaseLastOffset()
 			if len(req.NodeId) != 32 {
 				errCh <- pqerror.InvalidNodeIdError{Id: req.NodeId}
 			}
-			err := p.db.PutRecord(topic.Name(), offset, req.NodeId, req.SeqNum, req.Data)
+			err := p.db.PutRecord(topic.Name(), offsetToWrite, req.NodeId, req.SeqNum, req.Data)
 			if err != nil {
 				errCh <- err
 				return
 			}
 
-			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(offset))
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(offsetToWrite))
 			if err != nil {
 				errCh <- err
 				return

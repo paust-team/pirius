@@ -266,8 +266,16 @@ func TestPubSub(t *testing.T) {
 	wg.Wait()
 	for i, expectedRecord := range expectedRecords {
 		if bytes.Compare(expectedRecord, actualRecords[i]) != 0 {
-			t.Error("published records and subscribed records does not match")
+			t.Error("published records and subscribed records are not matched with")
 		}
+	}
+
+	describeTopic, err := admin.DescribeTopic(topic)
+	if err != nil {
+		t.Error(err)
+	}
+	if int(describeTopic.Topic.LastOffset) != len(expectedRecords) {
+		t.Error("last offset is not matched with")
 	}
 }
 

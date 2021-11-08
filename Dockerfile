@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine AS builder
+FROM golang:1.17-alpine AS builder
 
 RUN apk update && apk add build-base git \
 gcc file cmake autoconf automake libtool curl make linux-headers zlib-dev \

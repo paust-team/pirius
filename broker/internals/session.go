@@ -64,7 +64,7 @@ type Session struct {
 	sock          *network.Socket
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
-	topic         *Topic
+	topicName     string
 	rTimeout      uint
 	wTimeout      uint
 	maxBatchSize  uint32 // for fetch
@@ -77,7 +77,7 @@ func NewSession(conn net.Conn, timeout int) *Session {
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
-		topic:         nil,
+		topicName:     "",
 		maxBatchSize:  1,
 		flushInterval: 100,
 	}
@@ -106,12 +106,12 @@ func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s *Session) Topic() *Topic {
-	return s.topic
+func (s *Session) TopicName() string {
+	return s.topicName
 }
 
-func (s *Session) SetTopic(topic *Topic) {
-	s.topic = topic
+func (s *Session) SetTopicName(topicName string) {
+	s.topicName = topicName
 }
 
 func (s *Session) MaxBatchSize() uint32 {
