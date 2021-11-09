@@ -159,13 +159,15 @@ func (z zkClientWrapper) Get(lockPath string, path string) ([]byte, error) {
 }
 
 func (z zkClientWrapper) GetWithVersion(lockPath string, path string) ([]byte, int32, error) {
-	lock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
-	err := lock.Lock()
-	defer lock.Unlock()
-	if err != nil {
-		err = pqerror.ZKLockFailError{LockPath: lockPath, ZKErrStr: err.Error()}
-		z.logger.Error(err)
-		return nil, -1, err
+	if len(lockPath) > 0 {
+		lock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
+		err := lock.Lock()
+		defer lock.Unlock()
+		if err != nil {
+			err = pqerror.ZKLockFailError{LockPath: lockPath, ZKErrStr: err.Error()}
+			z.logger.Error(err)
+			return nil, -1, err
+		}
 	}
 
 	value, stats, err := z.conn.Get(path)
@@ -179,6 +181,35 @@ func (z zkClientWrapper) GetWithVersion(lockPath string, path string) ([]byte, i
 		return nil, -1, err
 	}
 	return value, stats.Version, nil
+}
+
+func (z zkClientWrapper) OptimisticSet(path string, postGet func([]byte, int32) ([]byte, int32)) error {
+	value, stats, err := z.conn.Get(path)
+	if err != nil {
+		if err == zk.ErrNoNode {
+			err = pqerror.ZKNoNodeError{Path: path}
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		}
+		z.logger.Error(err)
+		return err
+	}
+
+	data, version := postGet(value, stats.Version)
+	_, err = z.conn.Set(path, data, version)
+	if err != nil {
+		if err == zk.ErrBadVersion {
+			err = pqerror.ZKOperateError{ErrStr: "bad version. try again"}
+			z.logger.Warning(err)
+			return z.OptimisticSet(path, postGet)
+		} else {
+			err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+			z.logger.Error(err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (z zkClientWrapper) Children(lockPath string, path string) ([]string, error) {

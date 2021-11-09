@@ -230,7 +230,7 @@ func TestPubSub(t *testing.T) {
 		return
 	}
 
-	receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
+	receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
 	if err != nil {
 		t.Error(err)
 		return
@@ -264,9 +264,9 @@ func TestPubSub(t *testing.T) {
 	}
 
 	wg.Wait()
-	for i, expectedRecord := range expectedRecords {
-		if bytes.Compare(expectedRecord, actualRecords[i]) != 0 {
-			t.Error("published records and subscribed records are not matched with")
+	for _, record := range expectedRecords {
+		if !contains(actualRecords, record) {
+			t.Error("Record is not exists: ", record)
 		}
 	}
 
@@ -361,8 +361,9 @@ func TestMultiClient(t *testing.T) {
 						t.Error(err)
 						return
 					}
-				case <-partitionCh:
+				case partition := <-partitionCh:
 					published++
+					fmt.Println("published offset = ", partition.Offset)
 					if published == len(records) {
 						fmt.Printf("done producer with file %s\n", fileName)
 						return
@@ -412,7 +413,7 @@ func TestMultiClient(t *testing.T) {
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
+		receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
 		if err != nil {
 			t.Error(err)
 			wg.Done()
@@ -442,7 +443,7 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	consumerCount := 10
+	consumerCount := 1
 	wg.Add(consumerCount)
 
 	for i := 0; i < consumerCount; i++ {
@@ -596,7 +597,7 @@ func TestBatchClient(t *testing.T) {
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(0, maxBatchSize, flushInterval)
+		receiveCh, subErrCh, err := consumer.Subscribe(1, maxBatchSize, flushInterval)
 		if err != nil {
 			t.Error(err)
 			wg.Done()

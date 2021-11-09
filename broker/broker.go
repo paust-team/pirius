@@ -10,6 +10,7 @@ import (
 	"github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"github.com/paust-team/shapleq/zookeeper"
 	"golang.org/x/sys/unix"
 	"net"
@@ -278,7 +279,15 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 				defer b.sessionMgr.RemoveSession(sc.session)
 
 				sc.session.Open()
-				defer sc.session.Close()
+				defer func() {
+					sc.session.Close()
+					switch sc.session.Type() {
+					case shapleq_proto.SessionType_PUBLISHER:
+						_, _ = b.zkqClient.AddNumPublishers(sc.session.TopicName(), -1)
+					case shapleq_proto.SessionType_SUBSCRIBER:
+						_, _ = b.zkqClient.AddNumSubscriber(sc.session.TopicName(), -1)
+					}
+				}()
 
 				msgCh, errCh, err := sc.session.ContinuousRead(sc.ctx)
 				if err != nil {

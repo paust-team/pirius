@@ -61,3 +61,15 @@ func (t TopicData) NumPublishers() uint64 {
 func (t TopicData) NumSubscribers() uint64 {
 	return binary.BigEndian.Uint64(t.Data()[uint64Len*2 : uint64Len*2+uint64Len])
 }
+
+func (t *TopicData) SetLastOffset(offset uint64) {
+	binary.BigEndian.PutUint64(t.data[0:], offset)
+}
+
+func (t *TopicData) SetNumPublishers(num uint64) {
+	binary.BigEndian.PutUint64(t.data[uint64Len:], num)
+}
+
+func (t *TopicData) SetNumSubscriber(num uint64) {
+	binary.BigEndian.PutUint64(t.data[uint64Len*2:], num)
+}

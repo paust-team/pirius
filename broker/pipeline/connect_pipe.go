@@ -66,19 +66,27 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			c.session.SetType(req.SessionType)
 			c.session.SetTopicName(req.TopicName)
 
-			// TODO:: Increase num publishers, subscribers using SharedCounter
-			//switch req.SessionType {
-			//case shapleq_proto.SessionType_PUBLISHER:
-			//	atomic.AddInt64(&c.session.Topic().NumPubs, 1)
-			//	err := c.zkqClient.AddTopicBroker(c.session.Topic().Name(), c.brokerAddr)
-			//	if err != nil {
-			//		errCh <- err
-			//		return
-			//	}
-			//case shapleq_proto.SessionType_SUBSCRIBER:
-			//	atomic.AddInt64(&c.session.Topic().NumSubs, 1)
-			//default:
-			//}
+			switch req.SessionType {
+			case shapleq_proto.SessionType_PUBLISHER:
+				_, err := c.zkqClient.AddNumPublishers(c.session.TopicName(), 1)
+				if err != nil {
+					errCh <- err
+					return
+				}
+				// register topic broker address only if publisher appears
+				err = c.zkqClient.AddTopicBroker(c.session.TopicName(), c.brokerAddr)
+				if err != nil {
+					errCh <- err
+					return
+				}
+			case shapleq_proto.SessionType_SUBSCRIBER:
+				_, err := c.zkqClient.AddNumSubscriber(c.session.TopicName(), 1)
+				if err != nil {
+					errCh <- err
+					return
+				}
+			default:
+			}
 
 			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectResponseMsg())
 			if err != nil {

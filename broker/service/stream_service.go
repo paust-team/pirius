@@ -59,9 +59,6 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 	sessionCtx := eventStream.Ctx
 	cancelSession := eventStream.CancelSession
 
-	session.Open()
-	defer session.Close()
-
 	err, pl := s.newPipelineBase(session, convertToInterfaceChan(msgCh))
 
 	writeErrCh, err := session.ContinuousWrite(sessionCtx,
@@ -146,7 +143,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB)
+	err = fetcher.Build(sess, s.DB, s.zkqClient)
 	if err != nil {
 		return err, nil
 	}

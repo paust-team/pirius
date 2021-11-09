@@ -217,8 +217,56 @@ func (t topicManagingHelper) AddTopic(topicName string, topicData *common.TopicD
 	return nil
 }
 
+func (t topicManagingHelper) IncreaseLastOffset(topicName string) (uint64, error) {
+	var increasedOffset uint64
+	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
+		topicData := common.NewTopicData(value)
+		offset := topicData.LastOffset() + 1
+		topicData.SetLastOffset(offset)
+		increasedOffset = offset
+		return topicData.Data(), version
+	}); err != nil {
+		return 0, err
+	}
+
+	return increasedOffset, nil
+}
+
+func (t topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint64, error) {
+	var numPublishers uint64
+	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
+		topicData := common.NewTopicData(value)
+		count := int(topicData.NumPublishers()) + delta
+		if count < 0 {
+			count = 0
+		}
+		topicData.SetNumPublishers(uint64(count))
+		numPublishers = uint64(count)
+		return topicData.Data(), version
+	}); err != nil {
+		return 0, err
+	}
+
+	return numPublishers, nil
+}
+
+func (t topicManagingHelper) AddNumSubscriber(topicName string, delta int) (uint64, error) {
+	var numSubscribers uint64
+	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
+		topicData := common.NewTopicData(value)
+		count := int(topicData.NumSubscribers()) + delta
+		topicData.SetNumSubscriber(uint64(count))
+		numSubscribers = uint64(count)
+		return topicData.Data(), version
+	}); err != nil {
+		return 0, err
+	}
+
+	return numSubscribers, nil
+}
+
 func (t topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, error) {
-	if result, err := t.client.Get(constants.TopicsLockPath, GetTopicPath(topicName)); err == nil {
+	if result, err := t.client.Get("", GetTopicPath(topicName)); err == nil {
 		return common.NewTopicData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicNotExistError{Topic: topicName}

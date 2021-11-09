@@ -142,18 +142,6 @@ func (s *Session) Open() {
 func (s *Session) Close() {
 	s.SetState(NONE)
 	s.sock.Close()
-
-	// TODO:: Decrease num publishers, subscribers using SharedCounter
-	//switch s.Type() {
-	//case shapleq_proto.SessionType_PUBLISHER:
-	//	if atomic.LoadInt64(&s.Topic().NumPubs) > 0 {
-	//		atomic.AddInt64(&s.Topic().NumPubs, -1)
-	//	}
-	//case shapleq_proto.SessionType_SUBSCRIBER:
-	//	if atomic.LoadInt64(&s.Topic().NumSubs) > 0 {
-	//		atomic.AddInt64(&s.Topic().NumSubs, -1)
-	//	}
-	//}
 }
 
 func (s *Session) IsClosed() bool {
