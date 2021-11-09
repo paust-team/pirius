@@ -15,16 +15,16 @@ type ConnectionRPCService interface {
 }
 
 type connectionRPCService struct {
-	zkClient *zookeeper.ZKClient
+	zkqClient *zookeeper.ZKQClient
 }
 
-func NewConnectionRPCService(zkClient *zookeeper.ZKClient) *connectionRPCService {
-	return &connectionRPCService{zkClient}
+func NewConnectionRPCService(zkqClient *zookeeper.ZKQClient) *connectionRPCService {
+	return &connectionRPCService{zkqClient}
 }
 
 func (s *connectionRPCService) DiscoverBroker(request *shapleqproto.DiscoverBrokerRequest) *shapleqproto.DiscoverBrokerResponse {
 
-	topicBrokerAddrs, err := s.zkClient.GetTopicBrokers(request.TopicName)
+	topicBrokerAddrs, err := s.zkqClient.GetTopicBrokers(request.TopicName)
 	if err != nil {
 		return message.NewDiscoverBrokerResponseMsg("", &pqerror.ZKOperateError{ErrStr: err.Error()})
 
@@ -33,7 +33,7 @@ func (s *connectionRPCService) DiscoverBroker(request *shapleqproto.DiscoverBrok
 
 	} else {
 		if request.SessionType == shapleqproto.SessionType_PUBLISHER {
-			brokerAddrs, err := s.zkClient.GetBrokers()
+			brokerAddrs, err := s.zkqClient.GetBrokers()
 			if err == nil && len(brokerAddrs) != 0 {
 				brokerAddr := brokerAddrs[rand.Intn(len(brokerAddrs))] // pick random broker
 				return message.NewDiscoverBrokerResponseMsg(brokerAddr, nil)
@@ -41,7 +41,7 @@ func (s *connectionRPCService) DiscoverBroker(request *shapleqproto.DiscoverBrok
 				return message.NewDiscoverBrokerResponseMsg("", err.(pqerror.PQError))
 			}
 		}
-		return message.NewDiscoverBrokerResponseMsg("", &pqerror.TopicBrokersNotExistError{})
+		return message.NewDiscoverBrokerResponseMsg("", &pqerror.TopicBrokerNotExistsError{Topic: request.TopicName})
 	}
 }
 

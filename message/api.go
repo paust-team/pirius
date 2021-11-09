@@ -50,14 +50,13 @@ func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, r
 	return response
 }
 
-func NewCreateTopicRequestMsg(topicName string, description string, numPartitions uint32, replicationFactor uint32,
-	lastOffset uint64) *shapleqproto.CreateTopicRequest {
+func NewCreateTopicRequestMsg(topicName string, description string, numPartitions uint32, replicationFactor uint32) *shapleqproto.CreateTopicRequest {
 	topic := &shapleqproto.Topic{
 		Name:              topicName,
 		Description:       description,
 		NumPartitions:     numPartitions,
 		ReplicationFactor: replicationFactor,
-		LastOffset:        lastOffset,
+		LastOffset:        0,
 	}
 
 	return &shapleqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}

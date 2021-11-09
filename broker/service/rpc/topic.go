@@ -1,8 +1,8 @@
 package rpc
 
 import (
-	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto"
@@ -17,18 +17,18 @@ type TopicRPCService interface {
 }
 
 type topicRPCService struct {
-	DB       *storage.QRocksDB
-	zkClient *zookeeper.ZKClient
+	DB        *storage.QRocksDB
+	zkqClient *zookeeper.ZKQClient
 }
 
-func NewTopicRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *topicRPCService {
-	return &topicRPCService{db, zkClient}
+func NewTopicRPCService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *topicRPCService {
+	return &topicRPCService{db, zkqClient}
 }
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
-	topicValue := internals.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor, 0)
-	err := s.zkClient.AddTopic(request.Topic.Name, topicValue)
+	topicValue := common.NewTopicMetaFromValues(request.Topic.Description, request.Topic.NumPartitions, request.Topic.ReplicationFactor, 0, 0, 0)
+	err := s.zkqClient.AddTopic(request.Topic.Name, topicValue)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -38,7 +38,7 @@ func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *
 
 func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *shapleqproto.DeleteTopicResponse {
 
-	if err := s.zkClient.RemoveTopic(request.TopicName); err != nil {
+	if err := s.zkqClient.RemoveTopic(request.TopicName); err != nil {
 		return message.NewDeleteTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
@@ -47,7 +47,7 @@ func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *
 
 func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqproto.ListTopicResponse {
 
-	topics, err := s.zkClient.GetTopics()
+	topics, err := s.zkqClient.GetTopics()
 	if err != nil {
 		return message.NewListTopicResponseMsg(nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -57,10 +57,11 @@ func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqpro
 
 func (s topicRPCService) DescribeTopic(request *shapleqproto.DescribeTopicRequest) *shapleqproto.DescribeTopicResponse {
 
-	topicValue, err := s.zkClient.GetTopic(request.TopicName)
+	topicValue, err := s.zkqClient.GetTopicData(request.TopicName)
 	if err != nil {
-		return message.NewDescribeTopicResponseMsg("", "", 0, 0, &pqerror.ZKOperateError{ErrStr: err.Error()})
+		return message.NewDescribeTopicResponseMsg("", "", 0, 0, 0, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.Description(), topicValue.NumPartitions(), topicValue.ReplicationFactor(), nil)
+	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.Description(), topicValue.NumPartitions(),
+		topicValue.ReplicationFactor(), topicValue.LastOffset(), nil)
 }

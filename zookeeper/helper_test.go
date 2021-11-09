@@ -3,34 +3,33 @@ package zookeeper
 import (
 	"errors"
 	"fmt"
-	"github.com/paust-team/shapleq/broker/internals"
+	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	"os"
 	"testing"
 )
 
-var zkClient *ZKClient
+var zkqClient *ZKQClient
 
 func TestMain(m *testing.M) {
-	zkClient = NewZKClient("127.0.0.1", 3000)
-	err := zkClient.Connect()
+	zkqClient = NewZKQClient("127.0.0.1", 3000)
+	err := zkqClient.Connect()
 
 	if err != nil {
 		fmt.Println("cannot connect zookeeper")
 		return
 	}
 
-	err = zkClient.CreatePathsIfNotExist()
+	err = zkqClient.CreatePathsIfNotExist()
 	if err != nil {
 		fmt.Println("cannot create paths")
 		return
 	}
 
 	code := m.Run()
-
-	zkClient.RemoveAllPath()
-	zkClient.Close()
+	zkqClient.RemoveAllPath()
+	zkqClient.Close()
 	os.Exit(code)
 }
 
@@ -41,11 +40,11 @@ func TestZKClient_AddBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
-	if err = zkClient.AddBroker(brokerAddr); err != nil {
+	if err = zkqClient.AddBroker(brokerAddr); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkClient.GetBrokers()
+	brokers, err := zkqClient.GetBrokers()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,14 +63,17 @@ func TestZKClient_AddTopic(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 	var expectedLastOffset uint64 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedNumSubscribers uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicDescription, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
-	err := zkClient.AddTopic(expectedTopic, topicValue)
-	if err != nil {
+	topicValue := common.NewTopicMetaFromValues(expectedTopicDescription, expectedNumPartitions, expectedReplicationFactor,
+		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := zkClient.GetTopics()
+	topics, err := zkqClient.GetTopics()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,7 @@ func TestZKClient_AddTopic(t *testing.T) {
 		t.Fatal("failed to add topic", expectedTopic, topics[len(topics)-1])
 	}
 
-	targetTopicValue, err := zkClient.GetTopic(expectedTopic)
+	targetTopicValue, err := zkqClient.GetTopicData(expectedTopic)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,6 +105,14 @@ func TestZKClient_AddTopic(t *testing.T) {
 	if targetTopicValue.LastOffset() != expectedLastOffset {
 		t.Fatal("last offset not matched ", expectedLastOffset, targetTopicValue.LastOffset())
 	}
+
+	if targetTopicValue.NumPublishers() != expectedNumPublishers {
+		t.Fatal("num publisher not matched ", expectedNumPublishers, targetTopicValue.NumPublishers())
+	}
+
+	if targetTopicValue.NumSubscribers() != expectedNumSubscribers {
+		t.Fatal("num subscriber not matched ", expectedNumSubscribers, targetTopicValue.NumSubscribers())
+	}
 }
 
 func TestZKClient_AddTopicBroker(t *testing.T) {
@@ -111,14 +121,16 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 	var expectedLastOffset uint64 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedNumSubscribers uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
-	err := zkClient.AddTopic(expectedTopic, topicValue)
-	if err != nil {
+	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
+		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := zkClient.GetTopics()
+	topics, err := zkqClient.GetTopics()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,12 +147,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
-	err = zkClient.AddTopicBroker(expectedTopic, brokerAddr)
+	err = zkqClient.AddTopicBroker(expectedTopic, brokerAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkClient.GetTopicBrokers(expectedTopic)
+	brokers, err := zkqClient.GetTopicBrokers(expectedTopic)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,19 +168,20 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 	var expectedLastOffset uint64 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedNumSubscribers uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
-	err := zkClient.AddTopic(topic, topicValue)
-	if err != nil {
+	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
+		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	if err := zkqClient.AddTopic(topic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	err = zkClient.RemoveTopic(topic)
-	if err != nil {
+	if err := zkqClient.RemoveTopic(topic); err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := zkClient.GetTopics()
+	topics, err := zkqClient.GetTopics()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,18 +195,18 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 
 func TestZKClient_RemoveBroker(t *testing.T) {
 	broker := "127.0.0.1:1101"
-	err := zkClient.AddBroker(broker)
-	if err != nil {
+	if err := zkqClient.AddBroker(broker); err != nil {
 		t.Fatal(err)
 	}
 
-	err = zkClient.RemoveBroker(broker)
-	if err != nil {
+	if err := zkqClient.RemoveBroker(broker); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkClient.GetBrokers()
-
+	brokers, err := zkqClient.GetBrokers()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, b := range brokers {
 		if b == broker {
 			t.Error("broker did not deleted")
@@ -207,14 +220,17 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	var expectedNumPartitions uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 	var expectedLastOffset uint64 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedNumSubscribers uint64 = 1
 
-	topicValue := internals.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor, expectedLastOffset)
-	err := zkClient.AddTopic(topic, topicValue)
+	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
+		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	err := zkqClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := zkClient.GetTopics()
+	topics, err := zkqClient.GetTopics()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,20 +246,18 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 
 	brokerAddr := host.String() + ":1101"
 
-	err = zkClient.AddTopicBroker(topic, brokerAddr)
-	if err != nil {
+	if err := zkqClient.AddTopicBroker(topic, brokerAddr); err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if !errors.As(err, &e) {
 			t.Fatal(err)
 		}
 	}
 
-	err = zkClient.RemoveTopicBroker(topic, brokerAddr)
-	if err != nil {
+	if err := zkqClient.RemoveTopicBroker(topic, brokerAddr); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkClient.GetTopicBrokers(topic)
+	brokers, err := zkqClient.GetTopicBrokers(topic)
 	if err != nil {
 		t.Fatal(err)
 	}

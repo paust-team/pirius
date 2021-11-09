@@ -56,7 +56,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -134,7 +134,7 @@ func TestPubSub(t *testing.T) {
 	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -283,7 +283,7 @@ func TestMultiClient(t *testing.T) {
 	topic := "topic3"
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -470,7 +470,7 @@ func TestBatchClient(t *testing.T) {
 	var flushInterval uint32 = 200
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return

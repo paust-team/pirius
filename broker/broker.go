@@ -27,8 +27,7 @@ type Broker struct {
 	sessionMgr      *internals.SessionManager
 	txService       *service.TransactionService
 	db              *storage.QRocksDB
-	topicMgr        *internals.TopicManager
-	zkClient        *zookeeper.ZKClient
+	zkqClient       *zookeeper.ZKQClient
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
 	closed          bool
@@ -37,15 +36,13 @@ type Broker struct {
 func NewBroker(config *config.BrokerConfig) *Broker {
 
 	l := logger.NewQLogger("Broker", config.LogLevel())
-	zkClient := zookeeper.NewZKClient(config.ZKAddr(), config.ZKTimeout())
-	topicManager := internals.NewTopicManager(zkClient)
+	zkqClient := zookeeper.NewZKQClient(config.ZKAddr(), config.ZKTimeout())
 
 	return &Broker{
-		config:   config,
-		topicMgr: topicManager,
-		zkClient: zkClient,
-		logger:   l,
-		closed:   false,
+		config:    config,
+		zkqClient: zkqClient,
+		logger:    l,
+		closed:    false,
 	}
 }
 
@@ -91,8 +88,8 @@ func (b *Broker) Start() {
 
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.topicMgr, b.zkClient, fmt.Sprintf("%s:%d", b.config.Hostname(), b.config.Port()))
-	b.txService = service.NewTransactionService(b.db, b.zkClient)
+	b.streamService = service.NewStreamService(b.db, b.zkqClient, fmt.Sprintf("%s:%d", b.config.Hostname(), b.config.Port()))
+	b.txService = service.NewTransactionService(b.db, b.zkqClient)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
 	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
@@ -185,16 +182,16 @@ func (b *Broker) connectToRocksDB() error {
 
 func (b *Broker) setUpZookeeper() error {
 
-	b.zkClient = b.zkClient.WithLogger(b.logger)
-	if err := b.zkClient.Connect(); err != nil {
+	b.zkqClient = b.zkqClient.WithLogger(b.logger)
+	if err := b.zkqClient.Connect(); err != nil {
 		return err
 	}
 
-	if err := b.zkClient.CreatePathsIfNotExist(); err != nil {
+	if err := b.zkqClient.CreatePathsIfNotExist(); err != nil {
 		return err
 	}
 
-	if err := b.zkClient.AddBroker(b.config.Hostname() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
+	if err := b.zkqClient.AddBroker(b.config.Hostname() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
 		return err
 	}
 
@@ -202,12 +199,12 @@ func (b *Broker) setUpZookeeper() error {
 }
 
 func (b *Broker) tearDownZookeeper() {
-	_ = b.zkClient.RemoveBroker(b.config.Hostname())
-	topics, _ := b.zkClient.GetTopics()
+	_ = b.zkqClient.RemoveBroker(b.config.Hostname())
+	topics, _ := b.zkqClient.GetTopics()
 	for _, topic := range topics {
-		_ = b.zkClient.RemoveTopicBroker(topic, b.config.Hostname())
+		_ = b.zkqClient.RemoveTopicBroker(topic, b.config.Hostname())
 	}
-	b.zkClient.Close()
+	b.zkqClient.Close()
 }
 
 type SessionAndContext struct {

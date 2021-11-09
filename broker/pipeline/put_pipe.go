@@ -12,9 +12,9 @@ import (
 )
 
 type PutPipe struct {
-	session  *internals.Session
-	db       *storage.QRocksDB
-	zkClient *zookeeper.ZKClient
+	session   *internals.Session
+	db        *storage.QRocksDB
+	zkqClient *zookeeper.ZKQClient
 }
 
 func (p *PutPipe) Build(in ...interface{}) error {
@@ -27,7 +27,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	db, ok := in[1].(*storage.QRocksDB)
 	casted = casted && ok
 
-	zkClient, ok := in[2].(*zookeeper.ZKClient)
+	zkqClient, ok := in[2].(*zookeeper.ZKQClient)
 	casted = casted && ok
 
 	if !casted {
@@ -36,7 +36,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 
 	p.session = session
 	p.db = db
-	p.zkClient = zkClient
+	p.zkqClient = zkqClient
 
 	return nil
 }
