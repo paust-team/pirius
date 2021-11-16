@@ -56,7 +56,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000, 2000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -134,7 +134,7 @@ func TestPubSub(t *testing.T) {
 	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000, 2000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -283,7 +283,7 @@ func TestMultiClient(t *testing.T) {
 	topic := "topic3"
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000, 2000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -361,9 +361,8 @@ func TestMultiClient(t *testing.T) {
 						t.Error(err)
 						return
 					}
-				case partition := <-partitionCh:
+				case <-partitionCh:
 					published++
-					fmt.Println("published offset = ", partition.Offset)
 					if published == len(records) {
 						fmt.Printf("done producer with file %s\n", fileName)
 						return
@@ -471,7 +470,7 @@ func TestBatchClient(t *testing.T) {
 	var flushInterval uint32 = 200
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddr, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddr, 3000, 2000)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return

@@ -37,7 +37,7 @@ type Broker struct {
 func NewBroker(config *config.BrokerConfig) *Broker {
 
 	l := logger.NewQLogger("Broker", config.LogLevel())
-	zkqClient := zookeeper.NewZKQClient(config.ZKAddr(), config.ZKTimeout())
+	zkqClient := zookeeper.NewZKQClient(config.ZKAddr(), config.ZKTimeout(), config.ZKFlushInterval())
 
 	return &Broker{
 		config:    config,

@@ -9,13 +9,14 @@ import (
 )
 
 var (
-	defaultLogDir         = fmt.Sprintf("%s/log", common.DefaultHomeDir)
-	defaultDataDir        = fmt.Sprintf("%s/data", common.DefaultHomeDir)
-	defaultLogLevel       = logger.Info
-	defaultZKPort         = 2181
-	defaultTimeout        = 10000
-	defaultZKHost         = "localhost"
-	defaultZKTimeout uint = 3000
+	defaultLogDir               = fmt.Sprintf("%s/log", common.DefaultHomeDir)
+	defaultDataDir              = fmt.Sprintf("%s/data", common.DefaultHomeDir)
+	defaultLogLevel             = logger.Info
+	defaultZKPort               = 2181
+	defaultTimeout              = 10000
+	defaultZKHost               = "localhost"
+	defaultZKTimeout       uint = 3000
+	defaultZKFlushInterval      = 2000
 )
 
 type BrokerConfig struct {
@@ -38,9 +39,10 @@ func NewBrokerConfig() *BrokerConfig {
 	v.SetDefault("timeout", defaultTimeout)
 	v.SetDefault("log-level", logger.LogLevelToString(defaultLogLevel))
 	v.SetDefault("zookeeper", map[string]interface{}{
-		"port":    defaultZKPort,
-		"host":    defaultZKHost,
-		"timeout": defaultZKTimeout,
+		"port":           defaultZKPort,
+		"host":           defaultZKHost,
+		"timeout":        defaultZKTimeout,
+		"flush-interval": defaultZKFlushInterval,
 	})
 
 	return &BrokerConfig{v}
@@ -121,4 +123,12 @@ func (b BrokerConfig) LogLevel() logger.LogLevel {
 
 func (b *BrokerConfig) SetLogLevel(logLevel logger.LogLevel) {
 	b.Set("log-level", logger.LogLevelToString(logLevel))
+}
+
+func (b BrokerConfig) ZKFlushInterval() uint {
+	return b.GetUint("zookeeper.flush-interval")
+}
+
+func (b *BrokerConfig) SetZKFlushInterval(interval uint) {
+	b.Set("zookeeper.flush-interval", interval)
 }

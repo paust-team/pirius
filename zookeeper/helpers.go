@@ -7,6 +7,9 @@ import (
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper/constants"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 func encode(data []string) (*bytes.Buffer, error) {
@@ -201,12 +204,55 @@ func (b bootstrappingHelper) RemoveTopicBroker(topicName string, hostName string
 	return nil
 }
 
-type topicManagingHelper struct {
-	client *zkClientWrapper
-	logger *logger.QLogger
+type topicOffset struct {
+	Name       string
+	LastOffset uint64
 }
 
-func (t topicManagingHelper) AddTopic(topicName string, topicData *common.TopicData) error {
+func (t *topicOffset) IncreaseLastOffset() uint64 {
+	return atomic.AddUint64(&t.LastOffset, 1)
+}
+
+type topicManagingHelper struct {
+	client          *zkClientWrapper
+	logger          *logger.QLogger
+	topicOffsetMap  sync.Map
+	topicOffsetChan chan topicOffset
+}
+
+func (t *topicManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
+	go func() {
+		t.topicOffsetChan = make(chan topicOffset, 100)
+		defer func() {
+			close(t.topicOffsetChan)
+			t.topicOffsetChan = nil
+		}()
+
+		offsetMap := make(map[string]uint64)
+
+		for {
+			select {
+			case topicOffset := <-t.topicOffsetChan:
+				offsetMap[topicOffset.Name] = topicOffset.LastOffset
+			case <-time.After(time.Millisecond * time.Duration(interval)):
+				if t.client.IsClosed() {
+					return
+				}
+
+				for name, offset := range offsetMap {
+					_ = t.client.OptimisticSet(GetTopicPath(name), func(value []byte) []byte {
+						topicData := common.NewTopicData(value)
+						topicData.SetLastOffset(offset)
+						return topicData.Data()
+					})
+				}
+				offsetMap = make(map[string]uint64)
+			}
+		}
+	}()
+}
+
+func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.TopicData) error {
 	if err := t.client.Create(constants.TopicsLockPath, GetTopicPath(topicName), topicData.Data()); err != nil {
 		return err
 	}
@@ -217,24 +263,30 @@ func (t topicManagingHelper) AddTopic(topicName string, topicData *common.TopicD
 	return nil
 }
 
-func (t topicManagingHelper) IncreaseLastOffset(topicName string) (uint64, error) {
-	var increasedOffset uint64
-	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
-		topicData := common.NewTopicData(value)
-		offset := topicData.LastOffset() + 1
-		topicData.SetLastOffset(offset)
-		increasedOffset = offset
-		return topicData.Data(), version
-	}); err != nil {
-		return 0, err
+func (t *topicManagingHelper) IncreaseLastOffset(topicName string) (uint64, error) {
+	value, loaded := t.topicOffsetMap.LoadOrStore(topicName, &topicOffset{topicName, 0})
+	topic, ok := value.(*topicOffset)
+	if !ok {
+		topic = &topicOffset{topicName, 0}
 	}
 
-	return increasedOffset, nil
+	if !loaded {
+		topicData, err := t.GetTopicData(topicName)
+		if err != nil {
+			return 0, err
+		}
+		topic.LastOffset = topicData.LastOffset()
+	}
+	offset := topic.IncreaseLastOffset()
+	if t.topicOffsetChan != nil {
+		t.topicOffsetChan <- *topic
+	}
+	return offset, nil
 }
 
-func (t topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint64, error) {
+func (t *topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint64, error) {
 	var numPublishers uint64
-	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
+	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte) []byte {
 		topicData := common.NewTopicData(value)
 		count := int(topicData.NumPublishers()) + delta
 		if count < 0 {
@@ -242,7 +294,7 @@ func (t topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint
 		}
 		topicData.SetNumPublishers(uint64(count))
 		numPublishers = uint64(count)
-		return topicData.Data(), version
+		return topicData.Data()
 	}); err != nil {
 		return 0, err
 	}
@@ -250,14 +302,14 @@ func (t topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint
 	return numPublishers, nil
 }
 
-func (t topicManagingHelper) AddNumSubscriber(topicName string, delta int) (uint64, error) {
+func (t *topicManagingHelper) AddNumSubscriber(topicName string, delta int) (uint64, error) {
 	var numSubscribers uint64
-	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte, version int32) ([]byte, int32) {
+	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte) []byte {
 		topicData := common.NewTopicData(value)
 		count := int(topicData.NumSubscribers()) + delta
 		topicData.SetNumSubscriber(uint64(count))
 		numSubscribers = uint64(count)
-		return topicData.Data(), version
+		return topicData.Data()
 	}); err != nil {
 		return 0, err
 	}
@@ -265,7 +317,7 @@ func (t topicManagingHelper) AddNumSubscriber(topicName string, delta int) (uint
 	return numSubscribers, nil
 }
 
-func (t topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, error) {
+func (t *topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, error) {
 	if result, err := t.client.Get("", GetTopicPath(topicName)); err == nil {
 		return common.NewTopicData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
@@ -275,7 +327,7 @@ func (t topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, 
 	}
 }
 
-func (t topicManagingHelper) GetTopics() ([]string, error) {
+func (t *topicManagingHelper) GetTopics() ([]string, error) {
 	if topics, err := t.client.Children(constants.TopicsLockPath, constants.TopicsPath); err != nil {
 		return nil, err
 	} else if len(topics) > 0 {
@@ -285,7 +337,7 @@ func (t topicManagingHelper) GetTopics() ([]string, error) {
 	}
 }
 
-func (t topicManagingHelper) RemoveTopic(topicName string) error {
+func (t *topicManagingHelper) RemoveTopic(topicName string) error {
 	if err := t.client.Delete(constants.TopicsLockPath, GetTopicBrokerPath(topicName)); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		t.logger.Error(err)
@@ -301,7 +353,7 @@ func (t topicManagingHelper) RemoveTopic(topicName string) error {
 	return nil
 }
 
-func (t topicManagingHelper) RemoveTopicPaths() {
+func (t *topicManagingHelper) RemoveTopicPaths() {
 	if topics, err := t.GetTopics(); err == nil {
 		if topics != nil {
 			var deletePaths []string

@@ -8,12 +8,13 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	"os"
 	"testing"
+	"time"
 )
 
 var zkqClient *ZKQClient
 
 func TestMain(m *testing.M) {
-	zkqClient = NewZKQClient("127.0.0.1", 3000)
+	zkqClient = NewZKQClient("127.0.0.1", 3000, 2000)
 	err := zkqClient.Connect()
 
 	if err != nil {
@@ -266,5 +267,42 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 		if broker == host.String() {
 			t.Error("topic broker did not deleted")
 		}
+	}
+}
+
+func TestZKQClient_IncreaseLastOffset(t *testing.T) {
+	expectedTopic := "topic6"
+	expectedTopicDescription := "topicMeta6"
+	var initialLastOffset uint64 = 1
+	var expectedLastOffset uint64 = 2
+
+	topicValue := common.NewTopicMetaFromValues(expectedTopicDescription, 1, 1,
+		initialLastOffset, 1, 1)
+
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
+		t.Fatal(err)
+	}
+
+	topics, err := zkqClient.GetTopics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(topics) == 0 {
+		t.Fatal("no topics")
+	}
+
+	offset, err := zkqClient.IncreaseLastOffset(expectedTopic)
+	if expectedLastOffset != offset {
+		t.Errorf("Expected offset is %d, but got %d from memory", expectedLastOffset, offset)
+	}
+
+	time.Sleep(time.Duration(3) * time.Second) // sleep 3 seconds to wait until last offset to be flushed to zk
+	targetTopicValue, err := zkqClient.GetTopicData(expectedTopic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if expectedLastOffset != targetTopicValue.LastOffset() {
+		t.Errorf("Expected offset is %d, but got %d from zk", expectedLastOffset, targetTopicValue.LastOffset())
 	}
 }

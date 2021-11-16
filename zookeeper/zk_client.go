@@ -6,24 +6,27 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper/constants"
 	"github.com/samuel/go-zookeeper/zk"
+	"sync"
 	"time"
 )
 
 type ZKQClient struct {
 	*bootstrappingHelper
 	*topicManagingHelper
-	zkAddr  string
-	timeout uint
-	logger  *logger.QLogger
-	client  *zkClientWrapper
+	zkAddr        string
+	timeout       uint
+	flushInterval uint
+	logger        *logger.QLogger
+	client        *zkClientWrapper
 }
 
-func NewZKQClient(zkAddr string, timeout uint) *ZKQClient {
+func NewZKQClient(zkAddr string, timeout uint, flushInterval uint) *ZKQClient {
 	logger := logger.NewQLogger("ZkClient", logger.Info)
 	return &ZKQClient{
-		zkAddr:  zkAddr,
-		timeout: timeout,
-		logger:  logger,
+		zkAddr:        zkAddr,
+		timeout:       timeout,
+		logger:        logger,
+		flushInterval: flushInterval,
 	}
 }
 
@@ -40,7 +43,8 @@ func (z *ZKQClient) Connect() error {
 
 	z.client = client
 	z.bootstrappingHelper = &bootstrappingHelper{client: z.client, logger: z.logger}
-	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger}
+	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, topicOffsetMap: sync.Map{}}
+	z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
 
 	return nil
 }
@@ -91,8 +95,14 @@ func initZkClientWrapper(addresses []string, timeout uint, logger *logger.QLogge
 
 	return &zkClientWrapper{conn: conn, logger: logger}, nil
 }
+func (z zkClientWrapper) IsClosed() bool {
+	return !(z.conn.State() == zk.StateConnecting ||
+		z.conn.State() == zk.StateConnected ||
+		z.conn.State() == zk.StateConnectedReadOnly ||
+		z.conn.State() == zk.StateHasSession)
+}
 
-func (z zkClientWrapper) Close() {
+func (z *zkClientWrapper) Close() {
 	z.conn.Close()
 }
 
@@ -183,7 +193,7 @@ func (z zkClientWrapper) GetWithVersion(lockPath string, path string) ([]byte, i
 	return value, stats.Version, nil
 }
 
-func (z zkClientWrapper) OptimisticSet(path string, postGet func([]byte, int32) ([]byte, int32)) error {
+func (z zkClientWrapper) OptimisticSet(path string, postGet func([]byte) []byte) error {
 	value, stats, err := z.conn.Get(path)
 	if err != nil {
 		if err == zk.ErrNoNode {
@@ -195,8 +205,8 @@ func (z zkClientWrapper) OptimisticSet(path string, postGet func([]byte, int32) 
 		return err
 	}
 
-	data, version := postGet(value, stats.Version)
-	_, err = z.conn.Set(path, data, version)
+	data := postGet(value)
+	_, err = z.conn.Set(path, data, stats.Version)
 	if err != nil {
 		if err == zk.ErrBadVersion {
 			err = pqerror.ZKOperateError{ErrStr: "bad version. try again"}
