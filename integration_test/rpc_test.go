@@ -15,7 +15,7 @@ func TestHeartBeat(t *testing.T) {
 	// Start broker
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKAddresses(zkAddr)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)

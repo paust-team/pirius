@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"github.com/paust-team/shapleq/common"
 	"testing"
 )
@@ -35,13 +34,12 @@ func TestBrokerConfigSet(t *testing.T) {
 func TestBrokerConfigStructured(t *testing.T) {
 	brokerConfig := NewBrokerConfig().Load("./config.yml")
 
-	expectedHost := "172.0.0.1"
-	var expectedPort uint = 10000
+	expectedAddress1 := "172.0.0.1:2181"
+	expectedAddress2 := "172.0.0.2:2181"
 
-	brokerConfig.SetZKHost(expectedHost)
-	brokerConfig.SetZKPort(expectedPort)
-
-	if brokerConfig.ZKAddr() != fmt.Sprintf("%s:%d", expectedHost, expectedPort) {
+	brokerConfig.SetZKAddresses([]string{expectedAddress1, expectedAddress2})
+	addresses := brokerConfig.ZKAddresses()
+	if addresses[0] != expectedAddress1 || addresses[1] != expectedAddress2 {
 		t.Errorf("value is not set")
 	}
 }

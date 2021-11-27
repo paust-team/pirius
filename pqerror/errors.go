@@ -94,11 +94,11 @@ func (e StateTransitionError) IsSessionCloseable() {}
 
 // zookeeper
 type ZKConnectionError struct {
-	ZKAddr string
+	ZKAddrs []string
 }
 
 func (e ZKConnectionError) Error() string {
-	return "failed to connect zookeeper " + e.ZKAddr
+	return fmt.Sprintf("failed to connect zookeeper %s", e.ZKAddrs)
 }
 
 func (e ZKConnectionError) IsBrokerStoppable() {}

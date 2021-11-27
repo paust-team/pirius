@@ -21,7 +21,7 @@ import (
 var testLogLevel = logger.Error
 var brokerPort uint = 1101
 var brokerHost = "127.0.0.1"
-var zkAddr = "127.0.0.1"
+var zkAddr = []string{"127.0.0.1:2181"}
 
 func Sleep(sec int) {
 	time.Sleep(time.Duration(sec) * time.Second)
@@ -68,7 +68,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetPort(brokerPort)
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKAddresses(zkAddr)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -145,7 +145,7 @@ func TestPubSub(t *testing.T) {
 	// Start broker
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKAddresses(zkAddr)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -285,7 +285,7 @@ func TestMultiClient(t *testing.T) {
 
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKAddresses(zkAddr)
 	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
@@ -472,7 +472,7 @@ func TestBatchClient(t *testing.T) {
 
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKAddresses(zkAddr)
 	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
