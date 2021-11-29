@@ -2,11 +2,13 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/paust-team/shapleq/client/config"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
+	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto"
 	"net"
 	"sync"
@@ -40,18 +42,30 @@ func (a *Admin) WithConnection(socket *network.Socket) *Admin {
 }
 
 func (a *Admin) Connect() error {
+	brokerAddresses := a.config.ServerAddresses()
+	if len(brokerAddresses) > 0 {
+		for _, brokerAddress := range brokerAddresses {
+			conn, err := net.Dial("tcp", brokerAddress)
+			if err != nil {
+				a.logger.Error(err)
+				continue
+			}
 
-	conn, err := net.Dial("tcp", a.config.BrokerAddr())
-	if err != nil {
+			a.socket = network.NewSocket(conn, a.config.BrokerTimeout(), a.config.BrokerTimeout())
+			a.Lock()
+			a.connected = true
+			a.Unlock()
+			return nil
+		}
+	} else {
+		err := pqerror.ConfigValueNotSetError{Key: "bootstrap.servers"}
 		a.logger.Error(err)
 		return err
 	}
 
-	a.socket = network.NewSocket(conn, a.config.Timeout(), a.config.Timeout())
-	a.Lock()
-	a.connected = true
-	a.Unlock()
-	return nil
+	err := pqerror.DialFailedError{Addr: fmt.Sprintf("%s", brokerAddresses)}
+	a.logger.Error(err)
+	return err
 }
 
 func (a *Admin) Close() {
@@ -163,25 +177,6 @@ func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
-	return response, nil
-}
-
-func (a *Admin) DiscoverBroker(topicName string, sessionType shapleqproto.SessionType) (*shapleqproto.DiscoverBrokerResponse, error) {
-
-	request := message.NewDiscoverBrokerRequestMsg(topicName, sessionType)
-	response := &shapleqproto.DiscoverBrokerResponse{}
-
-	err := a.callAndUnpackTo(request, response)
-	if err != nil {
-		a.logger.Error(err)
-		return nil, err
-	}
-
-	if response.ErrorCode != 0 {
-		a.logger.Error(response.ErrorMessage)
-		return nil, err
-	}
-
 	return response, nil
 }
 

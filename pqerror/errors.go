@@ -10,7 +10,7 @@ type InvalidPipeTypeError struct {
 }
 
 func (e InvalidPipeTypeError) Error() string {
-	return fmt.Sprintf("Invalid pipe(%s) to add on pipeline", e.PipeName)
+	return fmt.Sprintf("Invalid pipe(%s) to add on pipeline\n", e.PipeName)
 }
 
 func (e InvalidPipeTypeError) Code() PQCode {
@@ -24,7 +24,7 @@ type PipeBuildFailError struct {
 }
 
 func (e PipeBuildFailError) Error() string {
-	return fmt.Sprintf("Invalid inputs to bulid pipe(%s)", e.PipeName)
+	return fmt.Sprintf("Invalid inputs to bulid pipe(%s)\n", e.PipeName)
 }
 
 func (e PipeBuildFailError) Code() PQCode {
@@ -38,7 +38,7 @@ type InvalidCaseFnCountError struct {
 }
 
 func (e InvalidCaseFnCountError) Error() string {
-	return fmt.Sprintf("number of case functions(%d) does not match case count(%d)", e.NumCaseFn, e.CaseCount)
+	return fmt.Sprintf("number of case functions(%d) does not match case count(%d)\n", e.NumCaseFn, e.CaseCount)
 }
 
 func (e InvalidCaseFnCountError) Code() PQCode {
@@ -66,7 +66,7 @@ type InvalidStartOffsetError struct {
 }
 
 func (e InvalidStartOffsetError) Error() string {
-	return fmt.Sprintf("requested start offset(%d) is greater than last offset(%d) of topic(%s)",
+	return fmt.Sprintf("requested start offset(%d) is greater than last offset(%d) of topic(%s)\n",
 		e.StartOffset, e.LastOffset, e.Topic)
 }
 
@@ -82,7 +82,7 @@ type StateTransitionError struct {
 }
 
 func (e StateTransitionError) Error() string {
-	return fmt.Sprintf("invalid state transition - previous state: %s, next state : %s",
+	return fmt.Sprintf("invalid state transition - previous state: %s, next state : %s\n",
 		e.PrevState, e.NextState)
 }
 
@@ -98,7 +98,7 @@ type ZKConnectionError struct {
 }
 
 func (e ZKConnectionError) Error() string {
-	return fmt.Sprintf("failed to connect zookeeper %s", e.ZKAddrs)
+	return fmt.Sprintf("failed to connect zookeeper %s\n", e.ZKAddrs)
 }
 
 func (e ZKConnectionError) IsBrokerStoppable() {}
@@ -126,7 +126,7 @@ type ZKTargetAlreadyExistsError struct {
 }
 
 func (e ZKTargetAlreadyExistsError) Error() string {
-	return fmt.Sprintf("target %s already exists", e.Target)
+	return fmt.Sprintf("target %s already exists=\n", e.Target)
 }
 
 func (e ZKTargetAlreadyExistsError) Code() PQCode {
@@ -141,7 +141,7 @@ type ZKLockFailError struct {
 }
 
 func (e ZKLockFailError) Error() string {
-	return fmt.Sprintf("locking path(%s) failed : %s", e.LockPath, e.ZKErrStr)
+	return fmt.Sprintf("locking path(%s) failed : %s\n", e.LockPath, e.ZKErrStr)
 }
 
 func (e ZKLockFailError) Code() PQCode {
@@ -223,7 +223,7 @@ type TopicBrokerNotExistError struct {
 }
 
 func (e TopicBrokerNotExistError) Error() string {
-	return fmt.Sprintf("broker for topic(%s) does not exist", e.Topic)
+	return fmt.Sprintf("broker for topic(%s) does not exist\n", e.Topic)
 }
 
 func (e TopicBrokerNotExistError) Code() PQCode {
@@ -295,7 +295,7 @@ type SocketWriteError struct {
 }
 
 func (e SocketWriteError) Error() string {
-	return fmt.Sprintf("error occurred while writing data to socket: %s", e.ErrStr)
+	return fmt.Sprintf("error occurred while writing data to socket: %s\n", e.ErrStr)
 }
 func (e SocketWriteError) Code() PQCode {
 	return ErrSocketWrite
@@ -405,7 +405,7 @@ type InvalidNodeIdError struct {
 }
 
 func (e InvalidNodeIdError) Error() string {
-	return fmt.Sprintf("invalid node id: %s. It should be 32-length string", e.Id)
+	return fmt.Sprintf("invalid node id: %s. It should be 32-length string\n", e.Id)
 }
 
 func (e InvalidNodeIdError) Code() PQCode {
@@ -446,7 +446,7 @@ type DialFailedError struct {
 }
 
 func (e DialFailedError) Error() string {
-	return fmt.Sprintf("dial to %s failed : %v", e.Addr, e.Err)
+	return fmt.Sprintf("dial to %s failed : %v\n", e.Addr, e.Err)
 }
 
 func (e DialFailedError) Code() PQCode {
@@ -471,4 +471,16 @@ func (e TopicBrokersNotExistError) Error() string {
 
 func (e TopicBrokersNotExistError) Code() PQCode {
 	return ErrTopicBrokersNotExist
+}
+
+type ConfigValueNotSetError struct {
+	Key string
+}
+
+func (e ConfigValueNotSetError) Error() string {
+	return fmt.Sprintf("value for (%s) is not set", e.Key)
+}
+
+func (e ConfigValueNotSetError) Code() PQCode {
+	return ErrUnmarshalFailed
 }

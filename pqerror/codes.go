@@ -35,6 +35,9 @@ const (
 	ErrAlreadyConnected = 0x0401
 	ErrDialFailed       = 0x0402
 
+	// 05 - config related error
+	ErrConfigValueNotSet = 0x0500
+
 	// 10 - broker internal error
 	ErrInternal               = 0x1000
 	ErrSocketClosed           = 0x1001
