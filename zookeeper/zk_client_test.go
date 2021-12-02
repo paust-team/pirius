@@ -13,7 +13,7 @@ import (
 var zkClient *ZKClient
 
 func TestMain(m *testing.M) {
-	zkClient = NewZKClient("127.0.0.1", 3000)
+	zkClient = NewZKClient([]string{"127.0.0.1:2181"}, 3000)
 	err := zkClient.Connect()
 
 	if err != nil {
@@ -54,7 +54,7 @@ func TestZKClient_AddBroker(t *testing.T) {
 		t.Fatal("no brokers")
 	}
 	if brokers[0] != brokerAddr {
-		t.Error("failed to add broker ", host.String())
+		t.Error("failed to add broker ", brokerAddr)
 	}
 }
 
