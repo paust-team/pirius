@@ -6,7 +6,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
 	"math/rand"
 	"net"

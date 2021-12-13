@@ -40,7 +40,7 @@ $ docker-compose -f {file name} up
 
   **Debian**
   ```
-  $ apt-get update && apt-get install libtool autoconf coreutils cmake
+  $ apt-get update && apt-get install g++ libtool autoconf coreutils cmake libsnappy-dev
   ```
   **MacOS**
     ```

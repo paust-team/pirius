@@ -2,7 +2,7 @@ package rpc
 
 import (
 	"github.com/paust-team/shapleq/message"
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
 	"time"
 )

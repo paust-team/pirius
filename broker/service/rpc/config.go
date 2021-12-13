@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 )
 
 type ConfigRPCService interface {

@@ -8,7 +8,7 @@ import (
 	"github.com/paust-team/shapleq/broker/service/rpc"
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/message"
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
 	"runtime"
 	"sync"
