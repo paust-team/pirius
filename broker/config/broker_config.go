@@ -6,6 +6,7 @@ import (
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/network"
 	"github.com/spf13/viper"
+	"strings"
 )
 
 var (
@@ -95,16 +96,13 @@ func (b *BrokerConfig) SetDataDir(dataDir string) {
 	b.Set("data-dir", dataDir)
 }
 
-func (b BrokerConfig) ZKAddr() string {
-	return fmt.Sprintf("%s:%d", b.GetString("zookeeper.host"), b.GetInt("zookeeper.port"))
+func (b BrokerConfig) ZKQuorum() []string {
+	addresses := strings.Split(b.GetString("zookeeper.quorum"), ",")
+	return addresses
 }
 
-func (b *BrokerConfig) SetZKHost(zkHost string) {
-	b.Set("zookeeper.host", zkHost)
-}
-
-func (b *BrokerConfig) SetZKPort(zkPort uint) {
-	b.Set("zookeeper.port", zkPort)
+func (b *BrokerConfig) SetZKQuorum(addresses []string) {
+	b.Set("zookeeper.quorum", strings.Join(addresses, ","))
 }
 
 func (b BrokerConfig) ZKTimeout() uint {

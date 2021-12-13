@@ -9,36 +9,29 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type Consumer struct {
 	*ClientBase
-	config *config.ConsumerConfig
-	topic  string
-	logger *logger.QLogger
-	ctx    context.Context
-	cancel context.CancelFunc
+	config   *config.ConsumerConfig
+	topic    string
+	logger   *logger.QLogger
+	ctx      context.Context
+	cancel   context.CancelFunc
+	zkClient *zookeeper.ZKClient
 }
 
 func NewConsumer(config *config.ConsumerConfig, topic string) *Consumer {
-	l := logger.NewQLogger("Consumer", config.LogLevel())
-	ctx, cancel := context.WithCancel(context.Background())
-	consumer := &Consumer{
-		ClientBase: newClientBase(config.ClientConfigBase),
-		config:     config,
-		topic:      topic,
-		logger:     l,
-		ctx:        ctx,
-		cancel:     cancel,
-	}
-	return consumer
+	return NewConsumerWithContext(context.Background(), config, topic)
 }
 
 func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topic string) *Consumer {
 	l := logger.NewQLogger("Consumer", config.LogLevel())
+	zkClient := zookeeper.NewZKClient(config.ServerAddresses(), uint(config.BootstrapTimeout()))
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
-		ClientBase: newClientBase(config.ClientConfigBase),
+		ClientBase: newClientBase(config.ClientConfigBase, zkClient),
 		config:     config,
 		topic:      topic,
 		logger:     l,

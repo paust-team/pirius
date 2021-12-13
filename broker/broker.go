@@ -38,7 +38,7 @@ func NewBroker(config *config.BrokerConfig) *Broker {
 
 	topicManager := internals.NewTopicManager()
 	l := logger.NewQLogger("Broker", config.LogLevel())
-	zkClient := zookeeper.NewZKClient(config.ZKAddr(), config.ZKTimeout())
+	zkClient := zookeeper.NewZKClient(config.ZKQuorum(), config.ZKTimeout())
 
 	return &Broker{
 		config:   config,

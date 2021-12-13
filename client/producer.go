@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type Producer struct {
@@ -22,24 +23,15 @@ type Producer struct {
 }
 
 func NewProducer(config *config.ProducerConfig, topic string) *Producer {
-	l := logger.NewQLogger("Producer", logger.Info)
-	ctx, cancel := context.WithCancel(context.Background())
-	producer := &Producer{
-		ClientBase: newClientBase(config.ClientConfigBase),
-		topic:      topic,
-		logger:     l,
-		ctx:        ctx,
-		cancel:     cancel,
-		publishCh:  make(chan *message.QMessage),
-	}
-	return producer
+	return NewProducerWithContext(context.Background(), config, topic)
 }
 
 func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string) *Producer {
-	l := logger.NewQLogger("Producer", logger.Info)
+	l := logger.NewQLogger("Producer", config.LogLevel())
+	zkClient := zookeeper.NewZKClient(config.ServerAddresses(), uint(config.BootstrapTimeout()))
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
-		ClientBase: newClientBase(config.ClientConfigBase),
+		ClientBase: newClientBase(config.ClientConfigBase, zkClient),
 		topic:      topic,
 		logger:     l,
 		ctx:        ctx,
@@ -93,7 +85,6 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan common.Parti
 
 	convertToQMsgCh := func(from <-chan *PublishData) <-chan *message.QMessage {
 		to := make(chan *message.QMessage)
-
 		go func() {
 			defer close(to)
 			for {
