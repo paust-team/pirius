@@ -96,13 +96,13 @@ func (b *BrokerConfig) SetDataDir(dataDir string) {
 	b.Set("data-dir", dataDir)
 }
 
-func (b BrokerConfig) ZKAddresses() []string {
-	addresses := strings.Split(b.GetString("zookeeper.addresses"), ",")
+func (b BrokerConfig) ZKQuorum() []string {
+	addresses := strings.Split(b.GetString("zookeeper.quorum"), ",")
 	return addresses
 }
 
-func (b *BrokerConfig) SetZKAddresses(addresses []string) {
-	b.Set("zookeeper.addresses", strings.Join(addresses, ","))
+func (b *BrokerConfig) SetZKQuorum(addresses []string) {
+	b.Set("zookeeper.quorum", strings.Join(addresses, ","))
 }
 
 func (b BrokerConfig) ZKTimeout() uint {

@@ -5,5 +5,5 @@ data-dir: ~/.shapleq/data # data directory
 log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
 timeout: 10000
 zookeeper:
-  addresses: localhost:2181
+  quorum: localhost:2181
   timeout: 5000

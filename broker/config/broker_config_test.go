@@ -37,8 +37,8 @@ func TestBrokerConfigStructured(t *testing.T) {
 	expectedAddress1 := "172.0.0.1:2181"
 	expectedAddress2 := "172.0.0.2:2181"
 
-	brokerConfig.SetZKAddresses([]string{expectedAddress1, expectedAddress2})
-	addresses := brokerConfig.ZKAddresses()
+	brokerConfig.SetZKQuorum([]string{expectedAddress1, expectedAddress2})
+	addresses := brokerConfig.ZKQuorum()
 	if addresses[0] != expectedAddress1 || addresses[1] != expectedAddress2 {
 		t.Errorf("value is not set")
 	}

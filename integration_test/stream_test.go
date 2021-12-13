@@ -68,7 +68,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetPort(brokerPort)
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKAddresses(zkAddrs)
+	brokerConfig.SetZKQuorum(zkAddrs)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -142,7 +142,7 @@ func TestPubSub(t *testing.T) {
 	// Start broker
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKAddresses(zkAddrs)
+	brokerConfig.SetZKQuorum(zkAddrs)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -279,7 +279,7 @@ func TestMultiClient(t *testing.T) {
 
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKAddresses(zkAddrs)
+	brokerConfig.SetZKQuorum(zkAddrs)
 	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
@@ -463,7 +463,7 @@ func TestBatchClient(t *testing.T) {
 
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKAddresses(zkAddrs)
+	brokerConfig.SetZKQuorum(zkAddrs)
 	brokerConfig.SetTimeout(100000)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
