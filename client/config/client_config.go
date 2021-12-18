@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/spf13/viper"
+	"strings"
 )
 
 type ClientConfigBase struct {
@@ -12,9 +12,9 @@ type ClientConfigBase struct {
 }
 
 var (
-	defaultLogLevel   = logger.Info
-	defaultBrokerHost = "localhost"
-	defaultTimeout    = 3000
+	defaultLogLevel            = logger.Info
+	defaultBootstrapServerHost = "localhost:2181"
+	defaultTimeout             = 3000
 )
 
 func NewClientConfigBase() *ClientConfigBase {
@@ -23,9 +23,9 @@ func NewClientConfigBase() *ClientConfigBase {
 
 	v.SetDefault("log-level", logger.LogLevelToString(defaultLogLevel))
 	v.SetDefault("timeout", defaultTimeout)
-	v.SetDefault("broker", map[string]interface{}{
-		"port": common.DefaultBrokerPort,
-		"host": defaultBrokerHost,
+	v.SetDefault("bootstrap", map[string]interface{}{
+		"servers": defaultBootstrapServerHost,
+		"timeout": defaultTimeout,
 	})
 
 	return &ClientConfigBase{v}
@@ -48,22 +48,27 @@ func (c *ClientConfigBase) SetLogLevel(logLevel logger.LogLevel) {
 	c.Set("log-level", logger.LogLevelToString(logLevel))
 }
 
-func (c ClientConfigBase) Timeout() int {
-	return c.GetInt("timeout")
+func (c ClientConfigBase) BrokerTimeout() int {
+	return c.GetInt("broker-timeout")
 }
 
-func (c *ClientConfigBase) SetTimeout(timeout int) {
-	c.Set("timeout", timeout)
+func (c *ClientConfigBase) SetBrokerTimeout(timeout int) {
+	c.Set("broker-timeout", timeout)
 }
 
-func (c *ClientConfigBase) BrokerAddr() string {
-	return fmt.Sprintf("%s:%d", c.GetString("broker.host"), c.GetUint("broker.port"))
+func (c *ClientConfigBase) ServerAddresses() []string {
+	addresses := strings.Split(c.GetString("bootstrap.servers"), ",")
+	return addresses
 }
 
-func (c *ClientConfigBase) SetBrokerHost(host string) {
-	c.Set("broker.host", host)
+func (c *ClientConfigBase) SetServerAddresses(addresses []string) {
+	c.Set("bootstrap.servers", strings.Join(addresses, ","))
 }
 
-func (c *ClientConfigBase) SetBrokerPort(port uint) {
-	c.Set("broker.port", port)
+func (c *ClientConfigBase) BootstrapTimeout() int {
+	return c.GetInt("bootstrap.timeout")
+}
+
+func (c *ClientConfigBase) SetBootstrapTimeout(timeout int) {
+	c.Set("bootstrap.timeout", timeout)
 }

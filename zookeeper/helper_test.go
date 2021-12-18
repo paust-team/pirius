@@ -14,7 +14,7 @@ import (
 var zkqClient *ZKQClient
 
 func TestMain(m *testing.M) {
-	zkqClient = NewZKQClient("127.0.0.1", 3000, 2000)
+	zkqClient = NewZKQClient([]string{"127.0.0.1"}, 3000, 2000)
 	err := zkqClient.Connect()
 
 	if err != nil {

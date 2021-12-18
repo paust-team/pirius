@@ -2,34 +2,15 @@ package zookeeper
 
 import (
 	"bytes"
-	"encoding/gob"
 	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/pqerror"
 	"github.com/paust-team/shapleq/zookeeper/constants"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-func encode(data []string) (*bytes.Buffer, error) {
-	buffer := &bytes.Buffer{}
-	if err := gob.NewEncoder(buffer).Encode(data); err != nil {
-		return nil, err
-	}
-	return buffer, nil
-}
-
-func decode(bytesData []byte) ([]string, error) {
-	buffer := &bytes.Buffer{}
-	buffer.Write(bytesData)
-
-	var result []string
-	if err := gob.NewDecoder(buffer).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
 
 type bootstrappingHelper struct {
 	client *zkClientWrapper
@@ -43,13 +24,7 @@ func (b bootstrappingHelper) GetBrokers() ([]string, error) {
 			return nil, nil
 		}
 
-		brokers, err := decode(brokersBytes)
-		if err != nil {
-			err = pqerror.ZKDecodeFailError{}
-			b.client.Logger().Error(err)
-			return nil, err
-		}
-
+		brokers := strings.Split(bytes.NewBuffer(brokersBytes).String(), ",")
 		return brokers, nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.BrokerNotExistsError{}
@@ -72,14 +47,7 @@ func (b bootstrappingHelper) AddBroker(hostName string) error {
 	}
 
 	brokers = append(brokers, hostName)
-	buffer, err := encode(brokers)
-	if err != nil {
-		err = pqerror.ZKEncodeFailError{}
-		b.client.Logger().Error(err)
-		return err
-	}
-
-	if err = b.client.Set(constants.BrokersLockPath, constants.BrokersPath, buffer.Bytes()); err != nil {
+	if err = b.client.Set(constants.BrokersLockPath, constants.BrokersPath, []byte(strings.Join(brokers, ","))); err != nil {
 		return err
 	}
 
@@ -105,14 +73,7 @@ func (b bootstrappingHelper) RemoveBroker(hostName string) error {
 		return pqerror.ZKNothingToRemoveError{}
 	}
 
-	buffer, err := encode(brokers)
-	if err != nil {
-		err = pqerror.ZKEncodeFailError{}
-		b.logger.Error(err)
-		return err
-	}
-
-	if err = b.client.Set(constants.BrokersLockPath, constants.BrokersPath, buffer.Bytes()); err != nil {
+	if err = b.client.Set(constants.BrokersLockPath, constants.BrokersPath, []byte(strings.Join(brokers, ","))); err != nil {
 		return err
 	}
 
@@ -126,13 +87,7 @@ func (b bootstrappingHelper) GetTopicBrokers(topicName string) ([]string, error)
 			return nil, nil
 		}
 
-		topicBrokers, err := decode(brokersBytes)
-		if err != nil {
-			err = pqerror.ZKDecodeFailError{}
-			b.logger.Error(err)
-			return nil, err
-		}
-
+		topicBrokers := strings.Split(bytes.NewBuffer(brokersBytes).String(), ",")
 		return topicBrokers, nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicBrokerNotExistsError{Topic: topicName}
@@ -155,14 +110,7 @@ func (b bootstrappingHelper) AddTopicBroker(topicName string, hostName string) e
 	}
 
 	topicBrokers = append(topicBrokers, hostName)
-	buffer, err := encode(topicBrokers)
-	if err != nil {
-		err = pqerror.ZKEncodeFailError{}
-		b.logger.Error(err)
-		return err
-	}
-
-	if err = b.client.Set(constants.TopicsLockPath, GetTopicBrokerPath(topicName), buffer.Bytes()); err != nil {
+	if err = b.client.Set(constants.TopicsLockPath, GetTopicBrokerPath(topicName), []byte(strings.Join(topicBrokers, ","))); err != nil {
 		return err
 	}
 
@@ -190,14 +138,7 @@ func (b bootstrappingHelper) RemoveTopicBroker(topicName string, hostName string
 		return err
 	}
 
-	buffer, err := encode(topicBrokers)
-	if err != nil {
-		err = pqerror.ZKEncodeFailError{}
-		b.logger.Error(err)
-		return err
-	}
-
-	if err = b.client.Set(constants.TopicsLockPath, GetTopicBrokerPath(topicName), buffer.Bytes()); err != nil {
+	if err = b.client.Set(constants.TopicsLockPath, GetTopicBrokerPath(topicName), []byte(strings.Join(topicBrokers, ","))); err != nil {
 		return err
 	}
 

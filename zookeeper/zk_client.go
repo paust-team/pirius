@@ -13,17 +13,17 @@ import (
 type ZKQClient struct {
 	*bootstrappingHelper
 	*topicManagingHelper
-	zkAddr        string
+	zkAddrs 	[]string
 	timeout       uint
 	flushInterval uint
 	logger        *logger.QLogger
 	client        *zkClientWrapper
 }
 
-func NewZKQClient(zkAddr string, timeout uint, flushInterval uint) *ZKQClient {
+func NewZKQClient(zkAddrs []string, timeout uint, flushInterval uint) *ZKQClient {
 	logger := logger.NewQLogger("ZkClient", logger.Info)
 	return &ZKQClient{
-		zkAddr:        zkAddr,
+		zkAddrs:       zkAddrs,
 		timeout:       timeout,
 		logger:        logger,
 		flushInterval: flushInterval,
@@ -36,15 +36,19 @@ func (z *ZKQClient) WithLogger(logger *logger.QLogger) *ZKQClient {
 }
 
 func (z *ZKQClient) Connect() error {
-	client, err := initZkClientWrapper([]string{z.zkAddr}, z.timeout, z.logger)
+	client, err := initZkClientWrapper(z.zkAddrs, z.timeout, z.logger)
 	if err != nil {
+		err = pqerror.ZKConnectionError{ZKAddrs: z.zkAddrs}
+		z.logger.Error(err)
 		return err
 	}
 
 	z.client = client
 	z.bootstrappingHelper = &bootstrappingHelper{client: z.client, logger: z.logger}
 	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, topicOffsetMap: sync.Map{}}
-	z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
+	if z.flushInterval > 0 {
+		z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
+	}
 
 	return nil
 }
@@ -88,7 +92,7 @@ func initZkClientWrapper(addresses []string, timeout uint, logger *logger.QLogge
 
 	conn, _, err := zk.Connect(addresses, time.Millisecond*time.Duration(timeout), zk.WithLogger(logger))
 	if err != nil {
-		err = pqerror.ZKConnectionError{ZKAddr: addresses[0]}
+		err = pqerror.ZKConnectionError{ZKAddrs: addresses}
 		logger.Error(err)
 		return nil, err
 	}
@@ -136,6 +140,7 @@ func (z zkClientWrapper) Create(lockPath string, path string, value []byte) erro
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -146,6 +151,7 @@ func (z zkClientWrapper) Set(lockPath string, path string, value []byte) error {
 func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []byte, version int32) error {
 	bLock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
 	err := bLock.Lock()
+
 	defer bLock.Unlock()
 	if err != nil {
 		err = pqerror.ZKLockFailError{LockPath: lockPath, ZKErrStr: err.Error()}
@@ -154,6 +160,7 @@ func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []by
 	}
 
 	_, err = z.conn.Set(path, value, version)
+
 	if err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)
@@ -207,6 +214,7 @@ func (z zkClientWrapper) OptimisticSet(path string, postGet func([]byte) []byte)
 
 	data := postGet(value)
 	_, err = z.conn.Set(path, data, stats.Version)
+
 	if err != nil {
 		if err == zk.ErrBadVersion {
 			err = pqerror.ZKOperateError{ErrStr: "bad version. try again"}
@@ -251,6 +259,7 @@ func (z zkClientWrapper) Delete(lockPath string, path string) error {
 		z.logger.Error(err)
 		return err
 	}
+
 	if err = z.conn.Delete(path, -1); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
 		z.logger.Error(err)

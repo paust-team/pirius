@@ -96,8 +96,6 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.Ping{}); err == nil {
 		resMsg = s.rpcService.Heartbeat(reqMsg.(*shapleqproto.Ping))
 
-	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.DiscoverBrokerRequest{}); err == nil {
-		resMsg = s.rpcService.DiscoverBroker(reqMsg.(*shapleqproto.DiscoverBrokerRequest))
 	} else {
 		return errors.New("invalid message to handle")
 	}

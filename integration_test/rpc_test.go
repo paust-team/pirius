@@ -15,7 +15,7 @@ func TestHeartBeat(t *testing.T) {
 	// Start broker
 	brokerConfig := config.NewBrokerConfig()
 	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKHost(zkAddr)
+	brokerConfig.SetZKQuorum(zkAddrs)
 	brokerInstance := broker.NewBroker(brokerConfig)
 	bwg := sync.WaitGroup{}
 	bwg.Add(1)
@@ -33,8 +33,7 @@ func TestHeartBeat(t *testing.T) {
 
 	adminConfig := config2.NewAdminConfig()
 	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetBrokerHost(brokerHost)
-	adminConfig.SetBrokerPort(brokerPort)
+	adminConfig.SetServerAddresses(brokerAddrs)
 	adminClient := client.NewAdmin(adminConfig)
 	defer adminClient.Close()
 

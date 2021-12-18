@@ -2,12 +2,13 @@ package client
 
 import (
 	"context"
-	"errors"
 	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
+	"math/rand"
 	"net"
 	"sync"
 )
@@ -19,17 +20,20 @@ type ReceivedData struct {
 
 type ClientBase struct {
 	sync.Mutex
-	socket    *network.Socket
-	connected bool
-	config    *config.ClientConfigBase
-	nodeId    string
+	socket           *network.Socket
+	connected        bool
+	config           *config.ClientConfigBase
+	nodeId           string
+	connectedAddress string
+	zkClient         *zookeeper.ZKQClient
 }
 
-func newClientBase(config *config.ClientConfigBase) *ClientBase {
+func newClientBase(config *config.ClientConfigBase, zkClient *zookeeper.ZKQClient) *ClientBase {
 	return &ClientBase{
 		Mutex:     sync.Mutex{},
 		connected: false,
 		config:    config,
+		zkClient:  zkClient,
 	}
 }
 
@@ -39,24 +43,6 @@ func (c *ClientBase) isConnected() bool {
 	return c.connected
 }
 
-func (c *ClientBase) connectToBroker(brokerAddr string) error {
-	if c.isConnected() {
-		return pqerror.AlreadyConnectedError{Addr: brokerAddr}
-	}
-
-	conn, err := net.Dial("tcp", brokerAddr)
-	if err != nil {
-		return pqerror.DialFailedError{Addr: brokerAddr, Err: err}
-	}
-	c.socket = network.NewSocket(conn, c.config.Timeout(), c.config.Timeout())
-
-	c.Lock()
-	c.connected = true
-	c.Unlock()
-
-	return nil
-}
-
 func (c *ClientBase) close() {
 	c.Lock()
 	if c.connected {
@@ -64,6 +50,7 @@ func (c *ClientBase) close() {
 		c.socket = nil
 		c.connected = false
 	}
+	c.zkClient.Close()
 	c.Unlock()
 }
 
@@ -98,46 +85,55 @@ func (c *ClientBase) receive() (*message.QMessage, error) {
 	return c.socket.Read()
 }
 
+func (c *ClientBase) connectToBroker(address string) error {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return pqerror.DialFailedError{Addr: address, Err: err}
+	}
+	c.socket = network.NewSocket(conn, c.config.BrokerTimeout(), c.config.BrokerTimeout())
+
+	c.Lock()
+	c.connected = true
+	c.Unlock()
+
+	return nil
+}
+
 func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string) error {
 	if len(topic) == 0 {
 		return pqerror.TopicNotSetError{}
 	}
+	if err := c.zkClient.Connect(); err != nil {
+		return err
+	}
 
-	err := c.connectToBroker(c.config.BrokerAddr())
+	if c.isConnected() {
+		return pqerror.AlreadyConnectedError{Addr: c.connectedAddress}
+	}
+
+	topicBrokerAddrs, err := c.zkClient.GetTopicBrokers(topic)
 	if err != nil {
-		return err
+		return pqerror.ZKOperateError{ErrStr: err.Error()}
+	}
+	if len(topicBrokerAddrs) > 0 {
+		if err := c.connectToBroker(topicBrokerAddrs[0]); err != nil {
+			return err
+		}
+	} else if sessionType == shapleqproto.SessionType_PUBLISHER { // if publisher, pick random broker unless topic broker exists
+		brokerAddrs, err := c.zkClient.GetBrokers()
+		if err == nil && len(brokerAddrs) != 0 {
+			brokerAddr := brokerAddrs[rand.Intn(len(brokerAddrs))] // pick random broker
+			if err := c.connectToBroker(brokerAddr); err != nil {
+				return err
+			}
+		} else {
+			return pqerror.TopicBrokerNotExistsError{}
+		}
+	} else {
+		return pqerror.TopicBrokerNotExistsError{}
 	}
 
-	req, err := message.NewQMessageFromMsg(message.TRANSACTION, message.NewDiscoverBrokerRequestMsg(topic, sessionType))
-	if err != nil {
-		return err
-	}
-
-	if err := c.send(req); err != nil {
-		return err
-	}
-
-	res, err := c.receive()
-	if err != nil {
-		return err
-	}
-
-	discoverRes, err := res.UnpackTo(&shapleqproto.DiscoverBrokerResponse{})
-	if err != nil {
-		return err
-	}
-
-	if pqerror.PQCode(discoverRes.(*shapleqproto.DiscoverBrokerResponse).ErrorCode) != pqerror.Success {
-		return errors.New(discoverRes.(*shapleqproto.DiscoverBrokerResponse).ErrorMessage)
-	}
-
-	newAddr := discoverRes.(*shapleqproto.DiscoverBrokerResponse).GetAddress()
-	c.close()
-	if err = c.connectToBroker(newAddr); err != nil {
-		return err
-	}
-
-	if err = c.initStream(sessionType, topic); err != nil {
+	if err := c.initStream(sessionType, topic); err != nil {
 		return err
 	}
 	return nil

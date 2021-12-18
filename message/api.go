@@ -153,16 +153,3 @@ func NewErrorAckMsg(code pqerror.PQCode, hint string) *QMessage {
 	}
 	return ackMsg
 }
-
-func NewDiscoverBrokerRequestMsg(topicName string, sessionType shapleqproto.SessionType) *shapleqproto.DiscoverBrokerRequest {
-	return &shapleqproto.DiscoverBrokerRequest{Magic: MAGIC_NUM, TopicName: topicName, SessionType: sessionType}
-}
-
-func NewDiscoverBrokerResponseMsg(addr string, err pqerror.PQError) *shapleqproto.DiscoverBrokerResponse {
-	response := &shapleqproto.DiscoverBrokerResponse{Magic: MAGIC_NUM, Address: addr}
-	if err != nil {
-		response.ErrorCode = int32(err.Code())
-		response.ErrorMessage = err.Error()
-	}
-	return response
-}
