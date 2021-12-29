@@ -22,6 +22,8 @@ var testLogLevel = logger.Info
 var brokerPort uint = 1101
 var brokerAddrs = []string{"127.0.0.1:1101"}
 var zkAddrs = []string{"127.0.0.1:2181"}
+var zkTimeoutMS uint = 3000
+var zkFlushIntervalMS uint = 2000
 
 func Sleep(sec int) {
 	time.Sleep(time.Duration(sec) * time.Second)
@@ -56,7 +58,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	topic := "test_topic1"
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddrs, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -131,7 +133,7 @@ func TestPubSub(t *testing.T) {
 	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddrs, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -224,7 +226,7 @@ func TestPubSub(t *testing.T) {
 		return
 	}
 
-	receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
+	receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
 	if err != nil {
 		t.Error(err)
 		return
@@ -258,10 +260,20 @@ func TestPubSub(t *testing.T) {
 	}
 
 	wg.Wait()
-	for i, expectedRecord := range expectedRecords {
-		if bytes.Compare(expectedRecord, actualRecords[i]) != 0 {
-			t.Error("published records and subscribed records does not match")
+	for _, record := range expectedRecords {
+		if !contains(actualRecords, record) {
+			t.Error("Record is not exists: ", record)
 		}
+	}
+
+	time.Sleep(time.Duration(3) * time.Second) // sleep 3 seconds to wait until last offset to be flushed to zk
+	targetTopicValue, err := zkClient.GetTopicData(topic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if uint64(len(expectedRecords)) != targetTopicValue.LastOffset() {
+		t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), targetTopicValue.LastOffset())
 	}
 }
 
@@ -269,7 +281,7 @@ func TestMultiClient(t *testing.T) {
 	topic := "topic3"
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddrs, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -395,7 +407,7 @@ func TestMultiClient(t *testing.T) {
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(0, 1, 0)
+		receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
 		if err != nil {
 			t.Error(err)
 			wg.Done()
@@ -425,7 +437,7 @@ func TestMultiClient(t *testing.T) {
 		}()
 	}
 
-	consumerCount := 10
+	consumerCount := 1
 	wg.Add(consumerCount)
 
 	for i := 0; i < consumerCount; i++ {
@@ -453,7 +465,7 @@ func TestBatchClient(t *testing.T) {
 	var flushInterval uint32 = 200
 
 	//zk client to reset
-	zkClient := zookeeper.NewZKClient(zkAddrs, 3000)
+	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
 		t.Error(err)
 		return
@@ -576,7 +588,7 @@ func TestBatchClient(t *testing.T) {
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(0, maxBatchSize, flushInterval)
+		receiveCh, subErrCh, err := consumer.Subscribe(1, maxBatchSize, flushInterval)
 		if err != nil {
 			t.Error(err)
 			wg.Done()

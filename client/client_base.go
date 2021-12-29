@@ -25,10 +25,10 @@ type ClientBase struct {
 	config           *config.ClientConfigBase
 	nodeId           string
 	connectedAddress string
-	zkClient         *zookeeper.ZKClient
+	zkClient         *zookeeper.ZKQClient
 }
 
-func newClientBase(config *config.ClientConfigBase, zkClient *zookeeper.ZKClient) *ClientBase {
+func newClientBase(config *config.ClientConfigBase, zkClient *zookeeper.ZKQClient) *ClientBase {
 	return &ClientBase{
 		Mutex:     sync.Mutex{},
 		connected: false,
@@ -127,10 +127,10 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 				return err
 			}
 		} else {
-			return pqerror.TopicBrokerNotExistError{}
+			return pqerror.TopicBrokerNotExistsError{}
 		}
 	} else {
-		return pqerror.TopicBrokerNotExistError{}
+		return pqerror.TopicBrokerNotExistsError{}
 	}
 
 	if err := c.initStream(sessionType, topic); err != nil {

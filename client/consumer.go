@@ -19,7 +19,7 @@ type Consumer struct {
 	logger   *logger.QLogger
 	ctx      context.Context
 	cancel   context.CancelFunc
-	zkClient *zookeeper.ZKClient
+	zkClient *zookeeper.ZKQClient
 }
 
 func NewConsumer(config *config.ConsumerConfig, topic string) *Consumer {
@@ -28,7 +28,7 @@ func NewConsumer(config *config.ConsumerConfig, topic string) *Consumer {
 
 func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topic string) *Consumer {
 	l := logger.NewQLogger("Consumer", config.LogLevel())
-	zkClient := zookeeper.NewZKClient(config.ServerAddresses(), uint(config.BootstrapTimeout()))
+	zkClient := zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0)
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
 		ClientBase: newClientBase(config.ClientConfigBase, zkClient),

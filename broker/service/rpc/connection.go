@@ -12,11 +12,11 @@ type ConnectionRPCService interface {
 }
 
 type connectionRPCService struct {
-	zkClient *zookeeper.ZKClient
+	zkqClient *zookeeper.ZKQClient
 }
 
-func NewConnectionRPCService(zkClient *zookeeper.ZKClient) *connectionRPCService {
-	return &connectionRPCService{zkClient}
+func NewConnectionRPCService(zkqClient *zookeeper.ZKQClient) *connectionRPCService {
+	return &connectionRPCService{zkqClient}
 }
 
 func (s *connectionRPCService) Heartbeat(request *shapleqproto.Ping) *shapleqproto.Pong {

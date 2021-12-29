@@ -13,15 +13,13 @@ import (
 )
 
 type StreamService struct {
-	DB           *storage.QRocksDB
-	TopicManager *internals.TopicManager
-	zKClient     *zookeeper.ZKClient
-	addr         string
+	DB        *storage.QRocksDB
+	zkqClient *zookeeper.ZKQClient
+	addr      string
 }
 
-func NewStreamService(DB *storage.QRocksDB, topicManager *internals.TopicManager, zKClient *zookeeper.ZKClient,
-	addr string) *StreamService {
-	return &StreamService{DB: DB, TopicManager: topicManager, zKClient: zKClient, addr: addr}
+func NewStreamService(DB *storage.QRocksDB, zkqClient *zookeeper.ZKQClient, addr string) *StreamService {
+	return &StreamService{DB: DB, zkqClient: zkqClient, addr: addr}
 }
 
 func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
@@ -60,9 +58,6 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 	msgCh := eventStream.MsgCh
 	sessionCtx := eventStream.Ctx
 	cancelSession := eventStream.CancelSession
-
-	session.Open()
-	defer session.Close()
 
 	err, pl := s.newPipelineBase(session, convertToInterfaceChan(msgCh))
 
@@ -141,14 +136,14 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.TopicManager, s.zKClient, s.addr)
+	err = connector.Build(sess, s.zkqClient, s.addr)
 	if err != nil {
 		return err, nil
 	}
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB)
+	err = fetcher.Build(sess, s.DB, s.zkqClient)
 	if err != nil {
 		return err, nil
 	}
@@ -162,7 +157,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	collectPipe := pipeline.NewPipe("collect", &collector)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB)
+	err = putter.Build(sess, s.DB, s.zkqClient)
 	if err != nil {
 		return err, nil
 	}

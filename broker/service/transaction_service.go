@@ -26,13 +26,13 @@ type TransactionService struct {
 	rpcService *RPCService
 }
 
-func NewTransactionService(db *storage.QRocksDB, zkClient *zookeeper.ZKClient) *TransactionService {
+func NewTransactionService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *TransactionService {
 	return &TransactionService{&RPCService{
-		rpc.NewTopicRPCService(db, zkClient),
-		rpc.NewPartitionRPCService(db, zkClient),
+		rpc.NewTopicRPCService(db, zkqClient),
+		rpc.NewPartitionRPCService(db, zkqClient),
 		rpc.NewConfigRPCService(),
 		rpc.NewGroupRPCService(),
-		rpc.NewConnectionRPCService(zkClient)},
+		rpc.NewConnectionRPCService(zkqClient)},
 	}
 }
 

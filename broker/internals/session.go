@@ -8,7 +8,6 @@ import (
 	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"net"
 	"sync"
-	"sync/atomic"
 )
 
 type EventStream struct {
@@ -64,7 +63,7 @@ type Session struct {
 	sock          *network.Socket
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
-	topic         *Topic
+	topicName     string
 	rTimeout      uint
 	wTimeout      uint
 	maxBatchSize  uint32 // for fetch
@@ -77,7 +76,7 @@ func NewSession(conn net.Conn, timeout int) *Session {
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
-		topic:         nil,
+		topicName:     "",
 		maxBatchSize:  1,
 		flushInterval: 100,
 	}
@@ -106,12 +105,12 @@ func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s *Session) Topic() *Topic {
-	return s.topic
+func (s *Session) TopicName() string {
+	return s.topicName
 }
 
-func (s *Session) SetTopic(topic *Topic) {
-	s.topic = topic
+func (s *Session) SetTopicName(topicName string) {
+	s.topicName = topicName
 }
 
 func (s *Session) MaxBatchSize() uint32 {
@@ -143,17 +142,6 @@ func (s *Session) Open() {
 func (s *Session) Close() {
 	s.SetState(NONE)
 	s.sock.Close()
-
-	switch s.Type() {
-	case shapleq_proto.SessionType_PUBLISHER:
-		if atomic.LoadInt64(&s.Topic().NumPubs) > 0 {
-			atomic.AddInt64(&s.Topic().NumPubs, -1)
-		}
-	case shapleq_proto.SessionType_SUBSCRIBER:
-		if atomic.LoadInt64(&s.Topic().NumSubs) > 0 {
-			atomic.AddInt64(&s.Topic().NumSubs, -1)
-		}
-	}
 }
 
 func (s *Session) IsClosed() bool {

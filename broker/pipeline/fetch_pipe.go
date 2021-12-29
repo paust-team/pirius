@@ -7,13 +7,16 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"github.com/paust-team/shapleq/zookeeper"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type FetchPipe struct {
-	session *internals.Session
-	db      *storage.QRocksDB
+	session   *internals.Session
+	db        *storage.QRocksDB
+	zkqClient *zookeeper.ZKQClient
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -24,6 +27,9 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
+	casted = casted && ok
+
+	f.zkqClient, ok = in[2].(*zookeeper.ZKQClient)
 	casted = casted && ok
 
 	if !casted {
@@ -48,7 +54,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 		defer close(inStreamClosed)
 
 		for in := range inStream {
-			topic := f.session.Topic()
+			topicName := f.session.TopicName()
 			once.Do(func() {
 				if f.session.State() != internals.ON_SUBSCRIBE {
 					err := f.session.SetState(internals.ON_SUBSCRIBE)
@@ -64,15 +70,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
 			first := true
-			prevKey := storage.NewRecordKeyFromData(topic.Name(), req.StartOffset)
-
-			if req.StartOffset > topic.LastOffset() {
-				errCh <- pqerror.InvalidStartOffsetError{
-					Topic:       topic.Name(),
-					StartOffset: req.StartOffset,
-					LastOffset:  topic.LastOffset()}
-				return
-			}
+			prevKey := storage.NewRecordKeyFromData(topicName, req.StartOffset)
 
 			it := f.db.Scan(storage.RecordCF)
 
@@ -83,18 +81,23 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 					select {
 					case <-inStreamClosed:
 						return
-					default:
+					case <-time.After(time.Millisecond * 10):
 						if f.session.IsClosed() {
 							return
 						}
 
-						currentLastOffset := topic.LastOffset()
+						topicData, err := f.zkqClient.GetTopicData(topicName)
+						if err != nil {
+							errCh <- err
+							return
+						}
+						currentLastOffset := topicData.LastOffset()
 						it.Seek(prevKey.Data())
 						if !first && it.Valid() {
 							it.Next()
 						}
 
-						for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topic.Name()+"@")); it.Next() {
+						for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topicName+"@")); it.Next() {
 							key := storage.NewRecordKey(it.Key())
 							keyOffset := key.Offset()
 
@@ -109,6 +112,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 							}
 
 							value := storage.NewRecordValue(it.Value())
+							value.SeqNum()
 							fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), currentLastOffset)
 
 							select {

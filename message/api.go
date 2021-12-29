@@ -29,7 +29,8 @@ func NewDescribeTopicRequestMsg(topicName string) *shapleqproto.DescribeTopicReq
 	return &shapleqproto.DescribeTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, replicationFactor uint32, err pqerror.PQError) *shapleqproto.DescribeTopicResponse {
+func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, replicationFactor uint32,
+	lastOffset uint64, err pqerror.PQError) *shapleqproto.DescribeTopicResponse {
 
 	response := &shapleqproto.DescribeTopicResponse{Magic: MAGIC_NUM}
 	if err != nil {
@@ -39,7 +40,11 @@ func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, r
 	}
 
 	topic := &shapleqproto.Topic{
-		Name: topicName, Description: description, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
+		Name:              topicName,
+		Description:       description,
+		NumPartitions:     numPartitions,
+		ReplicationFactor: replicationFactor,
+		LastOffset:        lastOffset,
 	}
 	response.Topic = topic
 	return response
@@ -47,7 +52,11 @@ func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, r
 
 func NewCreateTopicRequestMsg(topicName string, description string, numPartitions uint32, replicationFactor uint32) *shapleqproto.CreateTopicRequest {
 	topic := &shapleqproto.Topic{
-		Name: topicName, Description: description, NumPartitions: numPartitions, ReplicationFactor: replicationFactor,
+		Name:              topicName,
+		Description:       description,
+		NumPartitions:     numPartitions,
+		ReplicationFactor: replicationFactor,
+		LastOffset:        0,
 	}
 
 	return &shapleqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
@@ -60,11 +69,6 @@ func NewCreateTopicResponseMsg(err pqerror.PQError) *shapleqproto.CreateTopicRes
 		response.ErrorMessage = err.Error()
 	}
 	return response
-}
-
-func NewTopicMsg(topicName string, description string, numPartition uint32, replicationFactor uint32) *shapleqproto.Topic {
-	return &shapleqproto.Topic{Name: topicName, Description: description,
-		NumPartitions: numPartition, ReplicationFactor: replicationFactor}
 }
 
 func NewDeleteTopicRequestMsg(topicName string) *shapleqproto.DeleteTopicRequest {

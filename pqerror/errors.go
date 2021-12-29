@@ -198,6 +198,18 @@ func (e ZKOperateError) Code() PQCode {
 	return ErrZKOperate
 }
 
+type ZKNoNodeError struct {
+	Path string
+}
+
+func (e ZKNoNodeError) Error() string {
+	return "no node exists for path: " + e.Path
+}
+
+func (e ZKNoNodeError) Code() PQCode {
+	return ErrZKNoNode
+}
+
 // notifier
 type TopicNotExistError struct {
 	Topic string
@@ -208,29 +220,24 @@ func (e TopicNotExistError) Error() string {
 }
 
 func (e TopicNotExistError) Code() PQCode {
-	return ErrTopicNotExist
+	return ErrTopicNotExists
 }
 
 func (e TopicNotExistError) IsSessionCloseable() {}
 
-func NewTopicNotExistError(topic string) TopicNotExistError {
-	e := TopicNotExistError{Topic: topic}
-	return e
-}
-
-type TopicBrokerNotExistError struct {
+type TopicBrokerNotExistsError struct {
 	Topic string
 }
 
-func (e TopicBrokerNotExistError) Error() string {
-	return fmt.Sprintf("broker for topic(%s) does not exist\n", e.Topic)
+func (e TopicBrokerNotExistsError) Error() string {
+	return fmt.Sprintf("broker for topic(%s) does not exist", e.Topic)
 }
 
-func (e TopicBrokerNotExistError) Code() PQCode {
-	return ErrTopicBrokerNotExist
+func (e TopicBrokerNotExistsError) Code() PQCode {
+	return ErrTopicBrokerNotExists
 }
 
-func (e TopicBrokerNotExistError) IsSessionCloseable() {}
+func (e TopicBrokerNotExistsError) IsSessionCloseable() {}
 
 // serialize / deserialize
 
@@ -463,14 +470,14 @@ func (e NotConnectedError) Code() PQCode {
 	return ErrNotConnected
 }
 
-type TopicBrokersNotExistError struct{}
+type BrokerNotExistsError struct{}
 
-func (e TopicBrokersNotExistError) Error() string {
-	return "topic broker not exists"
+func (e BrokerNotExistsError) Error() string {
+	return "brokers are not exist"
 }
 
-func (e TopicBrokersNotExistError) Code() PQCode {
-	return ErrTopicBrokersNotExist
+func (e BrokerNotExistsError) Code() PQCode {
+	return ErrBrokerNotExists
 }
 
 type ConfigValueNotSetError struct {

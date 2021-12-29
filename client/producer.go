@@ -28,7 +28,7 @@ func NewProducer(config *config.ProducerConfig, topic string) *Producer {
 
 func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string) *Producer {
 	l := logger.NewQLogger("Producer", config.LogLevel())
-	zkClient := zookeeper.NewZKClient(config.ServerAddresses(), uint(config.BootstrapTimeout()))
+	zkClient := zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0)
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
 		ClientBase: newClientBase(config.ClientConfigBase, zkClient),

@@ -23,4 +23,5 @@ message Topic {
     string description = 2;
     uint32 num_partitions = 3;
     uint32 replication_factor = 4;
+    uint64 last_offset = 5;
 }

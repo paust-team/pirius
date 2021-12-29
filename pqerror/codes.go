@@ -20,12 +20,12 @@ const (
 	ErrZKConnection          = 0x0200
 	ErrZKTargetAlreadyExists = 0x0201
 	ErrZKOperate             = 0x0202
-	ErrTopicBrokersNotExist  = 0x0203
-	ErrZKLockFail            = 0x0204
-	ErrZKEncodeFail          = 0x0205
-	ErrZKDecodeFail          = 0x0206
-	ErrZKNothingToRemove     = 0x0207
-	ErrZKRequest             = 0x0208
+	ErrZKLockFail            = 0x0203
+	ErrZKEncodeFail          = 0x0204
+	ErrZKDecodeFail          = 0x0205
+	ErrZKNothingToRemove     = 0x0206
+	ErrZKRequest             = 0x0207
+	ErrZKNoNode              = 0x0208
 
 	// 03 - rocksdb related error
 	ErrDBOperate = 0x0300
@@ -47,11 +47,12 @@ const (
 	ErrReadTimeOut            = 0x1005
 	ErrNotEnoughBuffer        = 0x1006
 	ErrInvalidChecksum        = 0x1007
-	ErrTopicNotExist          = 0x1008
+	ErrTopicNotExists         = 0x1008
 	ErrStateTransition        = 0x1009
 	ErrInvalidCaseFnCount     = 0x1010
 	ErrPipeBuildFail          = 0x1011
 	ErrInvalidPipeType        = 0x1012
 	ErrInvalidMsgTypeToUnpack = 0x1013
-	ErrTopicBrokerNotExist    = 0x1014
+	ErrTopicBrokerNotExists   = 0x1014
+	ErrBrokerNotExists        = 0x1015
 )
