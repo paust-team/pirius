@@ -2,5 +2,4 @@ bootstrap:
   servers: localhost:1101 # broker server
   timeout: 3000
 broker-timeout: 3000
-timeout: 3000 # connection timeout
 log-level: INFO # DEBUG/INFO/WARNING/ERROR

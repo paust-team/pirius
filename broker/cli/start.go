@@ -19,8 +19,7 @@ var (
 	dataDir    string
 	logLevel   uint8
 	port       uint
-	zkHost     string
-	zkPort     uint
+	zkQuorum   string
 	zkTimeout  uint
 )
 
@@ -103,14 +102,12 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().StringVar(&dataDir, "data-dir", "", "data directory")
 	startCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 	startCmd.Flags().UintVar(&port, "port", 0, "broker port")
-	startCmd.Flags().StringVar(&zkHost, "zk-host", "", "zookeeper host")
-	startCmd.Flags().UintVar(&zkPort, "zk-port", 0, "zookeeper port")
+	startCmd.Flags().StringVar(&zkQuorum, "zk-quorum", "", "zookeeper quorum")
 	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
 	startCmd.Flags().BoolP("clear", "c", false, "DANGER: use this option only if you intend to reset data directory after broker is terminated")
 
 	brokerConfig.BindPFlags(startCmd.Flags())
-	brokerConfig.BindPFlag("zookeeper.host", startCmd.Flags().Lookup("zk-host"))
-	brokerConfig.BindPFlag("zookeeper.port", startCmd.Flags().Lookup("zk-port"))
+	brokerConfig.BindPFlag("zookeeper.quorum", startCmd.Flags().Lookup("zk-quorum"))
 	brokerConfig.BindPFlag("zookeeper.timeout", startCmd.Flags().Lookup("zk-timeout"))
 
 	return startCmd

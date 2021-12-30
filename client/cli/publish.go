@@ -82,16 +82,16 @@ func NewPublishCmd() *cobra.Command {
 	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish to")
 	publishCmd.Flags().StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
 	publishCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultProducerConfigPath, "producer client config path")
-	publishCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
-	publishCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	publishCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
+	publishCmd.Flags().UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
+	publishCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
 	publishCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
-	publishCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
 
 	publishCmd.MarkFlagRequired("topic")
 
 	producerConfig.BindPFlags(publishCmd.Flags())
-	producerConfig.BindPFlag("broker.host", publishCmd.Flags().Lookup("broker-host"))
-	producerConfig.BindPFlag("broker.port", publishCmd.Flags().Lookup("broker-port"))
+	producerConfig.BindPFlag("bootstrap.servers", publishCmd.Flags().Lookup("bootstrap-servers"))
+	producerConfig.BindPFlag("bootstrap.timeout", publishCmd.Flags().Lookup("bootstrap-timeout"))
 
 	return publishCmd
 }
