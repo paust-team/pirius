@@ -5,9 +5,9 @@ If you want ShapleQ Client only, just type `go get github.com/paust-team/ShapleQ
 Similar to setting up a broker, we support the configuration below to set up the client.
 
 ```yaml
-broker:
-  port: 1101 # broker port
-  host: localhost # broker address
+bootstrap: # bootstrap servers (zookeeper or broker)
+  servers: localhost:2181 
+  timeout: 3000
 timeout: 3 # connection timeout (seconds)
 log-level: INFO # DEBUG/INFO/WARNING/ERROR
 ```
@@ -16,9 +16,7 @@ log-level: INFO # DEBUG/INFO/WARNING/ERROR
 Before running client CLI, ShapleQ broker and zookeeper must be running
 
 ### Common Flags
-- `--broker-host` broker host
-- `--broker-port` broker port
-- `--timeout` connection timeout
+- `--broker-timeout` connection timeout
 - `--log-level` log level
 
 ### Commands
@@ -27,6 +25,7 @@ Before running client CLI, ShapleQ broker and zookeeper must be running
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 	- `-n, --topic` topic name
 	- `-m, --topic-meta` topic meta or description
+	- `--broker-address` broker address to connect (ex. 172.32.0.1:1101)
 
 ```shell
 $ shapleq-cli topic create -n [topic-name] -m [topic-description]
@@ -36,6 +35,7 @@ $ shapleq-cli topic create -n [topic-name] -m [topic-description]
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 	- `-n, --topic` topic name `required`
+	- `--broker-address` broker address (ex. 172.32.0.1:1101)
 
 ```shell
 $ shapleq-cli topic delete -n [topic-name]
@@ -44,7 +44,8 @@ $ shapleq-cli topic delete -n [topic-name]
 #### List topic
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
-
+	- `--broker-address` broker address (ex. 172.32.0.1:1101)
+	
 ```shell
 $ shapleq-cli topic list
 ```
@@ -53,6 +54,7 @@ $ shapleq-cli topic list
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 	- `-n, --topic` topic name `required`
+	- `--broker-address` broker address (ex. 172.32.0.1:1101)
 
 ```shell
 $ shapleq-cli topic describe -z [zk-host] -n [topic-name]
@@ -64,9 +66,11 @@ $ shapleq-cli topic describe -z [zk-host] -n [topic-name]
 	- `-i, --config-path` config path (default: ~/.shapleq/config/producer/config.yml)
 	- `-n, --topic` topic name `required`
 	- `-f, --file-path` file path to publish (read from file and publish data line by)
+	- `--bootstrap-servers` bootstrap server addresses (ex. localhost:2181,localhost:2182)
+	- `--bootstrap-timeout` timeout for bootstrapping
 
 ```shell
-$ shapleq-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-host 172.32.0.1
+$ shapleq-cli publish [byte-string-data-to-publish] -n [topic-name] --bootstrap-servers 172.32.0.1:2181
 ```
 
 #### Subscribe topic data
@@ -75,9 +79,11 @@ $ shapleq-cli publish [byte-string-data-to-publish] -n [topic-name] --broker-hos
 	- `-i, --config-path` config path (default: ~/.shapleq/config/consumer/config.yml)
 	- `-n, --topic` topic name `required`
 	- `-o, --offset` start offset (default 0)
+	- `--bootstrap-servers` bootstrap server addresses (ex. localhost:2181,localhost:2182)
+	- `--bootstrap-timeout` timeout for bootstrapping
 	
 ```shell
-$ shapleq-cli subscribe -n [topic-name] --broker-host 172.32.0.1
+$ shapleq-cli subscribe -n [topic-name] --bootstrap-servers 172.32.0.1:2181
 ```
 
 Subscribe command will not stop until broker receives `sigint` or `sigterm`
@@ -140,7 +146,7 @@ if err := producerClient.Close(); err != nil {
 	fmt.Println(err)
 }
 			
-fmt.Println(“publish finished”)
+fmt.Println("publish finished")
 ```
 
 ### Consumer

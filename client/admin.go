@@ -9,7 +9,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"net"
 	"sync"
 )

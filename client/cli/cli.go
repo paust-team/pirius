@@ -8,6 +8,15 @@ import (
 
 var configPath string
 
+var (
+	topicName        string
+	topicMeta        string
+	bootstrapServers string
+	bootstrapTimeout uint
+	logLevel         uint8
+	timeout          int
+)
+
 var shapleQClientCmd = &cobra.Command{
 	Use:   "shapleq-client [command] (flags)",
 	Short: "Command line interface for PaustQ client",

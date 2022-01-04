@@ -44,14 +44,14 @@ func NewHeartbeatCmd() *cobra.Command {
 	heartbeatCmd.Flags().StringVarP(&echoMsg, "echo-msg", "m", "echotest", "message to ping-pong")
 	heartbeatCmd.Flags().Uint64VarP(&brokerId, "broker-id", "u", 0, "broker id to send ping")
 	heartbeatCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
-	heartbeatCmd.Flags().StringVar(&brokerHost, "broker-host", "", "broker host")
-	heartbeatCmd.Flags().UintVar(&brokerPort, "broker-port", 0, "broker port")
+	heartbeatCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
+	heartbeatCmd.Flags().UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
+	heartbeatCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
 	heartbeatCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
-	heartbeatCmd.Flags().IntVar(&timeout, "timeout", 0, "connection timeout (seconds)")
 
 	adminConfig.BindPFlags(heartbeatCmd.Flags())
-	adminConfig.BindPFlag("broker.host", heartbeatCmd.Flags().Lookup("broker-host"))
-	adminConfig.BindPFlag("broker.port", heartbeatCmd.Flags().Lookup("broker-port"))
+	adminConfig.BindPFlag("bootstrap.servers", heartbeatCmd.Flags().Lookup("bootstrap-servers"))
+	adminConfig.BindPFlag("bootstrap.timeout", heartbeatCmd.Flags().Lookup("bootstrap-timeout"))
 
 	return heartbeatCmd
 }

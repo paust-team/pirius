@@ -18,7 +18,7 @@ RUN addgroup --gid "$GID" "$USER" \
     --uid "$UID" \
     "$USER"
 
-ENV SHPALEQ_DIR=$GOPATH/src/github.com/paust-team/shapleq
+ENV SHPALEQ_DIR=/shapleq
 WORKDIR ${SHPALEQ_DIR}
 RUN uname -a
 
@@ -30,7 +30,7 @@ RUN apk add --no-cache libstdc++ snappy
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
-COPY --from=builder /go/src/github.com/paust-team/shapleq/thirdparty/rocksdb/build/librocksdb.* /usr/local/lib/
+COPY --from=builder /go/src/github.com/paust-team/shapleq/_thirdparty/rocksdb/build/librocksdb.* /usr/local/lib/
 COPY --from=builder /go/src/github.com/paust-team/shapleq/broker/cmd/shapleq/shapleq /go/bin/shapleq
 COPY --from=builder /go/src/github.com/paust-team/shapleq/start-shapleq.sh /go/bin/start-shapleq.sh
 

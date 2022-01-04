@@ -54,7 +54,7 @@ else
 endif
 
 $(PROTOC_GEN_GO):
-	go get -u github.com/golang/protobuf/protoc-gen-go
+	go install github.com/golang/protobuf/protoc-gen-go
 
 PROTOFILE_DIR := $(abspath proto)
 
@@ -104,10 +104,11 @@ build:
 	if [ -d $(GIT_DIR) ]; then \
 		git submodule update --init --recursive; \
 	fi
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 	make build-protobuf
 	make compile-protobuf
 	make build-rocksdb
-	go mod tidy
+	rm -rf thirdparty/protobuf/examples && go mod tidy
 	make build-broker
 	make build-client
 	make install-config

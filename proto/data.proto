@@ -1,5 +1,6 @@
 syntax = "proto3";
 package shapleq.proto;
+option go_package = "./pb";
 
 enum SessionType {
     ADMIN = 0;

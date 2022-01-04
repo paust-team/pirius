@@ -18,8 +18,7 @@ Consumers receive data streams from brokers. Since brokers send data to consumer
 1. Install [docker](https://docs.docker.com/get-docker/) and [docker compose](https://docs.docker.com/compose/install/) 
 2. Download the source and build docker image as name shapleq (gonna be changed to get image from docker hub)
 ```
-$ go get github.com/paust-team/ShapleQ
-$ cd $GOPATH/github.com/paust-team/ShapleQ
+$ git clone https://github.com/paust-team/ShapleQ && cd ShapleQ
 $ docker build -t shapleq .
 ```
 3. Run docker compose. Docker-compose examples are in the `examples/docker` directory.
@@ -30,7 +29,7 @@ $ docker-compose -f {file name} up
 ### Build & Install From Source
 1. Install the following prerequisites.
 * [git](https://git-scm.com)
-* [golang](https://golang.org/dl/) v1.13 or later
+* [golang](https://golang.org/dl/) v1.16 or later
 * [zookeeper](https://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html#sc_Download)
 * [dep](https://golang.github.io/dep/)
   ```
@@ -40,19 +39,21 @@ $ docker-compose -f {file name} up
 
   **Debian**
   ```
-  $ apt-get update && apt-get install libtool autoconf coreutils cmake
+  $ apt-get update && apt-get install g++ libtool autoconf coreutils cmake libsnappy-dev
   ```
   **MacOS**
     ```
   $ brew install libtool autoconf coreutils cmake
+  $ xcode-select --install // if command line tools are not installed,
   ```
+
 2. Download the ShapleQ source.
 ```
-$ go get github.com/paust-team/ShapleQ
+$ git clone https://github.com/paust-team/ShapleQ
 ```
 3. Run `make build`
 ```
-$ cd $GOPATH/github.com/paust-team/ShapleQ
+$ cd ShapleQ
 $ make build
 ```
 4. Run `make install` and execute ShapleQ CLI 
@@ -85,10 +86,10 @@ port: 1101  # broker port
 log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory
 log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+timeout: 3000 # socket timeout
 zookeeper:
-  port: 2181
-  host: localhost
-  timeout: 3 # zookeeper connection timeout(seconds)
+  quorum: localhost:2181
+  timeout: 3000 # zookeeper connection timeout(milliseconds)
 ```
 
 Default template for configuring the broker is located at `broker/config/config.yml`. And every config files will be installed in `${HOME}/.shapleq/config` via `make install-config` command. 
@@ -105,9 +106,10 @@ $ zkServer start
 - **Flags** (***Flags will override the configurations in the config file***)
 	- `-i, --config-path` config path (default: ~/.shapleq/config/broker/config.yml)
 	- `-d, --daemon` run with background
+	- `-c, --clear` clear data directory after broker stopped (for testing)
 	- `--port` port
-	- `--zk-host` zookeeper host
-	- `--zk-port` zookeeper port
+	- `--zk-quorum` zookeeper quorum
+	- `--zk-timeout` zookeeper timeout
 	- `-—log-level` log level : 0-debug, 1-info, 2-warning, 3-error
 	- `—-log-dir` directory for saving log file
 	- `—-data-dir` directory for saving data file

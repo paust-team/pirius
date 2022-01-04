@@ -2,7 +2,7 @@ package message
 
 import (
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto"
+	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 )
 
 const MAGIC_NUM int32 = 1101
