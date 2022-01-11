@@ -3,7 +3,7 @@ package storage
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/tecbot/gorocksdb"
+	"github.com/linxGnu/grocksdb"
 	"path/filepath"
 	"unsafe"
 )
@@ -19,10 +19,10 @@ const (
 // QRocksDB is helper for gorocksdb
 type QRocksDB struct {
 	dbPath              string
-	db                  *gorocksdb.DB
-	ro                  *gorocksdb.ReadOptions
-	wo                  *gorocksdb.WriteOptions
-	columnFamilyHandles gorocksdb.ColumnFamilyHandles
+	db                  *grocksdb.DB
+	ro                  *grocksdb.ReadOptions
+	wo                  *grocksdb.WriteOptions
+	columnFamilyHandles grocksdb.ColumnFamilyHandles
 }
 
 func NewQRocksDB(name, dir string) (*QRocksDB, error) {
@@ -30,30 +30,30 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	dbPath := filepath.Join(dir, name+".dbstorage")
 	columnFamilyNames := []string{"default", "topic", "record"}
 
-	bbto := gorocksdb.NewDefaultBlockBasedTableOptions()
-	bbto.SetBlockCache(gorocksdb.NewLRUCache(1 << 30))
-	defaultOpts := gorocksdb.NewDefaultOptions()
+	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
+	bbto.SetBlockCache(grocksdb.NewLRUCache(1 << 30))
+	defaultOpts := grocksdb.NewDefaultOptions()
 	defaultOpts.SetBlockBasedTableFactory(bbto)
 	defaultOpts.SetCreateIfMissing(true)
 	defaultOpts.SetCreateIfMissingColumnFamilies(true)
-	defaultOpts.SetCompression(gorocksdb.SnappyCompression)
-	opts := gorocksdb.NewDefaultOptions()
-	db, columnFamilyHandles, err := gorocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*gorocksdb.Options{opts, opts, opts})
+	defaultOpts.SetCompression(grocksdb.SnappyCompression)
+	opts := grocksdb.NewDefaultOptions()
+	db, columnFamilyHandles, err := grocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*grocksdb.Options{opts, opts, opts})
 	if err != nil {
 		return nil, err
 	}
 
-	ro := gorocksdb.NewDefaultReadOptions()
+	ro := grocksdb.NewDefaultReadOptions()
 	ro.SetTailing(true)
-	wo := gorocksdb.NewDefaultWriteOptions()
+	wo := grocksdb.NewDefaultWriteOptions()
 	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
 func (db QRocksDB) Flush() error {
-	return db.db.Flush(&gorocksdb.FlushOptions{})
+	return db.db.Flush(&grocksdb.FlushOptions{})
 }
 
-func (db QRocksDB) GetRecord(topic string, offset uint64) (*gorocksdb.Slice, error) {
+func (db QRocksDB) GetRecord(topic string, offset uint64) (*grocksdb.Slice, error) {
 	key := NewRecordKeyFromData(topic, offset)
 	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
@@ -80,19 +80,19 @@ func (db *QRocksDB) Close() {
 }
 
 func (db *QRocksDB) Destroy() error {
-	return gorocksdb.DestroyDb(db.dbPath, gorocksdb.NewDefaultOptions())
+	return grocksdb.DestroyDb(db.dbPath, grocksdb.NewDefaultOptions())
 }
 
-func (db QRocksDB) ColumnFamilyHandles() gorocksdb.ColumnFamilyHandles {
+func (db QRocksDB) ColumnFamilyHandles() grocksdb.ColumnFamilyHandles {
 	return db.columnFamilyHandles
 }
 
-func (db QRocksDB) Scan(cfIndex CFIndex) *gorocksdb.Iterator {
+func (db QRocksDB) Scan(cfIndex CFIndex) *grocksdb.Iterator {
 	return db.db.NewIteratorCF(db.ro, db.ColumnFamilyHandles()[cfIndex])
 }
 
 type RecordKey struct {
-	*gorocksdb.Slice
+	*grocksdb.Slice
 	data    []byte
 	isSlice bool
 }
@@ -104,7 +104,7 @@ func NewRecordKeyFromData(topic string, offset uint64) *RecordKey {
 	return &RecordKey{data: data, isSlice: false}
 }
 
-func NewRecordKey(slice *gorocksdb.Slice) *RecordKey {
+func NewRecordKey(slice *grocksdb.Slice) *RecordKey {
 	return &RecordKey{Slice: slice, isSlice: true}
 }
 
@@ -135,7 +135,7 @@ func (k RecordKey) Offset() uint64 {
 }
 
 type RecordValue struct {
-	*gorocksdb.Slice
+	*grocksdb.Slice
 	data    []byte
 	isSlice bool
 }
@@ -149,7 +149,7 @@ func NewRecordValueFromData(nodeId string, seqNum uint64, publishedData []byte) 
 	return &RecordValue{data: data, isSlice: false}
 }
 
-func NewRecordValue(slice *gorocksdb.Slice) *RecordValue {
+func NewRecordValue(slice *grocksdb.Slice) *RecordValue {
 	return &RecordValue{Slice: slice, isSlice: true}
 }
 
