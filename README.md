@@ -43,7 +43,7 @@ $ docker-compose -f {file name} up
   ```
   **MacOS**
     ```
-  $ brew install libtool autoconf coreutils cmake
+  $ brew install libtool autoconf coreutils cmake automake snappy zstd
   $ xcode-select --install // if command line tools are not installed,
   ```
 
