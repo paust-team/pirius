@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -27,4 +28,12 @@ const (
 func GenerateNodeId() string {
 	id, _ := uuid.NewUUID()
 	return strings.Replace(id.String(), "-", "", -1)
+}
+
+func ReplaceTildeToHomePath(dir string) string {
+	if strings.HasPrefix(dir, "~/") {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, dir[2:])
+	}
+	return dir
 }
