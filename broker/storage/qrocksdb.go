@@ -27,7 +27,7 @@ type QRocksDB struct {
 
 func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 
-	dbPath := filepath.Join(dir, name+".dbstorage")
+	dbPath := filepath.Join(dir, name)
 	columnFamilyNames := []string{"default", "topic", "record"}
 
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
