@@ -16,5 +16,4 @@ vendor/
 
 .idea/
 
-*.pb.go
-*.dbstorage
+/.shapleq
