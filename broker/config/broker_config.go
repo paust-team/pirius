@@ -83,7 +83,7 @@ func (b *BrokerConfig) SetPort(port uint) {
 }
 
 func (b BrokerConfig) LogDir() string {
-	return b.GetString("log-dir")
+	return common.ReplaceTildeToHomePath(b.GetString("log-dir"))
 }
 
 func (b *BrokerConfig) SetLogDir(logDir string) {
@@ -91,7 +91,7 @@ func (b *BrokerConfig) SetLogDir(logDir string) {
 }
 
 func (b BrokerConfig) DataDir() string {
-	return b.GetString("data-dir")
+	return common.ReplaceTildeToHomePath(b.GetString("data-dir"))
 }
 
 func (b *BrokerConfig) SetDataDir(dataDir string) {
