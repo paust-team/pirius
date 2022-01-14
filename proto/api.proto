@@ -84,16 +84,15 @@ message DeleteTopicResponse {
     string error_message = 3;
 }
 
-// partition
-message CreatePartitionRequest {
+// fragment
+message CreateFragmentRequest {
     int32 magic = 1;
     string topic_name = 2;
-    uint32 count = 3;
 }
 
-message CreatePartitionResponse {
+message CreateFragmentResponse {
     int32 magic = 1;
-    Partition partition = 2;
+    Fragment fragment = 2;
     int32 error_code = 3;
     string error_message = 4;
 }
@@ -187,11 +186,12 @@ message PutRequest {
     bytes data = 2;
     uint64 seq_num = 3;
     string node_id = 4;
+    uint32 fragment_id = 5;
 }
 
 message PutResponse {
     int32 magic = 1;
-    Partition partition = 2;
+    Fragment fragment = 2;
 }
 
 message FetchRequest {
