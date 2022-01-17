@@ -61,14 +61,12 @@ func TestZKClient_AddBroker(t *testing.T) {
 func TestZKClient_AddTopic(t *testing.T) {
 	expectedTopic := "topic1"
 	expectedTopicDescription := "topicMeta1"
-	var expectedNumPartitions uint32 = 1
+	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 1
-	var expectedLastOffset uint64 = 1
 	var expectedNumPublishers uint64 = 1
-	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewTopicMetaFromValues(expectedTopicDescription, expectedNumPartitions, expectedReplicationFactor,
-		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	topicValue := common.NewTopicDataFromValues(expectedTopicDescription, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
 
 	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
@@ -95,39 +93,37 @@ func TestZKClient_AddTopic(t *testing.T) {
 		t.Fatal("topic description not matched ", expectedTopicDescription, targetTopicValue.Description())
 	}
 
-	if targetTopicValue.NumPartitions() != expectedNumPartitions {
-		t.Fatal("num partition not matched ", expectedNumPartitions, targetTopicValue.NumPartitions())
+	if targetTopicValue.NumFragments() != expectedNumFragments {
+		t.Fatal("num partition not matched ", expectedNumFragments, targetTopicValue.NumFragments())
 	}
 
 	if targetTopicValue.ReplicationFactor() != expectedReplicationFactor {
 		t.Fatal("replication factor not matched ", expectedReplicationFactor, targetTopicValue.ReplicationFactor())
 	}
 
-	if targetTopicValue.LastOffset() != expectedLastOffset {
-		t.Fatal("last offset not matched ", expectedLastOffset, targetTopicValue.LastOffset())
-	}
-
 	if targetTopicValue.NumPublishers() != expectedNumPublishers {
 		t.Fatal("num publisher not matched ", expectedNumPublishers, targetTopicValue.NumPublishers())
 	}
-
-	if targetTopicValue.NumSubscribers() != expectedNumSubscribers {
-		t.Fatal("num subscriber not matched ", expectedNumSubscribers, targetTopicValue.NumSubscribers())
-	}
 }
 
-func TestZKClient_AddTopicBroker(t *testing.T) {
+func TestZKClient_AddTopicFragmentBroker(t *testing.T) {
 	expectedTopic := "topic3"
 	expectedTopicMeta := "topicMeta1"
-	var expectedNumPartitions uint32 = 1
+	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 1
-	var expectedLastOffset uint64 = 1
 	var expectedNumPublishers uint64 = 1
+	var expectedFragmentId uint32 = 1
+	var expectedLastOffset uint64 = 1
 	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
-		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
 	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
+		t.Fatal(err)
+	}
+
+	topicFragmentValue := common.NewFragmentDataFromValues(expectedLastOffset, expectedNumSubscribers)
+	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,12 +144,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
-	err = zkqClient.AddTopicBroker(expectedTopic, brokerAddr)
+	err = zkqClient.AddTopicFragmentBroker(expectedTopic, expectedFragmentId, brokerAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkqClient.GetTopicBrokers(expectedTopic)
+	brokers, err := zkqClient.GetTopicFragmentBrokers(expectedTopic, expectedFragmentId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,14 +162,12 @@ func TestZKClient_AddTopicBroker(t *testing.T) {
 func TestZKClient_RemoveTopic(t *testing.T) {
 	topic := "topic5"
 	expectedTopicMeta := "topicMeta1"
-	var expectedNumPartitions uint32 = 1
+	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 1
-	var expectedLastOffset uint64 = 1
 	var expectedNumPublishers uint64 = 1
-	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
-		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments, expectedReplicationFactor,
+		expectedNumPublishers)
 	if err := zkqClient.AddTopic(topic, topicValue); err != nil {
 		t.Fatal(err)
 	}
@@ -215,17 +209,16 @@ func TestZKClient_RemoveBroker(t *testing.T) {
 	}
 }
 
-func TestZKClient_RemoveTopicBroker(t *testing.T) {
+func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 	topic := "topic4"
 	expectedTopicMeta := "topicMeta1"
-	var expectedNumPartitions uint32 = 1
+	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 1
-	var expectedLastOffset uint64 = 1
 	var expectedNumPublishers uint64 = 1
-	var expectedNumSubscribers uint64 = 1
+	var expectedFragmentId uint32 = 1
 
-	topicValue := common.NewTopicMetaFromValues(expectedTopicMeta, expectedNumPartitions, expectedReplicationFactor,
-		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
 	err := zkqClient.AddTopic(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
@@ -246,19 +239,23 @@ func TestZKClient_RemoveTopicBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
+	topicFragmentValue := common.NewFragmentDataFromValues(0, 1)
+	if err := zkqClient.AddTopicFragment(topic, expectedFragmentId, topicFragmentValue); err != nil {
+		t.Fatal(err)
+	}
 
-	if err := zkqClient.AddTopicBroker(topic, brokerAddr); err != nil {
+	if err := zkqClient.AddTopicFragmentBroker(topic, expectedFragmentId, brokerAddr); err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if !errors.As(err, &e) {
 			t.Fatal(err)
 		}
 	}
 
-	if err := zkqClient.RemoveTopicBroker(topic, brokerAddr); err != nil {
+	if err := zkqClient.RemoveTopicFragmentBroker(topic, expectedFragmentId, brokerAddr); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkqClient.GetTopicBrokers(topic)
+	brokers, err := zkqClient.GetTopicFragmentBrokers(topic, expectedFragmentId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,11 +272,16 @@ func TestZKQClient_IncreaseLastOffset(t *testing.T) {
 	expectedTopicDescription := "topicMeta6"
 	var initialLastOffset uint64 = 1
 	var expectedLastOffset uint64 = 2
+	var expectedFragmentId uint32 = 1
 
-	topicValue := common.NewTopicMetaFromValues(expectedTopicDescription, 1, 1,
-		initialLastOffset, 1, 1)
+	topicValue := common.NewTopicDataFromValues(expectedTopicDescription, 1, 1, 1)
 
 	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
+		t.Fatal(err)
+	}
+
+	topicFragmentValue := common.NewFragmentDataFromValues(initialLastOffset, 1)
+	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -291,18 +293,18 @@ func TestZKQClient_IncreaseLastOffset(t *testing.T) {
 		t.Fatal("no topics")
 	}
 
-	offset, err := zkqClient.IncreaseLastOffset(expectedTopic)
+	offset, err := zkqClient.IncreaseLastOffset(expectedTopic, expectedFragmentId)
 	if expectedLastOffset != offset {
 		t.Errorf("Expected offset is %d, but got %d from memory", expectedLastOffset, offset)
 	}
 
 	time.Sleep(time.Duration(3) * time.Second) // sleep 3 seconds to wait until last offset to be flushed to zk
-	targetTopicValue, err := zkqClient.GetTopicData(expectedTopic)
+	targetTopicFragmentValue, err := zkqClient.GetTopicFragmentData(expectedTopic, expectedFragmentId)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if expectedLastOffset != targetTopicValue.LastOffset() {
-		t.Errorf("Expected offset is %d, but got %d from zk", expectedLastOffset, targetTopicValue.LastOffset())
+	if expectedLastOffset != targetTopicFragmentValue.LastOffset() {
+		t.Errorf("Expected offset is %d, but got %d from zk", expectedLastOffset, targetTopicFragmentValue.LastOffset())
 	}
 }

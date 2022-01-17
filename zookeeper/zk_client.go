@@ -13,7 +13,7 @@ import (
 type ZKQClient struct {
 	*bootstrappingHelper
 	*topicManagingHelper
-	zkAddrs 	[]string
+	zkAddrs       []string
 	timeout       uint
 	flushInterval uint
 	logger        *logger.QLogger
@@ -45,7 +45,7 @@ func (z *ZKQClient) Connect() error {
 
 	z.client = client
 	z.bootstrappingHelper = &bootstrappingHelper{client: z.client, logger: z.logger}
-	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, topicOffsetMap: sync.Map{}}
+	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, fragmentOffsetMap: sync.Map{}}
 	if z.flushInterval > 0 {
 		z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
 	}
@@ -134,11 +134,11 @@ func (z zkClientWrapper) Create(lockPath string, path string, value []byte) erro
 	_, err = z.conn.Create(path, value, 0, zk.WorldACL(zk.PermAll))
 	if err != nil {
 		if err == zk.ErrNodeExists {
-			z.logger.Info(pqerror.ZKTargetAlreadyExistsError{Target: path})
+			z.logger.Error(pqerror.ZKTargetAlreadyExistsError{Target: path})
 		} else {
 			z.logger.Error(pqerror.ZKRequestError{ZKErrStr: err.Error()})
-			return err
 		}
+		return err
 	}
 
 	return nil
@@ -289,6 +289,14 @@ func GetTopicPath(topic string) string {
 	return fmt.Sprintf("%s/%s", constants.TopicsPath, topic)
 }
 
-func GetTopicBrokerPath(topic string) string {
-	return fmt.Sprintf("%s/%s/brokers", constants.TopicsPath, topic)
+func GetTopicFragmentPath(topic string, fragmentId uint32) string {
+	return fmt.Sprintf("%s/%s/fragments/%d", constants.TopicsPath, topic, fragmentId)
+}
+
+func GetTopicFragmentBasePath(topic string) string {
+	return fmt.Sprintf("%s/%s/fragments", constants.TopicsPath, topic)
+}
+
+func GetTopicFragmentBrokerBasePath(topic string, fragmentId uint32) string {
+	return fmt.Sprintf("%s/%s/fragments/%d/brokers", constants.TopicsPath, topic, fragmentId)
 }

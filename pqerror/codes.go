@@ -39,20 +39,21 @@ const (
 	ErrConfigValueNotSet = 0x0500
 
 	// 10 - broker internal error
-	ErrInternal               = 0x1000
-	ErrSocketClosed           = 0x1001
-	ErrSocketRead             = 0x1002
-	ErrSocketWrite            = 0x1003
-	ErrWriteTimeOut           = 0x1004
-	ErrReadTimeOut            = 0x1005
-	ErrNotEnoughBuffer        = 0x1006
-	ErrInvalidChecksum        = 0x1007
-	ErrTopicNotExists         = 0x1008
-	ErrStateTransition        = 0x1009
-	ErrInvalidCaseFnCount     = 0x1010
-	ErrPipeBuildFail          = 0x1011
-	ErrInvalidPipeType        = 0x1012
-	ErrInvalidMsgTypeToUnpack = 0x1013
-	ErrTopicBrokerNotExists   = 0x1014
-	ErrBrokerNotExists        = 0x1015
+	ErrInternal                     = 0x1000
+	ErrSocketClosed                 = 0x1001
+	ErrSocketRead                   = 0x1002
+	ErrSocketWrite                  = 0x1003
+	ErrWriteTimeOut                 = 0x1004
+	ErrReadTimeOut                  = 0x1005
+	ErrNotEnoughBuffer              = 0x1006
+	ErrInvalidChecksum              = 0x1007
+	ErrTopicNotExists               = 0x1008
+	ErrStateTransition              = 0x1009
+	ErrInvalidCaseFnCount           = 0x1010
+	ErrPipeBuildFail                = 0x1011
+	ErrInvalidPipeType              = 0x1012
+	ErrInvalidMsgTypeToUnpack       = 0x1013
+	ErrTopicFragmentBrokerNotExists = 0x1014
+	ErrBrokerNotExists              = 0x1015
+	ErrTopicFragmentNotExists       = 0x1016
 )
