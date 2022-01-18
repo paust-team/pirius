@@ -56,4 +56,5 @@ const (
 	ErrTopicFragmentBrokerNotExists = 0x1014
 	ErrBrokerNotExists              = 0x1015
 	ErrTopicFragmentNotExists       = 0x1016
+	ErrTopicFragmentOutOfCapacity   = 0x1017
 )

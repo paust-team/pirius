@@ -236,9 +236,7 @@ func init() {
 	proto.RegisterType((*Topic)(nil), "shapleq.proto.Topic")
 }
 
-func init() {
-	proto.RegisterFile("data.proto", fileDescriptor_871986018790d2fd)
-}
+func init() { proto.RegisterFile("data.proto", fileDescriptor_871986018790d2fd) }
 
 var fileDescriptor_871986018790d2fd = []byte{
 	// 356 bytes of a gzipped FileDescriptorProto

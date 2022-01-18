@@ -321,8 +321,8 @@ func (t *topicManagingHelper) GetTopicFragments(topicName string) ([]string, err
 
 func (t *topicManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FragmentData) error {
 	if err := t.client.Create(constants.TopicsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
-		if err == zk.ErrNodeExists { // ignore creating duplicated topic path
-			return nil
+		if err == zk.ErrNodeExists {
+			return &pqerror.ZKTargetAlreadyExistsError{Target: fmt.Sprintf("%s/%d", topicName, fragmentId)}
 		}
 		return err
 	}

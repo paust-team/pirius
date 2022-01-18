@@ -2,6 +2,7 @@ package pqerror
 
 import (
 	"fmt"
+	"github.com/paust-team/shapleq/common"
 )
 
 // pipeline
@@ -251,6 +252,18 @@ func (e TopicFragmentNotExistsError) Error() string {
 
 func (e TopicFragmentNotExistsError) Code() PQCode {
 	return ErrTopicFragmentNotExists
+}
+
+type TopicFragmentOutOfCapacityError struct {
+	Topic string
+}
+
+func (e TopicFragmentOutOfCapacityError) Error() string {
+	return fmt.Sprintf(" out of capacity(%d) to create fragment for topic(%s)", common.MaxFragmentCount, e.Topic)
+}
+
+func (e TopicFragmentOutOfCapacityError) Code() PQCode {
+	return ErrTopicFragmentOutOfCapacity
 }
 
 // serialize / deserialize

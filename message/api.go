@@ -80,6 +80,24 @@ func NewDeleteTopicResponseMsg(err pqerror.PQError) *shapleqproto.DeleteTopicRes
 	return response
 }
 
+func NewCreateTopicFragmentRequestMsg(topicName string) *shapleqproto.CreateFragmentRequest {
+	return &shapleqproto.CreateFragmentRequest{Magic: MAGIC_NUM, TopicName: topicName}
+}
+
+func NewCreateTopicFragmentResponseMsg(fragmentId uint32, err pqerror.PQError) *shapleqproto.CreateFragmentResponse {
+	response := &shapleqproto.CreateFragmentResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	} else {
+		response.Fragment = &shapleqproto.Fragment{
+			Id:         fragmentId,
+			LastOffset: 0,
+		}
+	}
+	return response
+}
+
 func NewPingMsg(msg string, brokerId uint64) *shapleqproto.Ping {
 	return &shapleqproto.Ping{Magic: MAGIC_NUM, Echo: msg, BrokerId: brokerId}
 }
@@ -89,8 +107,8 @@ func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *shapleqpro
 }
 
 // Stream messages
-func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topicName string) *shapleqproto.ConnectRequest {
-	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName}
+func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topicName string, fragmentIds []uint32) *shapleqproto.ConnectRequest {
+	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName, FragmentIds: fragmentIds}
 }
 
 func NewConnectResponseMsg() *shapleqproto.ConnectResponse {

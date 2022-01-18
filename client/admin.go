@@ -108,9 +108,11 @@ func (a *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Mess
 	return nil
 }
 
-func (a *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+// topic RPCs
 
-	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
+func (a *Admin) CreateTopic(topicName string, topicDescription string) error {
+
+	request := message.NewCreateTopicRequestMsg(topicName, topicDescription)
 	response := &shapleqproto.CreateTopicResponse{}
 
 	err := a.callAndUnpackTo(request, response)
@@ -179,6 +181,28 @@ func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 	}
 	return response, nil
 }
+
+// fragment RPCs
+
+func (a *Admin) CreateFragment(topicName string) (*shapleqproto.Fragment, error) {
+
+	request := message.NewCreateTopicFragmentRequestMsg(topicName)
+	response := &shapleqproto.CreateFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return nil, err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return nil, err
+	}
+	return response.Fragment, nil
+}
+
+// connection RPCs
 
 func (a *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {
 

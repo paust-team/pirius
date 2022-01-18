@@ -7,8 +7,8 @@ import (
 
 const MaxFragmentCount = 1 << 8
 
-func GenerateFragmentId() int {
-	return rand.Intn(MaxFragmentCount)
+func GenerateFragmentId() uint32 {
+	return uint32(rand.Intn(MaxFragmentCount)) + 1
 }
 
 type FragmentData struct {
