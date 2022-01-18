@@ -65,6 +65,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			}
 			c.session.SetType(req.SessionType)
 			c.session.SetTopicName(req.TopicName)
+			c.session.SetFragmentIds(req.FragmentIds)
 
 			switch req.SessionType {
 			case shapleq_proto.SessionType_PUBLISHER:
@@ -74,17 +75,22 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 					return
 				}
 				// register topic broker address only if publisher appears
-				err = c.zkqClient.AddTopicBroker(c.session.TopicName(), c.brokerAddr)
-				if err != nil {
-					errCh <- err
-					return
+				for _, id := range c.session.FragmentIds() {
+					err = c.zkqClient.AddTopicFragmentBroker(c.session.TopicName(), id, c.brokerAddr)
+					if err != nil {
+						errCh <- err
+						return
+					}
 				}
 			case shapleq_proto.SessionType_SUBSCRIBER:
-				_, err := c.zkqClient.AddNumSubscriber(c.session.TopicName(), 1)
-				if err != nil {
-					errCh <- err
-					return
+				for _, id := range c.session.FragmentIds() {
+					_, err := c.zkqClient.AddNumSubscriber(c.session.TopicName(), id, 1)
+					if err != nil {
+						errCh <- err
+						return
+					}
 				}
+
 			default:
 			}
 

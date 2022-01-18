@@ -64,6 +64,7 @@ type Session struct {
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
 	topicName     string
+	fragmentIds   []uint32
 	rTimeout      uint
 	wTimeout      uint
 	maxBatchSize  uint32 // for fetch
@@ -111,6 +112,14 @@ func (s *Session) TopicName() string {
 
 func (s *Session) SetTopicName(topicName string) {
 	s.topicName = topicName
+}
+
+func (s *Session) FragmentIds() []uint32 {
+	return s.fragmentIds
+}
+
+func (s *Session) SetFragmentIds(ids []uint32) {
+	s.fragmentIds = ids
 }
 
 func (s *Session) MaxBatchSize() uint32 {

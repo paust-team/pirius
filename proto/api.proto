@@ -162,6 +162,7 @@ message ConnectRequest {
     int32 magic = 1;
     SessionType session_type = 2;
     string topic_name = 3;
+    repeated uint32 fragment_ids = 4;
 }
 
 message ConnectResponse {

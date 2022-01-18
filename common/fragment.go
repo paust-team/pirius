@@ -1,6 +1,15 @@
 package common
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math/rand"
+)
+
+const MaxFragmentCount = 1 << 8
+
+func GenerateFragmentId() int {
+	return rand.Intn(MaxFragmentCount)
+}
 
 type FragmentData struct {
 	data []byte

@@ -203,7 +203,14 @@ func (b *Broker) tearDownZookeeper() {
 	_ = b.zkqClient.RemoveBroker(b.config.Hostname())
 	topics, _ := b.zkqClient.GetTopics()
 	for _, topic := range topics {
-		_ = b.zkqClient.RemoveTopicBroker(topic, b.config.Hostname())
+		fragments, _ := b.zkqClient.GetTopicFragments(topic)
+		for _, fragment := range fragments {
+			fragmentId, err := strconv.ParseUint(fragment, 10, 32)
+			if err != nil {
+				continue
+			}
+			_ = b.zkqClient.RemoveTopicFragmentBroker(topic, uint32(fragmentId), b.config.Hostname())
+		}
 	}
 	b.zkqClient.Close()
 }
@@ -285,7 +292,9 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 					case shapleq_proto.SessionType_PUBLISHER:
 						_, _ = b.zkqClient.AddNumPublishers(sc.session.TopicName(), -1)
 					case shapleq_proto.SessionType_SUBSCRIBER:
-						_, _ = b.zkqClient.AddNumSubscriber(sc.session.TopicName(), -1)
+						for _, id := range sc.session.FragmentIds() {
+							_, _ = b.zkqClient.AddNumSubscriber(sc.session.TopicName(), id, -1)
+						}
 					}
 				}()
 
