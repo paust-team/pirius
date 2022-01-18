@@ -86,12 +86,7 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 							return
 						}
 
-						topicData, err := f.zkqClient.GetTopicData(topicName)
-						if err != nil {
-							errCh <- err
-							return
-						}
-						currentLastOffset := topicData.LastOffset()
+						var currentLastOffset uint64 = 0 // TODO:: get current last offset of fragment
 						it.Seek(prevKey.Data())
 						if !first && it.Valid() {
 							it.Next()

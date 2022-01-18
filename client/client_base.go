@@ -111,7 +111,8 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 		return pqerror.AlreadyConnectedError{Addr: c.connectedAddress}
 	}
 
-	topicBrokerAddrs, err := c.zkClient.GetTopicBrokers(topic)
+	var fragmentId uint32 = 0 // TODO:: get fragment ids and connect to fragments
+	topicBrokerAddrs, err := c.zkClient.GetTopicFragmentBrokers(topic, fragmentId)
 	if err != nil {
 		return pqerror.ZKOperateError{ErrStr: err.Error()}
 	}
@@ -127,10 +128,10 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 				return err
 			}
 		} else {
-			return pqerror.TopicBrokerNotExistsError{}
+			return pqerror.TopicFragmentNotExistsError{}
 		}
 	} else {
-		return pqerror.TopicBrokerNotExistsError{}
+		return pqerror.TopicFragmentNotExistsError{}
 	}
 
 	if err := c.initStream(sessionType, topic); err != nil {

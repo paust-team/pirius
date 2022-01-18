@@ -94,7 +94,7 @@ func TestZKClient_AddTopic(t *testing.T) {
 	}
 
 	if targetTopicValue.NumFragments() != expectedNumFragments {
-		t.Fatal("num partition not matched ", expectedNumFragments, targetTopicValue.NumFragments())
+		t.Fatal("num fragments not matched ", expectedNumFragments, targetTopicValue.NumFragments())
 	}
 
 	if targetTopicValue.ReplicationFactor() != expectedReplicationFactor {

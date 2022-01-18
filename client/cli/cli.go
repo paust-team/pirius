@@ -10,6 +10,7 @@ var configPath string
 
 var (
 	topicName        string
+	fragmentId       uint32
 	topicDescription string
 	bootstrapServers string
 	bootstrapTimeout uint

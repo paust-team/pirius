@@ -109,7 +109,7 @@ type Producer struct {/* private variables */}
 #### Callable Methods
 - `Context() context.Context`
 - `Publish(data []byte)`
-- `AsyncPublish(source <-chan []byte) (<-chan common.Partition, <-chan error, error)`
+- `AsyncPublish(source <-chan []byte) (<-chan *shapleqproto.Fragment, <-chan error, error)`
 - `Connect() error`
 - `Close() error`
 
@@ -134,11 +134,11 @@ if err := producer.Connect(); err != nil {
 
 testRecords := [][]byte{"1", "2", "3", "4", "5"}
 for _, record := range testRecords {
-	partition, err := producer.Publish(record)
+	fragment, err := producer.Publish(record)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
+	fmt.Printf("publish succeed, fragment id : %d, offset : %d\n", fragment.Id, fragment.LastOffset)
 }
 
 // Close Producer client
