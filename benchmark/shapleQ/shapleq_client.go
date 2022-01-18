@@ -2,6 +2,7 @@ package shapleQ
 
 import (
 	"encoding/csv"
+	"fmt"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/client/config"
 	logger "github.com/paust-team/shapleq/log"
@@ -20,9 +21,8 @@ type BenchShapleQClient struct {
 func NewBenchShapleQClient(brokerHost string, brokerPort uint, timeout time.Duration) *BenchShapleQClient {
 	clientConfig := config.NewClientConfigBase()
 	clientConfig.SetLogLevel(logger.Error)
-	clientConfig.SetBrokerHost(brokerHost)
-	clientConfig.SetBrokerPort(brokerPort)
-	clientConfig.SetTimeout(int(timeout.Milliseconds()))
+	clientConfig.SetServerAddresses([]string{fmt.Sprintf("%s:%d", brokerHost, brokerPort)})
+	clientConfig.SetBrokerTimeout(int(timeout.Milliseconds()))
 
 	return &BenchShapleQClient{
 		config: clientConfig,
@@ -43,7 +43,7 @@ func (s *BenchShapleQClient) CreateTopic(topic string) {
 	}
 	defer s.admin.Close()
 
-	if err := s.admin.CreateTopic(topic, "", 1, 1); err != nil {
+	if err := s.admin.CreateTopic(topic, ""); err != nil {
 		panic(err)
 	}
 }

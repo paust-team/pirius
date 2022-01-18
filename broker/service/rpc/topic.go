@@ -27,8 +27,8 @@ func NewTopicRPCService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *t
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
-	topicValue := common.NewTopicDataFromValues(request.Topic.Description, request.Topic.NumFragments, request.Topic.ReplicationFactor, 0)
-	err := s.zkqClient.AddTopic(request.Topic.Name, topicValue)
+	topicValue := common.NewTopicDataFromValues(request.TopicDescription, 0, 0, 0)
+	err := s.zkqClient.AddTopic(request.TopicName, topicValue)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}

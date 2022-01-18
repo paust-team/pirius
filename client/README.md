@@ -24,7 +24,7 @@ Before running client CLI, ShapleQ broker and zookeeper must be running
 - **Flags**
 	- `-i, --config-path` config path (default: ~/.shapleq/config/admin/config.yml)
 	- `-n, --topic` topic name
-	- `-m, --topic-meta` topic meta or description
+	- `-m, --description` description message
 	- `--broker-address` broker address to connect (ex. 172.32.0.1:1101)
 
 ```shell
