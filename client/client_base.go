@@ -111,8 +111,8 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 		return pqerror.AlreadyConnectedError{Addr: c.connectedAddress}
 	}
 
-	var fragmentId uint32 = 0 // TODO:: get fragment ids and connect to fragments
-	topicBrokerAddrs, err := c.zkClient.GetTopicFragmentBrokers(topic, fragmentId)
+	var fragmentIds []uint32 // TODO:: get fragment ids and connect to fragments
+	topicBrokerAddrs, err := c.zkClient.GetTopicFragmentBrokers(topic, 0)
 	if err != nil {
 		return pqerror.ZKOperateError{ErrStr: err.Error()}
 	}
@@ -134,14 +134,14 @@ func (c *ClientBase) connect(sessionType shapleqproto.SessionType, topic string)
 		return pqerror.TopicFragmentNotExistsError{}
 	}
 
-	if err := c.initStream(sessionType, topic); err != nil {
+	if err := c.initStream(sessionType, topic, fragmentIds); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *ClientBase) initStream(sessionType shapleqproto.SessionType, topic string) error {
-	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectRequestMsg(sessionType, topic))
+func (c *ClientBase) initStream(sessionType shapleqproto.SessionType, topic string, fragmentIds []uint32) error {
+	reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewConnectRequestMsg(sessionType, topic, fragmentIds))
 	if err != nil {
 		return err
 	}

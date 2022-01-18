@@ -50,15 +50,12 @@ func NewDescribeTopicResponseMsg(topicName, description string, numFragment, rep
 	return response
 }
 
-func NewCreateTopicRequestMsg(topicName string, description string, numFragment uint32, replicationFactor uint32) *shapleqproto.CreateTopicRequest {
-	topic := &shapleqproto.Topic{
-		Name:              topicName,
-		Description:       description,
-		NumFragments:      numFragment,
-		ReplicationFactor: replicationFactor,
+func NewCreateTopicRequestMsg(topicName string, description string) *shapleqproto.CreateTopicRequest {
+	return &shapleqproto.CreateTopicRequest{
+		Magic:            MAGIC_NUM,
+		TopicName:        topicName,
+		TopicDescription: description,
 	}
-
-	return &shapleqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
 }
 
 func NewCreateTopicResponseMsg(err pqerror.PQError) *shapleqproto.CreateTopicResponse {
