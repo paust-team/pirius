@@ -30,7 +30,7 @@ func NewDescribeTopicRequestMsg(topicName string) *shapleqproto.DescribeTopicReq
 	return &shapleqproto.DescribeTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDescribeTopicResponseMsg(topicName, description string, numFragment, replicationFactor uint32,
+func NewDescribeTopicResponseMsg(topicName, description string, replicationFactor uint32, fragmentIds []uint32,
 	err pqerror.PQError) *shapleqproto.DescribeTopicResponse {
 
 	response := &shapleqproto.DescribeTopicResponse{Magic: MAGIC_NUM}
@@ -43,8 +43,8 @@ func NewDescribeTopicResponseMsg(topicName, description string, numFragment, rep
 	topic := &shapleqproto.Topic{
 		Name:              topicName,
 		Description:       description,
-		NumFragments:      numFragment,
 		ReplicationFactor: replicationFactor,
+		FragmentIds:       fragmentIds,
 	}
 	response.Topic = topic
 	return response
@@ -107,6 +107,27 @@ func NewDeleteTopicFragmentResponseMsg(err pqerror.PQError) *shapleqproto.Delete
 	if err != nil {
 		response.ErrorCode = int32(err.Code())
 		response.ErrorMessage = err.Error()
+	}
+	return response
+}
+
+func NewDescribeTopicFragmentRequestMsg(topicName string, fragmentId uint32) *shapleqproto.DescribeFragmentRequest {
+	return &shapleqproto.DescribeFragmentRequest{Magic: MAGIC_NUM, TopicName: topicName, FragmentId: fragmentId}
+}
+
+func NewDescribeTopicFragmentResponseMsg(fragmentId uint32, lastOffset uint64, brokerAddresses []string,
+	err pqerror.PQError) *shapleqproto.DescribeFragmentResponse {
+
+	response := &shapleqproto.DescribeFragmentResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	} else {
+		response.Fragment = &shapleqproto.Fragment{
+			Id:              fragmentId,
+			LastOffset:      lastOffset,
+			BrokerAddresses: brokerAddresses,
+		}
 	}
 	return response
 }

@@ -152,58 +152,9 @@ func (b bootstrappingHelper) RemoveTopicFragmentBroker(topicName string, fragmen
 
 // topic related methods
 
-type fragmentOffset struct {
-	id         uint32
-	LastOffset uint64
-	topicName  string
-}
-
-func (t *fragmentOffset) IncreaseLastOffset() uint64 {
-	return atomic.AddUint64(&t.LastOffset, 1)
-}
-
 type topicManagingHelper struct {
-	client            *zkClientWrapper
-	logger            *logger.QLogger
-	fragmentOffsetMap sync.Map
-	offsetFlusher     chan fragmentOffset
-}
-
-func (t *topicManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
-	go func() {
-		t.offsetFlusher = make(chan fragmentOffset, 100)
-		defer func() {
-			close(t.offsetFlusher)
-			t.offsetFlusher = nil
-		}()
-
-		offsetMap := make(map[string]map[uint32]uint64)
-
-		for {
-			select {
-			case fragment := <-t.offsetFlusher:
-				if offsetMap[fragment.topicName] == nil {
-					offsetMap[fragment.topicName] = make(map[uint32]uint64)
-				}
-				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset
-			case <-time.After(time.Millisecond * time.Duration(interval)):
-				if t.client.IsClosed() {
-					return
-				}
-
-				for topicName, fragments := range offsetMap {
-					for fragmentId, offset := range fragments {
-						_ = t.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
-							fragmentData := common.NewFragmentData(value)
-							fragmentData.SetLastOffset(offset)
-							return fragmentData.Data()
-						})
-					}
-				}
-				offsetMap = make(map[string]map[uint32]uint64)
-			}
-		}
-	}()
+	client *zkClientWrapper
+	logger *logger.QLogger
 }
 
 func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.TopicData) error {
@@ -285,6 +236,16 @@ func (t *topicManagingHelper) RemoveTopic(topicName string) error {
 	return nil
 }
 
+func (t *topicManagingHelper) GetTopicFragments(topicName string) ([]string, error) {
+	if fragments, err := t.client.Children(constants.TopicsLockPath, GetTopicFragmentBasePath(topicName)); err != nil {
+		return nil, err
+	} else if len(fragments) > 0 {
+		return fragments, nil
+	} else {
+		return nil, nil
+	}
+}
+
 func (t *topicManagingHelper) RemoveTopicPaths() {
 	if topics, err := t.GetTopics(); err == nil {
 		if topics != nil {
@@ -297,6 +258,7 @@ func (t *topicManagingHelper) RemoveTopicPaths() {
 							if err != nil {
 								continue
 							}
+							deletePaths = append(deletePaths, GetTopicFragmentBrokerBasePath(topic, uint32(fragmentId)))
 							deletePaths = append(deletePaths, GetTopicFragmentPath(topic, uint32(fragmentId)))
 						}
 					}
@@ -304,15 +266,69 @@ func (t *topicManagingHelper) RemoveTopicPaths() {
 
 				deletePaths = append(deletePaths, GetTopicPath(topic))
 			}
-			t.client.DeleteAll(constants.TopicsLockPath, deletePaths)
+			t.client.DeleteAll("", deletePaths)
 		}
 	}
 }
 
 // fragment related methods
 
-func (t *topicManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FragmentData, error) {
-	if result, err := t.client.Get(GetTopicFragmentPath(topicName, fragmentId)); err == nil {
+type fragmentOffset struct {
+	id         uint32
+	LastOffset uint64
+	topicName  string
+}
+
+func (t *fragmentOffset) IncreaseLastOffset() uint64 {
+	return atomic.AddUint64(&t.LastOffset, 1)
+}
+
+type fragmentManagingHelper struct {
+	client            *zkClientWrapper
+	logger            *logger.QLogger
+	fragmentOffsetMap sync.Map
+	offsetFlusher     chan fragmentOffset
+}
+
+func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
+	go func() {
+		f.offsetFlusher = make(chan fragmentOffset, 100)
+		defer func() {
+			close(f.offsetFlusher)
+			f.offsetFlusher = nil
+		}()
+
+		offsetMap := make(map[string]map[uint32]uint64)
+
+		for {
+			select {
+			case fragment := <-f.offsetFlusher:
+				if offsetMap[fragment.topicName] == nil {
+					offsetMap[fragment.topicName] = make(map[uint32]uint64)
+				}
+				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset
+			case <-time.After(time.Millisecond * time.Duration(interval)):
+				if f.client.IsClosed() {
+					return
+				}
+
+				for topicName, fragments := range offsetMap {
+					for fragmentId, offset := range fragments {
+						_ = f.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
+							fragmentData := common.NewFragmentData(value)
+							fragmentData.SetLastOffset(offset)
+							return fragmentData.Data()
+						})
+					}
+				}
+				offsetMap = make(map[string]map[uint32]uint64)
+			}
+		}
+	}()
+}
+
+func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FragmentData, error) {
+	if result, err := f.client.Get(GetTopicFragmentPath(topicName, fragmentId)); err == nil {
 		return common.NewFragmentData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicFragmentNotExistsError{Topic: topicName, FragmentId: fragmentId}
@@ -321,72 +337,62 @@ func (t *topicManagingHelper) GetTopicFragmentData(topicName string, fragmentId 
 	}
 }
 
-func (t *topicManagingHelper) GetTopicFragments(topicName string) ([]string, error) {
-	if fragments, err := t.client.Children(constants.TopicFragmentsLockPath, GetTopicFragmentBasePath(topicName)); err != nil {
-		return nil, err
-	} else if len(fragments) > 0 {
-		return fragments, nil
-	} else {
-		return nil, nil
-	}
-}
-
-func (t *topicManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FragmentData) error {
-	if err := t.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
+func (f *fragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FragmentData) error {
+	if err := f.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
 		if err == zk.ErrNodeExists {
 			return &pqerror.ZKTargetAlreadyExistsError{Target: fmt.Sprintf("%s/%d", topicName, fragmentId)}
 		}
 		return err
 	}
-	if err := t.client.CreatePathIfNotExists(GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
+	if err := f.client.CreatePathIfNotExists(GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *topicManagingHelper) RemoveTopicFragment(topicName string, fragmentId uint32) error {
+func (f *fragmentManagingHelper) RemoveTopicFragment(topicName string, fragmentId uint32) error {
 
-	if err := t.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
+	if err := f.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
-		t.logger.Error(err)
+		f.logger.Error(err)
 		return err
 	}
 
-	if err := t.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId)); err != nil {
+	if err := f.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId)); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
-		t.logger.Error(err)
+		f.logger.Error(err)
 		return err
 	}
 
 	return nil
 }
 
-func (t *topicManagingHelper) IncreaseLastOffset(topicName string, fragmentId uint32) (uint64, error) {
+func (f *fragmentManagingHelper) IncreaseLastOffset(topicName string, fragmentId uint32) (uint64, error) {
 	fragmentOffsetMapKey := fmt.Sprintf("%s-%d", topicName, fragmentId)
-	value, loaded := t.fragmentOffsetMap.LoadOrStore(fragmentOffsetMapKey, &fragmentOffset{fragmentId, 0, topicName})
+	value, loaded := f.fragmentOffsetMap.LoadOrStore(fragmentOffsetMapKey, &fragmentOffset{fragmentId, 0, topicName})
 	fragment, ok := value.(*fragmentOffset)
 	if !ok {
 		fragment = &fragmentOffset{fragmentId, 0, topicName}
 	}
 
 	if !loaded {
-		fragmentData, err := t.GetTopicFragmentData(topicName, fragmentId)
+		fragmentData, err := f.GetTopicFragmentData(topicName, fragmentId)
 		if err != nil {
 			return 0, err
 		}
 		fragment.LastOffset = fragmentData.LastOffset()
 	}
 	offset := fragment.IncreaseLastOffset()
-	if t.offsetFlusher != nil {
-		t.offsetFlusher <- *fragment
+	if f.offsetFlusher != nil {
+		f.offsetFlusher <- *fragment
 	}
 	return offset, nil
 }
 
-func (t *topicManagingHelper) AddNumSubscriber(topicName string, fragmentId uint32, delta int) (uint64, error) {
+func (f *fragmentManagingHelper) AddNumSubscriber(topicName string, fragmentId uint32, delta int) (uint64, error) {
 	var numSubscribers uint64
-	if err := t.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
+	if err := f.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
 		fragmentData := common.NewFragmentData(value)
 		count := int(fragmentData.NumSubscribers()) + delta
 		fragmentData.SetNumSubscribers(uint64(count))

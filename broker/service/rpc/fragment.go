@@ -12,6 +12,7 @@ import (
 type FragmentRPCService interface {
 	CreateFragment(request *shapleqproto.CreateFragmentRequest) *shapleqproto.CreateFragmentResponse
 	DeleteFragment(request *shapleqproto.DeleteFragmentRequest) *shapleqproto.DeleteFragmentResponse
+	DescribeFragment(request *shapleqproto.DescribeFragmentRequest) *shapleqproto.DescribeFragmentResponse
 }
 
 type fragmentRPCService struct {
@@ -58,4 +59,18 @@ func (s *fragmentRPCService) DeleteFragment(request *shapleqproto.DeleteFragment
 	}
 
 	return message.NewDeleteTopicFragmentResponseMsg(nil)
+}
+
+func (s *fragmentRPCService) DescribeFragment(request *shapleqproto.DescribeFragmentRequest) *shapleqproto.DescribeFragmentResponse {
+	fragmentData, err := s.zkqClient.GetTopicFragmentData(request.TopicName, request.FragmentId)
+	if err != nil {
+		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
+	}
+
+	brokerAddresses, err := s.zkqClient.GetTopicFragmentBrokers(request.TopicName, request.FragmentId)
+	if err != nil {
+		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
+	}
+
+	return message.NewDescribeTopicFragmentResponseMsg(request.FragmentId, fragmentData.LastOffset(), brokerAddresses, nil)
 }

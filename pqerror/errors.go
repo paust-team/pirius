@@ -178,7 +178,7 @@ func (e ZKDecodeFailError) IsSessionCloseable() {}
 type ZKNothingToRemoveError struct{}
 
 func (e ZKNothingToRemoveError) Error() string {
-	return "target to remove from zookeeper does not exist"
+	return "no target to remove from zookeeper"
 }
 
 func (e ZKNothingToRemoveError) Code() PQCode {

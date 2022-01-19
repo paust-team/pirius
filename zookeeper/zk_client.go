@@ -13,6 +13,7 @@ import (
 type ZKQClient struct {
 	*bootstrappingHelper
 	*topicManagingHelper
+	*fragmentManagingHelper
 	zkAddrs       []string
 	timeout       uint
 	flushInterval uint
@@ -45,9 +46,10 @@ func (z *ZKQClient) Connect() error {
 
 	z.client = client
 	z.bootstrappingHelper = &bootstrappingHelper{client: z.client, logger: z.logger}
-	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, fragmentOffsetMap: sync.Map{}}
+	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger}
+	z.fragmentManagingHelper = &fragmentManagingHelper{client: z.client, logger: z.logger, fragmentOffsetMap: sync.Map{}}
 	if z.flushInterval > 0 {
-		z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
+		z.fragmentManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
 	}
 
 	return nil
@@ -72,7 +74,7 @@ func (z ZKQClient) CreatePathsIfNotExist() error {
 // for testing
 func (z *ZKQClient) RemoveAllPath() {
 	z.RemoveTopicPaths()
-	deletePaths := []string{constants.TopicsPath, constants.BrokersPath, constants.BrokersLockPath,
+	deletePaths := []string{constants.TopicFragmentsLockPath, constants.TopicsPath, constants.BrokersPath, constants.BrokersLockPath,
 		constants.TopicsLockPath, constants.BrokersLockPath, constants.ShapleQPath}
 
 	z.client.DeleteAll("", deletePaths)
@@ -281,7 +283,7 @@ func (z zkClientWrapper) DeleteAll(lockPath string, paths []string) {
 	}
 
 	for _, path := range paths {
-		z.conn.Delete(path, -1)
+		_ = z.conn.Delete(path, -1)
 	}
 }
 

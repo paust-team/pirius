@@ -146,7 +146,7 @@ func (a *Admin) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResponse, error) {
+func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.Topic, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &shapleqproto.DescribeTopicResponse{}
@@ -161,7 +161,7 @@ func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResp
 		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
-	return response, nil
+	return response.Topic, nil
 }
 
 func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
@@ -218,6 +218,23 @@ func (a *Admin) DeleteFragment(topicName string, fragmentId uint32) error {
 		return err
 	}
 	return nil
+}
+
+func (a *Admin) DescribeFragment(topicName string, fragmentId uint32) (*shapleqproto.Fragment, error) {
+	request := message.NewDescribeTopicFragmentRequestMsg(topicName, fragmentId)
+	response := &shapleqproto.DescribeFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return nil, err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return nil, err
+	}
+	return response.Fragment, nil
 }
 
 // connection RPCs
