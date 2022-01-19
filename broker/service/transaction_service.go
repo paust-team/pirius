@@ -96,6 +96,9 @@ func (s *TransactionService) handleMsg(msg *message.QMessage, session *internals
 	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.CreateFragmentRequest{}); err == nil {
 		resMsg = s.rpcService.CreateFragment(reqMsg.(*shapleqproto.CreateFragmentRequest))
 
+	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.DeleteFragmentRequest{}); err == nil {
+		resMsg = s.rpcService.DeleteFragment(reqMsg.(*shapleqproto.DeleteFragmentRequest))
+
 	} else if reqMsg, err := msg.UnpackTo(&shapleqproto.Ping{}); err == nil {
 		resMsg = s.rpcService.Heartbeat(reqMsg.(*shapleqproto.Ping))
 

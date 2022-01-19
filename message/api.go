@@ -98,6 +98,19 @@ func NewCreateTopicFragmentResponseMsg(fragmentId uint32, err pqerror.PQError) *
 	return response
 }
 
+func NewDeleteTopicFragmentRequestMsg(topicName string, fragmentId uint32) *shapleqproto.DeleteFragmentRequest {
+	return &shapleqproto.DeleteFragmentRequest{Magic: MAGIC_NUM, TopicName: topicName, FragmentId: fragmentId}
+}
+
+func NewDeleteTopicFragmentResponseMsg(err pqerror.PQError) *shapleqproto.DeleteFragmentResponse {
+	response := &shapleqproto.DeleteFragmentResponse{Magic: MAGIC_NUM}
+	if err != nil {
+		response.ErrorCode = int32(err.Code())
+		response.ErrorMessage = err.Error()
+	}
+	return response
+}
+
 func NewPingMsg(msg string, brokerId uint64) *shapleqproto.Ping {
 	return &shapleqproto.Ping{Magic: MAGIC_NUM, Echo: msg, BrokerId: brokerId}
 }

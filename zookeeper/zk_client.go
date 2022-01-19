@@ -145,10 +145,10 @@ func (z zkClientWrapper) Create(lockPath string, path string, value []byte) erro
 }
 
 func (z zkClientWrapper) Set(lockPath string, path string, value []byte) error {
-	return z.SetWithVersion(lockPath, path, value, -1)
+	return z.setWithVersion(lockPath, path, value, -1)
 }
 
-func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []byte, version int32) error {
+func (z zkClientWrapper) setWithVersion(lockPath string, path string, value []byte, version int32) error {
 	bLock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
 	err := bLock.Lock()
 
@@ -170,12 +170,13 @@ func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []by
 	return nil
 }
 
-func (z zkClientWrapper) Get(lockPath string, path string) ([]byte, error) {
-	value, _, err := z.GetWithVersion(lockPath, path)
+func (z zkClientWrapper) Get(path string) ([]byte, error) {
+	// do not use zk lock for read only operation
+	value, _, err := z.getWithVersion("", path)
 	return value, err
 }
 
-func (z zkClientWrapper) GetWithVersion(lockPath string, path string) ([]byte, int32, error) {
+func (z zkClientWrapper) getWithVersion(lockPath string, path string) ([]byte, int32, error) {
 	if len(lockPath) > 0 {
 		lock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
 		err := lock.Lock()
@@ -276,7 +277,6 @@ func (z zkClientWrapper) DeleteAll(lockPath string, paths []string) {
 		if err != nil {
 			err = pqerror.ZKLockFailError{LockPath: lockPath, ZKErrStr: err.Error()}
 			z.logger.Error(err)
-
 		}
 	}
 

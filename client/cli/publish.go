@@ -89,6 +89,7 @@ func NewPublishCmd() *cobra.Command {
 	publishCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 
 	publishCmd.MarkFlagRequired("topic")
+	publishCmd.MarkFlagRequired("fragment")
 
 	producerConfig.BindPFlags(publishCmd.Flags())
 	producerConfig.BindPFlag("bootstrap.servers", publishCmd.Flags().Lookup("bootstrap-servers"))

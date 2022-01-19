@@ -21,8 +21,9 @@ type bootstrappingHelper struct {
 }
 
 // broker related methods
+
 func (b bootstrappingHelper) GetBrokers() ([]string, error) {
-	if brokersBytes, err := b.client.Get(constants.BrokersLockPath, constants.BrokersPath); err == nil {
+	if brokersBytes, err := b.client.Get(constants.BrokersPath); err == nil {
 		if len(brokersBytes) == 0 {
 			b.client.Logger().Info("no broker exists")
 			return nil, nil
@@ -85,7 +86,7 @@ func (b bootstrappingHelper) RemoveBroker(hostName string) error {
 }
 
 func (b bootstrappingHelper) GetTopicFragmentBrokers(topicName string, fragmentId uint32) ([]string, error) {
-	if brokersBytes, err := b.client.Get(constants.TopicsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err == nil {
+	if brokersBytes, err := b.client.Get(GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err == nil {
 		if len(brokersBytes) == 0 {
 			b.logger.Info("no broker exists")
 			return nil, nil
@@ -114,7 +115,7 @@ func (b bootstrappingHelper) AddTopicFragmentBroker(topicName string, fragmentId
 	}
 
 	topicBrokers = append(topicBrokers, hostName)
-	if err = b.client.Set(constants.TopicsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId), []byte(strings.Join(topicBrokers, ","))); err != nil {
+	if err = b.client.Set(constants.TopicFragmentsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId), []byte(strings.Join(topicBrokers, ","))); err != nil {
 		return err
 	}
 
@@ -142,7 +143,7 @@ func (b bootstrappingHelper) RemoveTopicFragmentBroker(topicName string, fragmen
 		return err
 	}
 
-	if err = b.client.Set(constants.TopicsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId), []byte(strings.Join(topicFragmentBrokers, ","))); err != nil {
+	if err = b.client.Set(constants.TopicFragmentsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId), []byte(strings.Join(topicFragmentBrokers, ","))); err != nil {
 		return err
 	}
 
@@ -150,6 +151,7 @@ func (b bootstrappingHelper) RemoveTopicFragmentBroker(topicName string, fragmen
 }
 
 // topic related methods
+
 type fragmentOffset struct {
 	id         uint32
 	LastOffset uint64
@@ -238,7 +240,7 @@ func (t *topicManagingHelper) AddNumPublishers(topicName string, delta int) (uin
 }
 
 func (t *topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, error) {
-	if result, err := t.client.Get("", GetTopicPath(topicName)); err == nil {
+	if result, err := t.client.Get(GetTopicPath(topicName)); err == nil {
 		return common.NewTopicData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicNotExistError{Topic: topicName}
@@ -258,11 +260,21 @@ func (t *topicManagingHelper) GetTopics() ([]string, error) {
 }
 
 func (t *topicManagingHelper) RemoveTopic(topicName string) error {
-	if err := t.client.Delete(constants.TopicsLockPath, GetTopicFragmentBasePath(topicName)); err != nil {
-		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
-		t.logger.Error(err)
-		return err
+	var fragmentPaths []string
+	if fragments, err := t.GetTopicFragments(topicName); err == nil {
+		if fragments != nil {
+			for _, fragment := range fragments {
+				fragmentId, err := strconv.ParseUint(fragment, 10, 32)
+				if err != nil {
+					continue
+				}
+				fragmentPaths = append(fragmentPaths, GetTopicFragmentPath(topicName, uint32(fragmentId)))
+			}
+		}
 	}
+	fragmentPaths = append(fragmentPaths, GetTopicFragmentBasePath(topicName))
+
+	t.client.DeleteAll(constants.TopicsLockPath, fragmentPaths)
 
 	if err := t.client.Delete(constants.TopicsLockPath, GetTopicPath(topicName)); err != nil {
 		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
@@ -300,7 +312,7 @@ func (t *topicManagingHelper) RemoveTopicPaths() {
 // fragment related methods
 
 func (t *topicManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FragmentData, error) {
-	if result, err := t.client.Get("", GetTopicFragmentPath(topicName, fragmentId)); err == nil {
+	if result, err := t.client.Get(GetTopicFragmentPath(topicName, fragmentId)); err == nil {
 		return common.NewFragmentData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicFragmentNotExistsError{Topic: topicName, FragmentId: fragmentId}
@@ -310,7 +322,7 @@ func (t *topicManagingHelper) GetTopicFragmentData(topicName string, fragmentId 
 }
 
 func (t *topicManagingHelper) GetTopicFragments(topicName string) ([]string, error) {
-	if fragments, err := t.client.Children(constants.TopicsLockPath, GetTopicFragmentBasePath(topicName)); err != nil {
+	if fragments, err := t.client.Children(constants.TopicFragmentsLockPath, GetTopicFragmentBasePath(topicName)); err != nil {
 		return nil, err
 	} else if len(fragments) > 0 {
 		return fragments, nil
@@ -320,13 +332,30 @@ func (t *topicManagingHelper) GetTopicFragments(topicName string) ([]string, err
 }
 
 func (t *topicManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FragmentData) error {
-	if err := t.client.Create(constants.TopicsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
+	if err := t.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
 		if err == zk.ErrNodeExists {
 			return &pqerror.ZKTargetAlreadyExistsError{Target: fmt.Sprintf("%s/%d", topicName, fragmentId)}
 		}
 		return err
 	}
 	if err := t.client.CreatePathIfNotExists(GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *topicManagingHelper) RemoveTopicFragment(topicName string, fragmentId uint32) error {
+
+	if err := t.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		t.logger.Error(err)
+		return err
+	}
+
+	if err := t.client.Delete(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId)); err != nil {
+		err = pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		t.logger.Error(err)
 		return err
 	}
 

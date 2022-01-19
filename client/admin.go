@@ -202,6 +202,24 @@ func (a *Admin) CreateFragment(topicName string) (*shapleqproto.Fragment, error)
 	return response.Fragment, nil
 }
 
+func (a *Admin) DeleteFragment(topicName string, fragmentId uint32) error {
+
+	request := message.NewDeleteTopicFragmentRequestMsg(topicName, fragmentId)
+	response := &shapleqproto.DeleteFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return err
+	}
+	return nil
+}
+
 // connection RPCs
 
 func (a *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {

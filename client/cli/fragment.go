@@ -28,6 +28,7 @@ func NewTopicFragmentCmd() *cobra.Command {
 
 	topicFragmentCmd.AddCommand(
 		NewCreateTopicFragmentCmd(adminConfig),
+		NewDeleteTopicFragmentCmd(adminConfig),
 	)
 
 	return topicFragmentCmd
@@ -60,6 +61,40 @@ func NewCreateTopicFragmentCmd(adminConfig *config.AdminConfig) *cobra.Command {
 
 	createTopicFragmentCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to create a fragment")
 	createTopicFragmentCmd.MarkFlagRequired("topic")
+
+	return createTopicFragmentCmd
+}
+
+func NewDeleteTopicFragmentCmd(adminConfig *config.AdminConfig) *cobra.Command {
+
+	var createTopicFragmentCmd = &cobra.Command{
+		Use:   "delete",
+		Short: "Delete topic fragment",
+		Run: func(cmd *cobra.Command, args []string) {
+
+			adminConfig.Load(configPath)
+			adminClient := client.NewAdmin(adminConfig)
+			defer adminClient.Close()
+
+			if err := adminClient.Connect(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			err := adminClient.DeleteFragment(topicName, fragmentId)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("topic fragment(%d) is deleted", fragmentId)
+		},
+	}
+
+	createTopicFragmentCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to create a fragment")
+	createTopicFragmentCmd.Flags().Uint32VarP(&fragmentId, "fragment", "r", 0, "fragment id to delete")
+
+	createTopicFragmentCmd.MarkFlagRequired("topic")
+	createTopicFragmentCmd.MarkFlagRequired("fragment")
 
 	return createTopicFragmentCmd
 }
