@@ -207,6 +207,7 @@ func (b *Broker) tearDownZookeeper() {
 		for _, fragment := range fragments {
 			fragmentId, err := strconv.ParseUint(fragment, 10, 32)
 			if err != nil {
+				b.logger.Errorf("error occurred on tearing down zookeeper: %s", err.Error())
 				continue
 			}
 			_ = b.zkqClient.RemoveTopicFragmentBroker(topic, uint32(fragmentId), b.config.Hostname())
