@@ -43,7 +43,7 @@ func NewPublishCmd() *cobra.Command {
 				defer f.Close()
 
 				publishCh := make(chan *client.PublishData)
-				partitionCh, errCh, err := producer.AsyncPublish(publishCh)
+				fragmentCh, errCh, err := producer.AsyncPublish(publishCh)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -54,8 +54,8 @@ func NewPublishCmd() *cobra.Command {
 				for scanner.Scan() {
 					select {
 					case publishCh <- &client.PublishData{Data: []byte(scanner.Text()), NodeId: nodeId, SeqNum: uint64(seq)}:
-					case partition := <-partitionCh:
-						fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
+					case fragment := <-fragmentCh:
+						fmt.Printf("publish succeed, fragment id : %d, offset : %d\n", fragment.Id, fragment.LastOffset)
 					case err := <-errCh:
 						log.Fatal(err)
 					case sig := <-sigCh:
@@ -65,11 +65,11 @@ func NewPublishCmd() *cobra.Command {
 					seq += 1
 				}
 			} else if len(args) > 0 {
-				partition, err := producer.Publish(&client.PublishData{Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
+				fragment, err := producer.Publish(&client.PublishData{Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Printf("publish succeed, partition id : %d, offset : %d\n", partition.Id, partition.Offset)
+				fmt.Printf("publish succeed, fragment id : %d, last offset : %d\n", fragment.Id, fragment.LastOffset)
 			} else {
 				fmt.Println("no data to publish")
 				os.Exit(1)
@@ -79,7 +79,8 @@ func NewPublishCmd() *cobra.Command {
 		},
 	}
 
-	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish to")
+	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish")
+	publishCmd.Flags().Uint32VarP(&fragmentId, "fragment", "r", 0, "fragment id to publish")
 	publishCmd.Flags().StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
 	publishCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultProducerConfigPath, "producer client config path")
 	publishCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")

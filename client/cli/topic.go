@@ -52,7 +52,8 @@ func NewCreateTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 				os.Exit(1)
 			}
 
-			if err := adminClient.CreateTopic(topicName, topicMeta, 1, 1); err != nil {
+			// TODO:: receive num
+			if err := adminClient.CreateTopic(topicName, topicDescription); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
@@ -62,7 +63,7 @@ func NewCreateTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 	}
 
 	createTopicCmd.Flags().StringVarP(&topicName, "topic", "n", "", "new topic name to create")
-	createTopicCmd.Flags().StringVarP(&topicMeta, "topic-meta", "m", "", "topic meta for topic")
+	createTopicCmd.Flags().StringVarP(&topicDescription, "description", "m", "", "description message for topic")
 	createTopicCmd.MarkFlagRequired("topic")
 
 	return createTopicCmd
@@ -151,8 +152,8 @@ func NewDescribeTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Printf("Topic: %s, Topic meta: %s, Num partitions: %d, replication factor: %d", response.Topic.Name,
-				response.Topic.Description, response.Topic.NumPartitions, response.Topic.ReplicationFactor)
+			fmt.Printf("Topic: %s, Topic meta: %s, Num fragments: %d, replication factor: %d", response.Topic.Name,
+				response.Topic.Description, response.Topic.NumFragments, response.Topic.ReplicationFactor)
 		},
 	}
 

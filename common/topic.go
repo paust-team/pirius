@@ -16,15 +16,12 @@ func NewTopicData(data []byte) *TopicData {
 	return &TopicData{data: data}
 }
 
-func NewTopicMetaFromValues(description string, numPartitions uint32, replicationFactor uint32,
-	lastOffset uint64, numPublishers uint64, numSubscribers uint64) *TopicData {
+func NewTopicDataFromValues(description string, numFragments uint32, replicationFactor uint32, numPublishers uint64) *TopicData {
 
-	data := make([]byte, uint64Len*3+uint32Len*2)
-	binary.BigEndian.PutUint64(data[0:], lastOffset)
-	binary.BigEndian.PutUint64(data[uint64Len:], numPublishers)
-	binary.BigEndian.PutUint64(data[uint64Len*2:], numSubscribers)
-	binary.BigEndian.PutUint32(data[uint64Len*3:], numPartitions)
-	binary.BigEndian.PutUint32(data[uint64Len*3+uint32Len:], replicationFactor)
+	data := make([]byte, uint64Len+uint32Len*2)
+	binary.BigEndian.PutUint64(data[0:], numPublishers)
+	binary.BigEndian.PutUint32(data[uint64Len:], numFragments)
+	binary.BigEndian.PutUint32(data[uint64Len+uint32Len:], replicationFactor)
 	data = append(data, description...)
 
 	return &TopicData{data: data}
@@ -38,38 +35,22 @@ func (t TopicData) Size() int {
 	return len(t.data)
 }
 
-func (t TopicData) Description() string {
-	return string(t.Data()[uint64Len*3+uint32Len*2:])
-}
-
-func (t TopicData) NumPartitions() uint32 {
-	return binary.BigEndian.Uint32(t.Data()[uint64Len*3 : uint64Len*3+uint32Len])
-}
-
-func (t TopicData) ReplicationFactor() uint32 {
-	return binary.BigEndian.Uint32(t.Data()[uint64Len*3+uint32Len : uint64Len*3+uint32Len+uint32Len])
-}
-
-func (t TopicData) LastOffset() uint64 {
+func (t TopicData) NumPublishers() uint64 {
 	return binary.BigEndian.Uint64(t.Data()[:uint64Len])
 }
 
-func (t TopicData) NumPublishers() uint64 {
-	return binary.BigEndian.Uint64(t.Data()[uint64Len : uint64Len+uint64Len])
-}
-
-func (t TopicData) NumSubscribers() uint64 {
-	return binary.BigEndian.Uint64(t.Data()[uint64Len*2 : uint64Len*2+uint64Len])
-}
-
-func (t *TopicData) SetLastOffset(offset uint64) {
-	binary.BigEndian.PutUint64(t.data[0:], offset)
-}
-
 func (t *TopicData) SetNumPublishers(num uint64) {
-	binary.BigEndian.PutUint64(t.data[uint64Len:], num)
+	binary.BigEndian.PutUint64(t.data[0:], num)
 }
 
-func (t *TopicData) SetNumSubscriber(num uint64) {
-	binary.BigEndian.PutUint64(t.data[uint64Len*2:], num)
+func (t TopicData) NumFragments() uint32 {
+	return binary.BigEndian.Uint32(t.Data()[uint64Len : uint64Len+uint32Len])
+}
+
+func (t TopicData) ReplicationFactor() uint32 {
+	return binary.BigEndian.Uint32(t.Data()[uint64Len+uint32Len : uint64Len+uint32Len*2])
+}
+
+func (t TopicData) Description() string {
+	return string(t.Data()[uint64Len+uint32Len*2:])
 }

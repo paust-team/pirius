@@ -14,15 +14,16 @@ message Group {
     string group_name = 3;
 }
 
-message Partition {
-    uint64 partition_id = 1;
-    uint64 offset = 2;
+message Fragment {
+    uint32 id = 1;
+    uint64 last_offset = 2;
+    repeated string broker_addresses = 3;
 }
 
 message Topic {
     string name = 1;
     string description = 2;
-    uint32 num_partitions = 3;
+    uint32 num_fragments = 3;
     uint32 replication_factor = 4;
-    uint64 last_offset = 5;
+    repeated Fragment fragments = 5;
 }

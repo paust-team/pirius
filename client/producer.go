@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/paust-team/shapleq/client/config"
-	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
@@ -58,24 +57,24 @@ type PublishData struct {
 	NodeId string
 }
 
-func (p *Producer) Publish(data *PublishData) (common.Partition, error) {
+func (p *Producer) Publish(data *PublishData) (*shapleqproto.Fragment, error) {
 	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId))
 	if err != nil {
-		return common.Partition{}, err
+		return nil, err
 	}
 
 	if err := p.send(msg); err != nil {
-		return common.Partition{}, err
+		return nil, err
 	}
 
 	res, err := p.receive()
 	if err != nil {
-		return common.Partition{}, err
+		return nil, err
 	}
 	return p.handleMessage(res)
 }
 
-func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan common.Partition, <-chan error, error) {
+func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *shapleqproto.Fragment, <-chan error, error) {
 	recvCh, recvErrCh, err := p.continuousReceive(p.ctx)
 	errCh := make(chan error)
 
@@ -113,9 +112,9 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan common.Parti
 	}
 
 	mergedErrCh := pqerror.MergeErrors(recvErrCh, sendErrCh, errCh)
-	partitionCh := make(chan common.Partition)
+	fragmentCh := make(chan *shapleqproto.Fragment)
 	go func() {
-		defer close(partitionCh)
+		defer close(fragmentCh)
 		defer close(errCh)
 		for {
 			select {
@@ -123,18 +122,18 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan common.Parti
 				return
 			case msg, ok := <-recvCh:
 				if ok {
-					partition, err := p.handleMessage(msg)
+					fragment, err := p.handleMessage(msg)
 					if err != nil {
 						errCh <- err
 					} else {
-						partitionCh <- partition
+						fragmentCh <- fragment
 					}
 				}
 			}
 		}
 	}()
 
-	return partitionCh, mergedErrCh, nil
+	return fragmentCh, mergedErrCh, nil
 }
 
 func (p *Producer) Close() {
@@ -143,14 +142,14 @@ func (p *Producer) Close() {
 	p.close()
 }
 
-func (p *Producer) handleMessage(msg *message.QMessage) (common.Partition, error) {
+func (p *Producer) handleMessage(msg *message.QMessage) (*shapleqproto.Fragment, error) {
 	if res, err := msg.UnpackTo(&shapleqproto.PutResponse{}); err == nil {
 		putRes := res.(*shapleqproto.PutResponse)
-		p.logger.Debug("received response - offset: %d", putRes.Partition.Offset)
-		return common.Partition{Id: putRes.Partition.PartitionId, Offset: putRes.Partition.Offset}, nil
+		p.logger.Debug("received response - offset: %d", putRes.Fragment.LastOffset)
+		return putRes.Fragment, nil
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
-		return common.Partition{}, errors.New(res.(*shapleqproto.Ack).GetMsg())
+		return nil, errors.New(res.(*shapleqproto.Ack).GetMsg())
 	} else {
-		return common.Partition{}, errors.New("received invalid type of message")
+		return nil, errors.New("received invalid type of message")
 	}
 }

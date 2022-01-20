@@ -63,7 +63,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			})
 
 			req := in.(*shapleq_proto.PutRequest)
-			offsetToWrite, err := p.zkqClient.IncreaseLastOffset(topicName)
+			offsetToWrite, err := p.zkqClient.IncreaseLastOffset(topicName, req.FragmentId)
 			if err != nil {
 				errCh <- err
 				return
@@ -78,7 +78,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 				return
 			}
 
-			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(offsetToWrite))
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(req.FragmentId, offsetToWrite))
 			if err != nil {
 				errCh <- err
 				return

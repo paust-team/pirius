@@ -2,30 +2,27 @@ package common
 
 import "testing"
 
-func TestMakeTopicMeta(t *testing.T) {
-	var expectedLastOffset uint64 = 100
+func TestMakeTopicData(t *testing.T) {
 	var expectedDescription = "test topic meta"
-	var expectedNumPartitions uint32 = 0
+	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 0
 	var expectedNumPublishers uint64 = 1
-	var expectedNumSubscribers uint64 = 1
 
-	meta := NewTopicMetaFromValues(expectedDescription, expectedNumPartitions, expectedReplicationFactor,
-		expectedLastOffset, expectedNumPublishers, expectedNumSubscribers)
+	data := NewTopicDataFromValues(expectedDescription, expectedNumFragments, expectedReplicationFactor, expectedNumPublishers)
 
-	if meta.Description() != expectedDescription {
+	if data.Description() != expectedDescription {
 		t.Error("Description is not equal")
 	}
 
-	if meta.NumPartitions() != expectedNumPartitions {
-		t.Error("Num Partition is not equal")
+	if data.NumFragments() != expectedNumFragments {
+		t.Error("Num Fragment is not equal")
 	}
 
-	if meta.ReplicationFactor() != expectedReplicationFactor {
+	if data.ReplicationFactor() != expectedReplicationFactor {
 		t.Error("Replication Factor is not equal")
 	}
 
-	if meta.LastOffset() != expectedLastOffset {
-		t.Error("Last Offset is not equal")
+	if data.NumPublishers() != expectedNumPublishers {
+		t.Error("NumPublisher is not equal")
 	}
 }

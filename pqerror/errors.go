@@ -225,19 +225,33 @@ func (e TopicNotExistError) Code() PQCode {
 
 func (e TopicNotExistError) IsSessionCloseable() {}
 
-type TopicBrokerNotExistsError struct {
-	Topic string
+type TopicFragmentBrokerNotExistsError struct {
+	Topic      string
+	FragmentId uint32
 }
 
-func (e TopicBrokerNotExistsError) Error() string {
-	return fmt.Sprintf("broker for topic(%s) does not exist", e.Topic)
+func (e TopicFragmentBrokerNotExistsError) Error() string {
+	return fmt.Sprintf("broker for topic(%s)/fragment(%d) does not exist", e.Topic, e.FragmentId)
 }
 
-func (e TopicBrokerNotExistsError) Code() PQCode {
-	return ErrTopicBrokerNotExists
+func (e TopicFragmentBrokerNotExistsError) Code() PQCode {
+	return ErrTopicFragmentBrokerNotExists
 }
 
-func (e TopicBrokerNotExistsError) IsSessionCloseable() {}
+func (e TopicFragmentBrokerNotExistsError) IsSessionCloseable() {}
+
+type TopicFragmentNotExistsError struct {
+	Topic      string
+	FragmentId uint32
+}
+
+func (e TopicFragmentNotExistsError) Error() string {
+	return fmt.Sprintf("fragment(%d) for topic(%s) does not exist", e.FragmentId, e.Topic)
+}
+
+func (e TopicFragmentNotExistsError) Code() PQCode {
+	return ErrTopicFragmentNotExists
+}
 
 // serialize / deserialize
 

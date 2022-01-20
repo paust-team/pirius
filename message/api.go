@@ -8,6 +8,7 @@ import (
 const MAGIC_NUM int32 = 1101
 
 // API messages
+
 func NewListTopicRequestMsg() *shapleqproto.ListTopicRequest {
 	return &shapleqproto.ListTopicRequest{Magic: MAGIC_NUM}
 }
@@ -29,8 +30,8 @@ func NewDescribeTopicRequestMsg(topicName string) *shapleqproto.DescribeTopicReq
 	return &shapleqproto.DescribeTopicRequest{Magic: MAGIC_NUM, TopicName: topicName}
 }
 
-func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, replicationFactor uint32,
-	lastOffset uint64, err pqerror.PQError) *shapleqproto.DescribeTopicResponse {
+func NewDescribeTopicResponseMsg(topicName, description string, numFragment, replicationFactor uint32,
+	err pqerror.PQError) *shapleqproto.DescribeTopicResponse {
 
 	response := &shapleqproto.DescribeTopicResponse{Magic: MAGIC_NUM}
 	if err != nil {
@@ -42,24 +43,19 @@ func NewDescribeTopicResponseMsg(topicName, description string, numPartitions, r
 	topic := &shapleqproto.Topic{
 		Name:              topicName,
 		Description:       description,
-		NumPartitions:     numPartitions,
+		NumFragments:      numFragment,
 		ReplicationFactor: replicationFactor,
-		LastOffset:        lastOffset,
 	}
 	response.Topic = topic
 	return response
 }
 
-func NewCreateTopicRequestMsg(topicName string, description string, numPartitions uint32, replicationFactor uint32) *shapleqproto.CreateTopicRequest {
-	topic := &shapleqproto.Topic{
-		Name:              topicName,
-		Description:       description,
-		NumPartitions:     numPartitions,
-		ReplicationFactor: replicationFactor,
-		LastOffset:        0,
+func NewCreateTopicRequestMsg(topicName string, description string) *shapleqproto.CreateTopicRequest {
+	return &shapleqproto.CreateTopicRequest{
+		Magic:            MAGIC_NUM,
+		TopicName:        topicName,
+		TopicDescription: description,
 	}
-
-	return &shapleqproto.CreateTopicRequest{Magic: MAGIC_NUM, Topic: topic}
 }
 
 func NewCreateTopicResponseMsg(err pqerror.PQError) *shapleqproto.CreateTopicResponse {
@@ -105,12 +101,12 @@ func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string) *shapleqproto.P
 	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId}
 }
 
-func NewPutResponseMsg(offset uint64) *shapleqproto.PutResponse {
-	partition := &shapleqproto.Partition{
-		PartitionId: 1, Offset: offset,
+func NewPutResponseMsg(fragmentId uint32, offset uint64) *shapleqproto.PutResponse {
+	fragment := &shapleqproto.Fragment{
+		Id: fragmentId, LastOffset: offset,
 	}
 
-	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, Partition: partition}
+	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, Fragment: fragment}
 }
 
 func NewFetchRequestMsg(startOffset uint64, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {

@@ -16,7 +16,7 @@ import (
 
 type RPCService struct {
 	rpc.TopicRPCService
-	rpc.PartitionRPCService
+	rpc.FragmentRPCService
 	rpc.ConfigRPCService
 	rpc.GroupRPCService
 	rpc.ConnectionRPCService
@@ -29,7 +29,7 @@ type TransactionService struct {
 func NewTransactionService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *TransactionService {
 	return &TransactionService{&RPCService{
 		rpc.NewTopicRPCService(db, zkqClient),
-		rpc.NewPartitionRPCService(db, zkqClient),
+		rpc.NewFragmentRPCService(db, zkqClient),
 		rpc.NewConfigRPCService(),
 		rpc.NewGroupRPCService(),
 		rpc.NewConnectionRPCService(zkqClient)},
