@@ -225,7 +225,7 @@ message PutResponse {
 
 message FetchRequest {
     message OffsetInfo {
-        uint32 fragment_ids = 1;
+        uint32 fragment_id = 1;
         uint64 start_offset = 2;
     }
     int32 magic = 1;

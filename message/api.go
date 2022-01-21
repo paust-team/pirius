@@ -161,7 +161,7 @@ func NewFetchRequestMsg(fragmentOffsets map[uint32]uint64, maxBatchSize uint32, 
 	var offsets []*shapleqproto.FetchRequest_OffsetInfo
 	for id, offset := range fragmentOffsets {
 		offsets = append(offsets, &shapleqproto.FetchRequest_OffsetInfo{
-			FragmentIds: id,
+			FragmentId:  id,
 			StartOffset: offset,
 		})
 	}
