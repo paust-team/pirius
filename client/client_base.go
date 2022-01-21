@@ -8,7 +8,6 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/utils"
-	"github.com/paust-team/shapleq/zookeeper"
 	"net"
 	"sync"
 )
@@ -49,15 +48,13 @@ type client struct {
 	config           *config.ClientConfigBase
 	nodeId           string
 	connectedAddress string
-	zkClient         *zookeeper.ZKQClient
 }
 
-func newClient(config *config.ClientConfigBase, zkClient *zookeeper.ZKQClient) *client {
+func newClient(config *config.ClientConfigBase) *client {
 	return &client{
 		Mutex:       sync.Mutex{},
 		connected:   false,
 		config:      config,
-		zkClient:    zkClient,
 		connections: make(map[string]*connection),
 	}
 }
@@ -76,8 +73,6 @@ func (c *client) close() {
 		}
 		c.connected = false
 	}
-
-	c.zkClient.Close()
 	c.Unlock()
 }
 
@@ -154,9 +149,6 @@ func (c *client) connect(sessionType shapleqproto.SessionType, targets []*connec
 	if c.isConnected() {
 		return pqerror.AlreadyConnectedError{Addr: c.connectedAddress}
 	}
-	if err := c.zkClient.Connect(); err != nil {
-		return err
-	}
 
 	for _, target := range targets {
 		if len(target.topic) == 0 {
@@ -166,6 +158,7 @@ func (c *client) connect(sessionType shapleqproto.SessionType, targets []*connec
 			return err
 		}
 	}
+	c.connected = true
 	return nil
 }
 

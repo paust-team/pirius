@@ -14,13 +14,13 @@ import (
 
 type Consumer struct {
 	*client
+	zkqClient       *zookeeper.ZKQClient
 	config          *config.ConsumerConfig
 	topic           string
 	fragmentOffsets map[uint32]uint64
 	logger          *logger.QLogger
 	ctx             context.Context
 	cancel          context.CancelFunc
-	zkClient        *zookeeper.ZKQClient
 }
 
 func NewConsumer(config *config.ConsumerConfig, topic string, fragmentOffsets map[uint32]uint64) *Consumer {
@@ -29,10 +29,10 @@ func NewConsumer(config *config.ConsumerConfig, topic string, fragmentOffsets ma
 
 func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topic string, fragmentOffsets map[uint32]uint64) *Consumer {
 	l := logger.NewQLogger("Consumer", config.LogLevel())
-	zkClient := zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0)
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
-		client:          newClient(config.ClientConfigBase, zkClient),
+		client:          newClient(config.ClientConfigBase),
+		zkqClient:       zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
 		config:          config,
 		topic:           topic,
 		fragmentOffsets: fragmentOffsets,
@@ -51,6 +51,10 @@ func (c Consumer) Context() context.Context {
 }
 
 func (c *Consumer) Connect() error {
+	if err := c.zkqClient.Connect(); err != nil {
+		return err
+	}
+
 	if len(c.fragmentOffsets) == 0 {
 		return pqerror.TopicFragmentNotExistsError{Topic: c.topic}
 	}
@@ -58,7 +62,7 @@ func (c *Consumer) Connect() error {
 	connectionTargets := make(map[string]*connectionTarget)
 	for fragmentId := range c.fragmentOffsets {
 		// get brokers from fragment
-		addresses, err := c.zkClient.GetTopicFragmentBrokers(c.topic, fragmentId)
+		addresses, err := c.zkqClient.GetTopicFragmentBrokers(c.topic, fragmentId)
 		if err != nil {
 			return pqerror.ZKOperateError{ErrStr: err.Error()}
 		}
@@ -139,11 +143,13 @@ func (c *Consumer) Subscribe(maxBatchSize uint32, flushInterval uint32) (<-chan 
 
 func (c *Consumer) Close() {
 	c.cancel()
+	c.zkqClient.Close()
 	c.close()
 }
 
 type FetchedData struct {
 	Data           []byte
+	FragmentId     uint32
 	Offset, SeqNum uint64
 	NodeId         string
 }
@@ -159,10 +165,11 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d, offset: %d, seq num: %d, node id: %s",
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset, fetchRes.SeqNum, fetchRes.NodeId))
 		fetched := &FetchedData{
-			Data:   fetchRes.Data,
-			Offset: fetchRes.Offset,
-			SeqNum: fetchRes.SeqNum,
-			NodeId: fetchRes.NodeId,
+			Data:       fetchRes.Data,
+			FragmentId: fetchRes.FragmentId,
+			Offset:     fetchRes.Offset,
+			SeqNum:     fetchRes.SeqNum,
+			NodeId:     fetchRes.NodeId,
 		}
 		return &SubscribeResult{Items: []*FetchedData{fetched}, LastOffset: fetchRes.LastOffset}, nil
 
@@ -174,10 +181,11 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 		var fetched []*FetchedData
 		for _, item := range fetchRes.Items {
 			fetched = append(fetched, &FetchedData{
-				Data:   item.Data,
-				Offset: item.Offset,
-				SeqNum: item.SeqNum,
-				NodeId: item.NodeId,
+				Data:       item.Data,
+				FragmentId: item.FragmentId,
+				Offset:     item.Offset,
+				SeqNum:     item.SeqNum,
+				NodeId:     item.NodeId,
 			})
 		}
 		return &SubscribeResult{Items: fetched, LastOffset: fetchRes.LastOffset}, nil

@@ -25,6 +25,7 @@ type PublishResult struct {
 
 type Producer struct {
 	*client
+	zkqClient          *zookeeper.ZKQClient
 	config             *config.ProducerConfig
 	topic              string
 	logger             *logger.QLogger
@@ -41,10 +42,10 @@ func NewProducer(config *config.ProducerConfig, topic string) *Producer {
 
 func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string) *Producer {
 	l := logger.NewQLogger("Producer", config.LogLevel())
-	zkClient := zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0)
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
-		client:             newClient(config.ClientConfigBase, zkClient),
+		client:             newClient(config.ClientConfigBase),
+		zkqClient:          zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
 		topic:              topic,
 		logger:             l,
 		ctx:                ctx,
@@ -63,9 +64,12 @@ func (p Producer) Context() context.Context {
 }
 
 func (p *Producer) Connect() error {
-
+	if err := p.zkqClient.Connect(); err != nil {
+		return err
+	}
 	// get all fragments : producer publishes data for all fragments of a topic
-	fragments, err := p.zkClient.GetTopicFragments(p.topic)
+	fragments, err := p.zkqClient.GetTopicFragments(p.topic)
+
 	if err != nil {
 		return err
 	}
@@ -84,13 +88,13 @@ func (p *Producer) Connect() error {
 		p.publishTargets = append(p.publishTargets, &topicFragmentPair{topic: p.topic, fragmentId: fragmentId})
 
 		// get brokers from fragment
-		addresses, err := p.zkClient.GetTopicFragmentBrokers(p.topic, fragmentId)
+		addresses, err := p.zkqClient.GetTopicFragmentBrokers(p.topic, fragmentId)
 		if err != nil {
 			return pqerror.ZKOperateError{ErrStr: err.Error()}
 		}
 		// if any broker for topic-fragment doesn't exist, pick a random broker to publish
 		if len(addresses) == 0 {
-			brokerAddresses, err := p.zkClient.GetBrokers()
+			brokerAddresses, err := p.zkqClient.GetBrokers()
 			if err == nil && len(brokerAddresses) != 0 {
 				brokerAddr := brokerAddresses[rand.Intn(len(brokerAddresses))]
 				addresses = append(addresses, brokerAddr)
@@ -113,6 +117,7 @@ func (p *Producer) Connect() error {
 	for _, target := range connectionTargets {
 		targets = append(targets, target)
 	}
+
 	return p.connect(shapleqproto.SessionType_PUBLISHER, targets)
 }
 
@@ -216,6 +221,7 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *PublishResu
 func (p *Producer) Close() {
 	p.cancel()
 	close(p.publishCh)
+	p.zkqClient.Close()
 	p.close()
 }
 
