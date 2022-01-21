@@ -92,8 +92,8 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 	it := f.db.Scan(storage.RecordCF)
 
 	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
-	prefix = append(prefix, topicName+"@"...)
-	binary.BigEndian.PutUint32(prefix, fragmentId)
+	copy(prefix, topicName+"@")
+	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
 
 	for {
 		select {
