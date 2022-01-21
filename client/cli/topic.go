@@ -146,14 +146,14 @@ func NewDescribeTopicCmd(adminConfig *config.AdminConfig) *cobra.Command {
 				os.Exit(1)
 			}
 
-			response, err := adminClient.DescribeTopic(topicName)
+			topic, err := adminClient.DescribeTopic(topicName)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			fmt.Printf("Topic: %s, Topic meta: %s, Num fragments: %d, replication factor: %d", response.Topic.Name,
-				response.Topic.Description, response.Topic.NumFragments, response.Topic.ReplicationFactor)
+			fmt.Printf("Topic: %s, Topic meta: %s, Num fragments: %d, replication factor: %d", topic.Name,
+				topic.Description, len(topic.FragmentIds), topic.ReplicationFactor)
 		},
 	}
 

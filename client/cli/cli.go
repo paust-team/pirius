@@ -28,6 +28,7 @@ func Main() {
 	shapleQClientCmd.AddCommand(
 		NewHeartbeatCmd(),
 		NewTopicCmd(),
+		NewTopicFragmentCmd(),
 		NewPublishCmd(),
 		NewSubscribeCmd(),
 	)

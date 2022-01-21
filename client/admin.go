@@ -108,9 +108,11 @@ func (a *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Mess
 	return nil
 }
 
-func (a *Admin) CreateTopic(topicName string, topicMeta string, numPartitions uint32, replicationFactor uint32) error {
+// topic RPCs
 
-	request := message.NewCreateTopicRequestMsg(topicName, topicMeta, numPartitions, replicationFactor)
+func (a *Admin) CreateTopic(topicName string, topicDescription string) error {
+
+	request := message.NewCreateTopicRequestMsg(topicName, topicDescription)
 	response := &shapleqproto.CreateTopicResponse{}
 
 	err := a.callAndUnpackTo(request, response)
@@ -144,7 +146,7 @@ func (a *Admin) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResponse, error) {
+func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.Topic, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &shapleqproto.DescribeTopicResponse{}
@@ -159,7 +161,7 @@ func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.DescribeTopicResp
 		a.logger.Error(response.ErrorMessage)
 		return nil, err
 	}
-	return response, nil
+	return response.Topic, nil
 }
 
 func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
@@ -179,6 +181,63 @@ func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 	}
 	return response, nil
 }
+
+// fragment RPCs
+
+func (a *Admin) CreateFragment(topicName string) (*shapleqproto.Fragment, error) {
+
+	request := message.NewCreateTopicFragmentRequestMsg(topicName)
+	response := &shapleqproto.CreateFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return nil, err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return nil, err
+	}
+	return response.Fragment, nil
+}
+
+func (a *Admin) DeleteFragment(topicName string, fragmentId uint32) error {
+
+	request := message.NewDeleteTopicFragmentRequestMsg(topicName, fragmentId)
+	response := &shapleqproto.DeleteFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return err
+	}
+	return nil
+}
+
+func (a *Admin) DescribeFragment(topicName string, fragmentId uint32) (*shapleqproto.Fragment, error) {
+	request := message.NewDescribeTopicFragmentRequestMsg(topicName, fragmentId)
+	response := &shapleqproto.DescribeFragmentResponse{}
+
+	err := a.callAndUnpackTo(request, response)
+	if err != nil {
+		a.logger.Error(err)
+		return nil, err
+	}
+
+	if response.ErrorCode != 0 {
+		a.logger.Error(response.ErrorMessage)
+		return nil, err
+	}
+	return response.Fragment, nil
+}
+
+// connection RPCs
 
 func (a *Admin) Heartbeat(msg string, brokerId uint64) (*shapleqproto.Pong, error) {
 

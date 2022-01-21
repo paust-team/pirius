@@ -98,6 +98,31 @@ message CreateFragmentResponse {
     string error_message = 4;
 }
 
+message DeleteFragmentRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+    uint32 fragment_id = 3;
+}
+
+message DeleteFragmentResponse {
+    int32 magic = 1;
+    int32 error_code = 2;
+    string error_message = 3;
+}
+
+message DescribeFragmentRequest {
+    int32 magic = 1;
+    string topic_name = 2;
+    uint32 fragment_id = 3;
+}
+
+message DescribeFragmentResponse {
+    int32 magic = 1;
+    Fragment fragment = 2;
+    int32 error_code = 3;
+    string error_message = 4;
+}
+
 // group
 message CreateGroupRequest {
     int32 magic = 1;

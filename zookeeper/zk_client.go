@@ -13,6 +13,7 @@ import (
 type ZKQClient struct {
 	*bootstrappingHelper
 	*topicManagingHelper
+	*fragmentManagingHelper
 	zkAddrs       []string
 	timeout       uint
 	flushInterval uint
@@ -45,9 +46,10 @@ func (z *ZKQClient) Connect() error {
 
 	z.client = client
 	z.bootstrappingHelper = &bootstrappingHelper{client: z.client, logger: z.logger}
-	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger, fragmentOffsetMap: sync.Map{}}
+	z.topicManagingHelper = &topicManagingHelper{client: z.client, logger: z.logger}
+	z.fragmentManagingHelper = &fragmentManagingHelper{client: z.client, logger: z.logger, fragmentOffsetMap: sync.Map{}}
 	if z.flushInterval > 0 {
-		z.topicManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
+		z.fragmentManagingHelper.startPeriodicFlushLastOffsets(z.flushInterval)
 	}
 
 	return nil
@@ -72,7 +74,7 @@ func (z ZKQClient) CreatePathsIfNotExist() error {
 // for testing
 func (z *ZKQClient) RemoveAllPath() {
 	z.RemoveTopicPaths()
-	deletePaths := []string{constants.TopicsPath, constants.BrokersPath, constants.BrokersLockPath,
+	deletePaths := []string{constants.TopicFragmentsLockPath, constants.TopicsPath, constants.BrokersPath, constants.BrokersLockPath,
 		constants.TopicsLockPath, constants.BrokersLockPath, constants.ShapleQPath}
 
 	z.client.DeleteAll("", deletePaths)
@@ -145,10 +147,10 @@ func (z zkClientWrapper) Create(lockPath string, path string, value []byte) erro
 }
 
 func (z zkClientWrapper) Set(lockPath string, path string, value []byte) error {
-	return z.SetWithVersion(lockPath, path, value, -1)
+	return z.setWithVersion(lockPath, path, value, -1)
 }
 
-func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []byte, version int32) error {
+func (z zkClientWrapper) setWithVersion(lockPath string, path string, value []byte, version int32) error {
 	bLock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
 	err := bLock.Lock()
 
@@ -170,12 +172,13 @@ func (z zkClientWrapper) SetWithVersion(lockPath string, path string, value []by
 	return nil
 }
 
-func (z zkClientWrapper) Get(lockPath string, path string) ([]byte, error) {
-	value, _, err := z.GetWithVersion(lockPath, path)
+func (z zkClientWrapper) Get(path string) ([]byte, error) {
+	// do not use zk lock for read only operation
+	value, _, err := z.getWithVersion("", path)
 	return value, err
 }
 
-func (z zkClientWrapper) GetWithVersion(lockPath string, path string) ([]byte, int32, error) {
+func (z zkClientWrapper) getWithVersion(lockPath string, path string) ([]byte, int32, error) {
 	if len(lockPath) > 0 {
 		lock := zk.NewLock(z.conn, lockPath, zk.WorldACL(zk.PermAll))
 		err := lock.Lock()
@@ -276,12 +279,11 @@ func (z zkClientWrapper) DeleteAll(lockPath string, paths []string) {
 		if err != nil {
 			err = pqerror.ZKLockFailError{LockPath: lockPath, ZKErrStr: err.Error()}
 			z.logger.Error(err)
-
 		}
 	}
 
 	for _, path := range paths {
-		z.conn.Delete(path, -1)
+		_ = z.conn.Delete(path, -1)
 	}
 }
 

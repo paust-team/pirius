@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
+	"strconv"
 )
 
 type TopicRPCService interface {
@@ -58,10 +59,24 @@ func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqpro
 func (s topicRPCService) DescribeTopic(request *shapleqproto.DescribeTopicRequest) *shapleqproto.DescribeTopicResponse {
 
 	topicValue, err := s.zkqClient.GetTopicData(request.TopicName)
+
 	if err != nil {
-		return message.NewDescribeTopicResponseMsg("", "", 0, 0, &pqerror.ZKOperateError{ErrStr: err.Error()})
+		return message.NewDescribeTopicResponseMsg("", "", 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.Description(), topicValue.NumFragments(),
-		topicValue.ReplicationFactor(), nil)
+	fragments, err := s.zkqClient.GetTopicFragments(request.TopicName)
+	if err != nil {
+		return message.NewDescribeTopicResponseMsg("", "", 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
+	}
+	var fragmentIds []uint32
+
+	for _, fragment := range fragments {
+		fragmentId, err := strconv.ParseUint(fragment, 10, 32)
+		if err != nil {
+			continue
+		}
+		fragmentIds = append(fragmentIds, uint32(fragmentId))
+	}
+
+	return message.NewDescribeTopicResponseMsg(request.TopicName, topicValue.Description(), topicValue.ReplicationFactor(), fragmentIds, nil)
 }
