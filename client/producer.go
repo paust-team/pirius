@@ -9,16 +9,30 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
+	"math/rand"
+	"strconv"
 )
 
+type topicFragmentPair struct {
+	topic      string
+	fragmentId uint32
+}
+
+type PublishResult struct {
+	FragmentId uint32
+	LastOffset uint64
+}
+
 type Producer struct {
-	*ClientBase
-	config    *config.ProducerConfig
-	topic     string
-	logger    *logger.QLogger
-	ctx       context.Context
-	cancel    context.CancelFunc
-	publishCh chan *message.QMessage
+	*client
+	config             *config.ProducerConfig
+	topic              string
+	logger             *logger.QLogger
+	ctx                context.Context
+	cancel             context.CancelFunc
+	publishCh          chan *message.QMessage
+	publishTargets     []*topicFragmentPair
+	currentTargetIndex int
 }
 
 func NewProducer(config *config.ProducerConfig, topic string) *Producer {
@@ -30,12 +44,13 @@ func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, 
 	zkClient := zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0)
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
-		ClientBase: newClientBase(config.ClientConfigBase, zkClient),
-		topic:      topic,
-		logger:     l,
-		ctx:        ctx,
-		cancel:     cancel,
-		publishCh:  make(chan *message.QMessage),
+		client:             newClient(config.ClientConfigBase, zkClient),
+		topic:              topic,
+		logger:             l,
+		ctx:                ctx,
+		cancel:             cancel,
+		publishCh:          make(chan *message.QMessage),
+		currentTargetIndex: 0,
 	}
 	return producer
 }
@@ -48,7 +63,57 @@ func (p Producer) Context() context.Context {
 }
 
 func (p *Producer) Connect() error {
-	return p.connect(shapleqproto.SessionType_PUBLISHER, p.topic)
+
+	// get all fragments : producer publishes data for all fragments of a topic
+	fragments, err := p.zkClient.GetTopicFragments(p.topic)
+	if err != nil {
+		return err
+	}
+
+	if len(fragments) == 0 {
+		return pqerror.TopicFragmentNotExistsError{Topic: p.topic}
+	}
+
+	connectionTargets := make(map[string]*connectionTarget)
+	for _, fragment := range fragments {
+		fid, err := strconv.ParseUint(fragment, 10, 32)
+		if err != nil {
+			return err
+		}
+		fragmentId := uint32(fid)
+		p.publishTargets = append(p.publishTargets, &topicFragmentPair{topic: p.topic, fragmentId: fragmentId})
+
+		// get brokers from fragment
+		addresses, err := p.zkClient.GetTopicFragmentBrokers(p.topic, fragmentId)
+		if err != nil {
+			return pqerror.ZKOperateError{ErrStr: err.Error()}
+		}
+		// if any broker for topic-fragment doesn't exist, pick a random broker to publish
+		if len(addresses) == 0 {
+			brokerAddresses, err := p.zkClient.GetBrokers()
+			if err == nil && len(brokerAddresses) != 0 {
+				brokerAddr := brokerAddresses[rand.Intn(len(brokerAddresses))]
+				addresses = append(addresses, brokerAddr)
+			} else {
+				return pqerror.TopicFragmentBrokerNotExistsError{}
+			}
+		} else if len(addresses) > 1 {
+			return pqerror.UnhandledError{ErrStr: "cannot handle replicated fragments: methods not implemented"}
+		}
+
+		for _, address := range addresses {
+			if connectionTargets[address] == nil { // create single connection for each address
+				connectionTargets[address] = &connectionTarget{address: address, topic: p.topic, fragmentIds: []uint32{fragmentId}}
+			} else { // append related fragment id for connection
+				connectionTargets[address].fragmentIds = append(connectionTargets[address].fragmentIds, fragmentId)
+			}
+		}
+	}
+	var targets []*connectionTarget
+	for _, target := range connectionTargets {
+		targets = append(targets, target)
+	}
+	return p.connect(shapleqproto.SessionType_PUBLISHER, targets)
 }
 
 type PublishData struct {
@@ -57,24 +122,34 @@ type PublishData struct {
 	NodeId string
 }
 
-func (p *Producer) Publish(data *PublishData) (*shapleqproto.Fragment, error) {
-	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId))
+func (p *Producer) getNextPublishTarget() *topicFragmentPair {
+	defer func() {
+		p.currentTargetIndex = (p.currentTargetIndex + 1) % len(p.publishTargets)
+	}()
+	return p.publishTargets[p.currentTargetIndex]
+}
+
+func (p *Producer) Publish(data *PublishData) (*PublishResult, error) {
+
+	pair := p.getNextPublishTarget()
+	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.fragmentId))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := p.send(msg); err != nil {
+	conn := p.getConnections(pair.topic, pair.fragmentId)[0] // TODO:: when retrieve more than 1 address, replication factor should be handled
+	if err := conn.socket.Write(msg); err != nil {
 		return nil, err
 	}
 
-	res, err := p.receive()
+	res, err := conn.socket.Read()
 	if err != nil {
 		return nil, err
 	}
 	return p.handleMessage(res)
 }
 
-func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *shapleqproto.Fragment, <-chan error, error) {
+func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *PublishResult, <-chan error, error) {
 	recvCh, recvErrCh, err := p.continuousReceive(p.ctx)
 	errCh := make(chan error)
 
@@ -82,19 +157,21 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *shapleqprot
 		return nil, nil, err
 	}
 
-	convertToQMsgCh := func(from <-chan *PublishData) <-chan *message.QMessage {
-		to := make(chan *message.QMessage)
+	convertToQMsgCh := func(from <-chan *PublishData) <-chan *messageAndConnection {
+		to := make(chan *messageAndConnection)
 		go func() {
 			defer close(to)
 			for {
 				select {
 				case data, ok := <-from:
 					if ok {
-						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId))
+						pair := p.getNextPublishTarget()
+						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.fragmentId))
 						if err != nil {
 							errCh <- err
 						} else {
-							to <- msg
+							conn := p.getConnections(pair.topic, pair.fragmentId)[0] // TODO:: when retrieve more than 1 address, replication factor should be handled
+							to <- &messageAndConnection{message: msg, connection: conn}
 						}
 					}
 				case <-p.ctx.Done():
@@ -112,9 +189,9 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *shapleqprot
 	}
 
 	mergedErrCh := pqerror.MergeErrors(recvErrCh, sendErrCh, errCh)
-	fragmentCh := make(chan *shapleqproto.Fragment)
+	sinkCh := make(chan *PublishResult)
 	go func() {
-		defer close(fragmentCh)
+		defer close(sinkCh)
 		defer close(errCh)
 		for {
 			select {
@@ -122,18 +199,18 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *shapleqprot
 				return
 			case msg, ok := <-recvCh:
 				if ok {
-					fragment, err := p.handleMessage(msg)
+					fragment, err := p.handleMessage(msg.message)
 					if err != nil {
 						errCh <- err
 					} else {
-						fragmentCh <- fragment
+						sinkCh <- fragment
 					}
 				}
 			}
 		}
 	}()
 
-	return fragmentCh, mergedErrCh, nil
+	return sinkCh, mergedErrCh, nil
 }
 
 func (p *Producer) Close() {
@@ -142,11 +219,11 @@ func (p *Producer) Close() {
 	p.close()
 }
 
-func (p *Producer) handleMessage(msg *message.QMessage) (*shapleqproto.Fragment, error) {
+func (p *Producer) handleMessage(msg *message.QMessage) (*PublishResult, error) {
 	if res, err := msg.UnpackTo(&shapleqproto.PutResponse{}); err == nil {
 		putRes := res.(*shapleqproto.PutResponse)
-		p.logger.Debug("received response - offset: %d", putRes.Fragment.LastOffset)
-		return putRes.Fragment, nil
+		p.logger.Debug("received response - fragmentId: %d / offset: %d", putRes.FragmentId, putRes.LastOffset)
+		return &PublishResult{FragmentId: putRes.FragmentId, LastOffset: putRes.LastOffset}, nil
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return nil, errors.New(res.(*shapleqproto.Ack).GetMsg())
 	} else {
