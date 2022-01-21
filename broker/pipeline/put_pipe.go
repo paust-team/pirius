@@ -72,13 +72,13 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			if len(req.NodeId) != 32 {
 				errCh <- pqerror.InvalidNodeIdError{Id: req.NodeId}
 			}
-			err = p.db.PutRecord(topicName, offsetToWrite, req.NodeId, req.SeqNum, req.Data)
+			err = p.db.PutRecord(topicName, req.FragmentId, offsetToWrite, req.NodeId, req.SeqNum, req.Data)
 			if err != nil {
 				errCh <- err
 				return
 			}
 
-			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(req.FragmentId, offsetToWrite))
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(topicName, req.FragmentId, offsetToWrite))
 			if err != nil {
 				errCh <- err
 				return

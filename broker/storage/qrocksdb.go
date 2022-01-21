@@ -10,6 +10,9 @@ import (
 
 type CFIndex int
 
+var uint32Len = int(unsafe.Sizeof(uint32(0)))
+var uint64Len = int(unsafe.Sizeof(uint64(0)))
+
 const (
 	DefaultCF = iota
 	TopicCF
@@ -53,23 +56,23 @@ func (db QRocksDB) Flush() error {
 	return db.db.Flush(&grocksdb.FlushOptions{})
 }
 
-func (db QRocksDB) GetRecord(topic string, offset uint64) (*grocksdb.Slice, error) {
-	key := NewRecordKeyFromData(topic, offset)
+func (db QRocksDB) GetRecord(topic string, fragmentId uint32, offset uint64) (*grocksdb.Slice, error) {
+	key := NewRecordKeyFromData(topic, fragmentId, offset)
 	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
-func (db QRocksDB) PutRecord(topic string, offset uint64, nodeId string, seqNum uint64, data []byte) error {
+func (db QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, nodeId string, seqNum uint64, data []byte) error {
 	if len(nodeId) != 32 {
 		return errors.New("invalid length for node id")
 	}
-	key := NewRecordKeyFromData(topic, offset)
+	key := NewRecordKeyFromData(topic, fragmentId, offset)
 	value := NewRecordValueFromData(nodeId, seqNum, data)
 
 	return db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data(), value.Data())
 }
 
-func (db QRocksDB) DeleteRecord(topic string, offset uint64) error {
-	key := NewRecordKeyFromData(topic, offset)
+func (db QRocksDB) DeleteRecord(topic string, fragmentId uint32, offset uint64) error {
+	key := NewRecordKeyFromData(topic, fragmentId, offset)
 	return db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
@@ -97,10 +100,11 @@ type RecordKey struct {
 	isSlice bool
 }
 
-func NewRecordKeyFromData(topic string, offset uint64) *RecordKey {
-	data := make([]byte, len(topic)+1+int(unsafe.Sizeof(offset)))
+func NewRecordKeyFromData(topic string, fragmentId uint32, offset uint64) *RecordKey {
+	data := make([]byte, len(topic)+1+uint32Len+uint64Len)
 	copy(data, topic+"@")
-	binary.BigEndian.PutUint64(data[len(topic)+1:], offset)
+	binary.BigEndian.PutUint32(data[len(topic)+1:], fragmentId)
+	binary.BigEndian.PutUint64(data[len(topic)+1+uint32Len:], offset)
 	return &RecordKey{data: data, isSlice: false}
 }
 
@@ -127,11 +131,15 @@ func (k RecordKey) Size() int {
 }
 
 func (k RecordKey) Topic() string {
-	return string(k.Data()[:k.Size()-int(unsafe.Sizeof(uint64(0)))-1])
+	return string(k.Data()[:k.Size()-uint32Len-uint64Len-1])
+}
+
+func (k RecordKey) FragmentId() uint32 {
+	return binary.BigEndian.Uint32(k.Data()[k.Size()-uint64Len-uint32Len : k.Size()-uint64Len])
 }
 
 func (k RecordKey) Offset() uint64 {
-	return binary.BigEndian.Uint64(k.Data()[k.Size()-int(unsafe.Sizeof(uint64(0))):])
+	return binary.BigEndian.Uint64(k.Data()[k.Size()-uint64Len:])
 }
 
 type RecordValue struct {

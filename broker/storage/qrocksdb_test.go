@@ -7,16 +7,20 @@ import (
 
 func TestRecordKey(t *testing.T) {
 
-	topic := "test_topic"
-	var offset uint64 = 1
+	expectedTopic := "test_topic"
+	var expectedOffset uint64 = 1
+	var expectedFragmentId uint32 = 2
 
-	key := NewRecordKeyFromData(topic, offset)
+	key := NewRecordKeyFromData(expectedTopic, expectedFragmentId, expectedOffset)
 
-	if key.Topic() != topic {
-		t.Error("Unknown topic")
+	if key.Topic() != expectedTopic {
+		t.Error("Topic not matched")
 	}
-	if key.Offset() != offset {
-		t.Error("Unknown offset")
+	if key.Offset() != expectedOffset {
+		t.Error("Offset not matched")
+	}
+	if key.FragmentId() != expectedFragmentId {
+		t.Error("FragmentId not matched")
 	}
 }
 
@@ -34,14 +38,15 @@ func TestQRocksDBRecord(t *testing.T) {
 
 	expected := []byte{1, 2, 3, 4, 5}
 	topic := "test_topic"
+	var fragmentId uint32 = 1
 	nodeId := "f47ac10b58cc037285670e02b2c3d479"
 	var seqNum uint64 = 10
-	if db.PutRecord(topic, 0, nodeId, seqNum, expected) != nil {
+	if db.PutRecord(topic, fragmentId, 0, nodeId, seqNum, expected) != nil {
 		t.Error(err)
 		return
 	}
 
-	record, err := db.GetRecord(topic, 0)
+	record, err := db.GetRecord(topic, fragmentId, 0)
 
 	if err != nil {
 		t.Error(err)
