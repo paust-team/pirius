@@ -2,6 +2,7 @@ package internals
 
 import (
 	"context"
+	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
@@ -63,8 +64,7 @@ type Session struct {
 	sock          *network.Socket
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
-	topicName     string
-	fragmentIds   []uint32
+	topicTargets  []*common.TopicFragments
 	rTimeout      uint
 	wTimeout      uint
 	maxBatchSize  uint32 // for fetch
@@ -77,7 +77,7 @@ func NewSession(conn net.Conn, timeout int) *Session {
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
-		topicName:     "",
+		topicTargets:  []*common.TopicFragments{},
 		maxBatchSize:  1,
 		flushInterval: 100,
 	}
@@ -106,20 +106,22 @@ func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s *Session) TopicName() string {
-	return s.topicName
+func (s *Session) TopicTargets() []*common.TopicFragments {
+	return s.topicTargets
 }
 
-func (s *Session) SetTopicName(topicName string) {
-	s.topicName = topicName
+func (s *Session) SetTopicTargets(targets []*common.TopicFragments) {
+	s.topicTargets = targets
 }
 
-func (s *Session) FragmentIds() []uint32 {
-	return s.fragmentIds
-}
+func (s *Session) AddTopicTarget(target *shapleq_proto.TopicFragmentsTarget) {
+	startOffsets := common.FragmentOffsetMap{}
+	for _, offset := range target.Offsets {
+		startOffsets[offset.FragmentId] = offset.StartOffset
+	}
 
-func (s *Session) SetFragmentIds(ids []uint32) {
-	s.fragmentIds = ids
+	topicFragments := common.NewTopicFragmentsWithOffset(target.TopicName, startOffsets)
+	s.topicTargets = append(s.topicTargets, topicFragments)
 }
 
 func (s *Session) MaxBatchSize() uint32 {

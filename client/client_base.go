@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
@@ -13,9 +14,18 @@ import (
 )
 
 type connectionTarget struct {
-	address     string
-	topic       string
-	fragmentIds []uint32
+	address      string
+	topicTargets []*common.TopicFragments
+}
+
+func (c connectionTarget) findTopicFragments(topic string) *common.TopicFragments {
+	for _, topicFragment := range c.topicTargets {
+		if topicFragment.Topic() == topic {
+			return topicFragment
+		}
+	}
+
+	return nil
 }
 
 type connection struct {
@@ -81,10 +91,15 @@ func (c *client) continuousSend(ctx context.Context, writeCh <-chan *messageAndC
 		return nil, pqerror.NotConnectedError{}
 	}
 	errCh := make(chan error)
+	wg := sync.WaitGroup{}
 
 	for _, conn := range c.connections {
+		wg.Add(1)
 		go func(cn *connection) {
+			defer wg.Done()
 			cn.writeCh = make(chan *message.QMessage)
+			defer close(cn.writeCh)
+
 			for err := range cn.socket.ContinuousWrite(ctx, cn.writeCh) {
 				errCh <- err
 			}
@@ -93,11 +108,8 @@ func (c *client) continuousSend(ctx context.Context, writeCh <-chan *messageAndC
 
 	go func() {
 		defer close(errCh)
-		defer func() {
-			for _, connection := range c.connections {
-				close(connection.writeCh)
-			}
-		}()
+		defer wg.Wait()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -120,10 +132,15 @@ func (c *client) continuousReceive(ctx context.Context) (<-chan *messageAndConne
 	}
 	msgCh := make(chan *messageAndConnection)
 	errCh := make(chan error)
+	wg := sync.WaitGroup{}
 
 	for _, conn := range c.connections {
+		wg.Add(1)
 		go func(cn *connection) {
+			defer wg.Done()
 			cn.readCh = make(chan *message.QMessage)
+			defer close(cn.readCh)
+
 			socketMsgCh, socketErrCh := cn.socket.ContinuousRead(ctx)
 			for {
 				select {
@@ -142,6 +159,19 @@ func (c *client) continuousReceive(ctx context.Context) (<-chan *messageAndConne
 		}(conn)
 	}
 
+	go func() {
+		defer close(errCh)
+		defer close(msgCh)
+		defer wg.Wait()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	return msgCh, errCh, nil
 }
 
@@ -151,9 +181,6 @@ func (c *client) connect(sessionType shapleqproto.SessionType, targets []*connec
 	}
 
 	for _, target := range targets {
-		if len(target.topic) == 0 {
-			return pqerror.TopicNotSetError{}
-		}
 		if err := c.establishStream(sessionType, target); err != nil {
 			return err
 		}
@@ -169,11 +196,10 @@ func (c *client) establishStream(sessionType shapleqproto.SessionType, target *c
 	}
 	sock := network.NewSocket(conn, c.config.BrokerTimeout(), c.config.BrokerTimeout())
 	reqMsg, err := message.NewQMessageFromMsg(message.STREAM,
-		message.NewConnectRequestMsg(sessionType, target.topic, target.fragmentIds))
+		message.NewConnectRequestMsg(sessionType, target.topicTargets))
 	if err != nil {
 		return err
 	}
-
 	if err := sock.Write(reqMsg); err != nil {
 		return err
 	}
@@ -192,8 +218,10 @@ func (c *client) establishStream(sessionType shapleqproto.SessionType, target *c
 func (c *client) getConnections(topic string, fragmentId uint32) []*connection {
 	var connections []*connection
 	for _, conn := range c.connections {
-		if conn.topic == topic && utils.Contains(conn.fragmentIds, fragmentId) {
-			connections = append(connections, conn)
+		for _, topicFragments := range conn.topicTargets {
+			if topicFragments.Topic() == topic && utils.Contains(topicFragments.FragmentIds(), fragmentId) {
+				connections = append(connections, conn)
+			}
 		}
 	}
 	return connections

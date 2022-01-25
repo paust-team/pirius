@@ -70,16 +70,18 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
-			for _, fragmentOffset := range req.FragmentOffsets {
-				if fragmentOffset.StartOffset == 0 {
-					errCh <- pqerror.TopicFragmentOffsetNotSetError{}
-					return
+			for _, topicTarget := range req.TopicTargets {
+				for _, offset := range topicTarget.Offsets {
+					if offset.StartOffset == 0 {
+						errCh <- pqerror.TopicFragmentOffsetNotSetError{}
+						return
+					}
+					wg.Add(1)
+					go func(topicName string, offset *shapleq_proto.TopicFragmentsTarget_FragmentOffset) {
+						defer wg.Done()
+						f.iterateRecords(topicName, offset.FragmentId, offset.StartOffset, outStream, inStreamClosed)
+					}(topicTarget.TopicName, offset)
 				}
-				wg.Add(1)
-				go func(fo *shapleq_proto.FetchRequest_OffsetInfo) {
-					defer wg.Done()
-					f.iterateRecords(f.session.TopicName(), fo.FragmentId, fo.StartOffset, outStream, inStreamClosed)
-				}(fragmentOffset)
 			}
 
 			runtime.Gosched()

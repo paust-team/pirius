@@ -291,10 +291,14 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 					sc.session.Close()
 					switch sc.session.Type() {
 					case shapleq_proto.SessionType_PUBLISHER:
-						_, _ = b.zkqClient.AddNumPublishers(sc.session.TopicName(), -1)
+						for _, topicTarget := range sc.session.TopicTargets() {
+							_, _ = b.zkqClient.AddNumPublishers(topicTarget.Topic(), -1)
+						}
 					case shapleq_proto.SessionType_SUBSCRIBER:
-						for _, id := range sc.session.FragmentIds() {
-							_, _ = b.zkqClient.AddNumSubscriber(sc.session.TopicName(), id, -1)
+						for _, topicTarget := range sc.session.TopicTargets() {
+							for _, id := range topicTarget.FragmentIds() {
+								_, _ = b.zkqClient.AddNumSubscriber(topicTarget.Topic(), id, -1)
+							}
 						}
 					}
 				}()

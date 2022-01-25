@@ -26,7 +26,7 @@ func NewPublishCmd() *cobra.Command {
 			sigCh := make(chan os.Signal, 1)
 
 			producerConfig.Load(configPath)
-			producer := client.NewProducer(producerConfig, topicName)
+			producer := client.NewProducer(producerConfig, []string{topicName})
 
 			if err := producer.Connect(); err != nil {
 				log.Fatal(err)
@@ -55,7 +55,7 @@ func NewPublishCmd() *cobra.Command {
 					select {
 					case publishCh <- &client.PublishData{Data: []byte(scanner.Text()), NodeId: nodeId, SeqNum: uint64(seq)}:
 					case fragment := <-fragmentCh:
-						fmt.Printf("publish succeed, fragment id : %d, offset : %d\n", fragment.Id, fragment.LastOffset)
+						fmt.Printf("publish succeed, fragment id : %d, offset : %d\n", fragment.FragmentId, fragment.LastOffset)
 					case err := <-errCh:
 						log.Fatal(err)
 					case sig := <-sigCh:
@@ -65,11 +65,11 @@ func NewPublishCmd() *cobra.Command {
 					seq += 1
 				}
 			} else if len(args) > 0 {
-				fragment, err := producer.Publish(&client.PublishData{Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
+				fragment, err := producer.Publish(&client.PublishData{Topic: topicName, Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Printf("publish succeed, fragment id : %d, last offset : %d\n", fragment.Id, fragment.LastOffset)
+				fmt.Printf("publish succeed, fragment id : %d, last offset : %d\n", fragment.FragmentId, fragment.LastOffset)
 			} else {
 				fmt.Println("no data to publish")
 				os.Exit(1)

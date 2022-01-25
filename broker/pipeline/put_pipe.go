@@ -51,7 +51,6 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 		defer close(outStream)
 
 		for in := range inStream {
-			topicName := p.session.TopicName()
 			once.Do(func() {
 				if p.session.State() != internals.ON_PUBLISH {
 					err := p.session.SetState(internals.ON_PUBLISH)
@@ -63,7 +62,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			})
 
 			req := in.(*shapleq_proto.PutRequest)
-			offsetToWrite, err := p.zkqClient.IncreaseLastOffset(topicName, req.FragmentId)
+			offsetToWrite, err := p.zkqClient.IncreaseLastOffset(req.TopicName, req.FragmentId)
 			if err != nil {
 				errCh <- err
 				return
@@ -72,13 +71,13 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			if len(req.NodeId) != 32 {
 				errCh <- pqerror.InvalidNodeIdError{Id: req.NodeId}
 			}
-			err = p.db.PutRecord(topicName, req.FragmentId, offsetToWrite, req.NodeId, req.SeqNum, req.Data)
+			err = p.db.PutRecord(req.TopicName, req.FragmentId, offsetToWrite, req.NodeId, req.SeqNum, req.Data)
 			if err != nil {
 				errCh <- err
 				return
 			}
 
-			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(topicName, req.FragmentId, offsetToWrite))
+			out, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutResponseMsg(req.TopicName, req.FragmentId, offsetToWrite))
 			if err != nil {
 				errCh <- err
 				return
