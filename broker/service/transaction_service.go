@@ -18,7 +18,6 @@ type RPCService struct {
 	rpc.TopicRPCService
 	rpc.FragmentRPCService
 	rpc.ConfigRPCService
-	rpc.GroupRPCService
 	rpc.ConnectionRPCService
 }
 
@@ -31,7 +30,6 @@ func NewTransactionService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient)
 		rpc.NewTopicRPCService(db, zkqClient),
 		rpc.NewFragmentRPCService(db, zkqClient),
 		rpc.NewConfigRPCService(),
-		rpc.NewGroupRPCService(),
 		rpc.NewConnectionRPCService(zkqClient)},
 	}
 }

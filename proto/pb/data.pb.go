@@ -48,62 +48,7 @@ func (SessionType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_871986018790d2fd, []int{0}
 }
 
-type Group struct {
-	GroupId              uint64   `protobuf:"varint,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
-	OwnerId              uint64   `protobuf:"varint,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	GroupName            string   `protobuf:"bytes,3,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Group) Reset()         { *m = Group{} }
-func (m *Group) String() string { return proto.CompactTextString(m) }
-func (*Group) ProtoMessage()    {}
-func (*Group) Descriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{0}
-}
-
-func (m *Group) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Group.Unmarshal(m, b)
-}
-func (m *Group) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Group.Marshal(b, m, deterministic)
-}
-func (m *Group) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Group.Merge(m, src)
-}
-func (m *Group) XXX_Size() int {
-	return xxx_messageInfo_Group.Size(m)
-}
-func (m *Group) XXX_DiscardUnknown() {
-	xxx_messageInfo_Group.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Group proto.InternalMessageInfo
-
-func (m *Group) GetGroupId() uint64 {
-	if m != nil {
-		return m.GroupId
-	}
-	return 0
-}
-
-func (m *Group) GetOwnerId() uint64 {
-	if m != nil {
-		return m.OwnerId
-	}
-	return 0
-}
-
-func (m *Group) GetGroupName() string {
-	if m != nil {
-		return m.GroupName
-	}
-	return ""
-}
-
-type Fragment struct {
+type FragmentInfo struct {
 	Id                   uint32   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	LastOffset           uint64   `protobuf:"varint,2,opt,name=last_offset,json=lastOffset,proto3" json:"last_offset,omitempty"`
 	BrokerAddresses      []string `protobuf:"bytes,3,rep,name=broker_addresses,json=brokerAddresses,proto3" json:"broker_addresses,omitempty"`
@@ -112,53 +57,53 @@ type Fragment struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Fragment) Reset()         { *m = Fragment{} }
-func (m *Fragment) String() string { return proto.CompactTextString(m) }
-func (*Fragment) ProtoMessage()    {}
-func (*Fragment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{1}
+func (m *FragmentInfo) Reset()         { *m = FragmentInfo{} }
+func (m *FragmentInfo) String() string { return proto.CompactTextString(m) }
+func (*FragmentInfo) ProtoMessage()    {}
+func (*FragmentInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{0}
 }
 
-func (m *Fragment) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Fragment.Unmarshal(m, b)
+func (m *FragmentInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FragmentInfo.Unmarshal(m, b)
 }
-func (m *Fragment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Fragment.Marshal(b, m, deterministic)
+func (m *FragmentInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FragmentInfo.Marshal(b, m, deterministic)
 }
-func (m *Fragment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Fragment.Merge(m, src)
+func (m *FragmentInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FragmentInfo.Merge(m, src)
 }
-func (m *Fragment) XXX_Size() int {
-	return xxx_messageInfo_Fragment.Size(m)
+func (m *FragmentInfo) XXX_Size() int {
+	return xxx_messageInfo_FragmentInfo.Size(m)
 }
-func (m *Fragment) XXX_DiscardUnknown() {
-	xxx_messageInfo_Fragment.DiscardUnknown(m)
+func (m *FragmentInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_FragmentInfo.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Fragment proto.InternalMessageInfo
+var xxx_messageInfo_FragmentInfo proto.InternalMessageInfo
 
-func (m *Fragment) GetId() uint32 {
+func (m *FragmentInfo) GetId() uint32 {
 	if m != nil {
 		return m.Id
 	}
 	return 0
 }
 
-func (m *Fragment) GetLastOffset() uint64 {
+func (m *FragmentInfo) GetLastOffset() uint64 {
 	if m != nil {
 		return m.LastOffset
 	}
 	return 0
 }
 
-func (m *Fragment) GetBrokerAddresses() []string {
+func (m *FragmentInfo) GetBrokerAddresses() []string {
 	if m != nil {
 		return m.BrokerAddresses
 	}
 	return nil
 }
 
-type Topic struct {
+type TopicInfo struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Description          string   `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	ReplicationFactor    uint32   `protobuf:"varint,3,opt,name=replication_factor,json=replicationFactor,proto3" json:"replication_factor,omitempty"`
@@ -168,91 +113,187 @@ type Topic struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Topic) Reset()         { *m = Topic{} }
-func (m *Topic) String() string { return proto.CompactTextString(m) }
-func (*Topic) ProtoMessage()    {}
-func (*Topic) Descriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{2}
+func (m *TopicInfo) Reset()         { *m = TopicInfo{} }
+func (m *TopicInfo) String() string { return proto.CompactTextString(m) }
+func (*TopicInfo) ProtoMessage()    {}
+func (*TopicInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{1}
 }
 
-func (m *Topic) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Topic.Unmarshal(m, b)
+func (m *TopicInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TopicInfo.Unmarshal(m, b)
 }
-func (m *Topic) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Topic.Marshal(b, m, deterministic)
+func (m *TopicInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TopicInfo.Marshal(b, m, deterministic)
 }
-func (m *Topic) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Topic.Merge(m, src)
+func (m *TopicInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TopicInfo.Merge(m, src)
 }
-func (m *Topic) XXX_Size() int {
-	return xxx_messageInfo_Topic.Size(m)
+func (m *TopicInfo) XXX_Size() int {
+	return xxx_messageInfo_TopicInfo.Size(m)
 }
-func (m *Topic) XXX_DiscardUnknown() {
-	xxx_messageInfo_Topic.DiscardUnknown(m)
+func (m *TopicInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_TopicInfo.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Topic proto.InternalMessageInfo
+var xxx_messageInfo_TopicInfo proto.InternalMessageInfo
 
-func (m *Topic) GetName() string {
+func (m *TopicInfo) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *Topic) GetDescription() string {
+func (m *TopicInfo) GetDescription() string {
 	if m != nil {
 		return m.Description
 	}
 	return ""
 }
 
-func (m *Topic) GetReplicationFactor() uint32 {
+func (m *TopicInfo) GetReplicationFactor() uint32 {
 	if m != nil {
 		return m.ReplicationFactor
 	}
 	return 0
 }
 
-func (m *Topic) GetFragmentIds() []uint32 {
+func (m *TopicInfo) GetFragmentIds() []uint32 {
 	if m != nil {
 		return m.FragmentIds
 	}
 	return nil
 }
 
+type TopicFragmentsTarget struct {
+	TopicName            string                                 `protobuf:"bytes,1,opt,name=topic_name,json=topicName,proto3" json:"topic_name,omitempty"`
+	Offsets              []*TopicFragmentsTarget_FragmentOffset `protobuf:"bytes,2,rep,name=offsets,proto3" json:"offsets,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
+	XXX_unrecognized     []byte                                 `json:"-"`
+	XXX_sizecache        int32                                  `json:"-"`
+}
+
+func (m *TopicFragmentsTarget) Reset()         { *m = TopicFragmentsTarget{} }
+func (m *TopicFragmentsTarget) String() string { return proto.CompactTextString(m) }
+func (*TopicFragmentsTarget) ProtoMessage()    {}
+func (*TopicFragmentsTarget) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2}
+}
+
+func (m *TopicFragmentsTarget) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TopicFragmentsTarget.Unmarshal(m, b)
+}
+func (m *TopicFragmentsTarget) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TopicFragmentsTarget.Marshal(b, m, deterministic)
+}
+func (m *TopicFragmentsTarget) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TopicFragmentsTarget.Merge(m, src)
+}
+func (m *TopicFragmentsTarget) XXX_Size() int {
+	return xxx_messageInfo_TopicFragmentsTarget.Size(m)
+}
+func (m *TopicFragmentsTarget) XXX_DiscardUnknown() {
+	xxx_messageInfo_TopicFragmentsTarget.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TopicFragmentsTarget proto.InternalMessageInfo
+
+func (m *TopicFragmentsTarget) GetTopicName() string {
+	if m != nil {
+		return m.TopicName
+	}
+	return ""
+}
+
+func (m *TopicFragmentsTarget) GetOffsets() []*TopicFragmentsTarget_FragmentOffset {
+	if m != nil {
+		return m.Offsets
+	}
+	return nil
+}
+
+type TopicFragmentsTarget_FragmentOffset struct {
+	FragmentId           uint32   `protobuf:"varint,1,opt,name=fragment_id,json=fragmentId,proto3" json:"fragment_id,omitempty"`
+	StartOffset          uint64   `protobuf:"varint,2,opt,name=start_offset,json=startOffset,proto3" json:"start_offset,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *TopicFragmentsTarget_FragmentOffset) Reset()         { *m = TopicFragmentsTarget_FragmentOffset{} }
+func (m *TopicFragmentsTarget_FragmentOffset) String() string { return proto.CompactTextString(m) }
+func (*TopicFragmentsTarget_FragmentOffset) ProtoMessage()    {}
+func (*TopicFragmentsTarget_FragmentOffset) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2, 0}
+}
+
+func (m *TopicFragmentsTarget_FragmentOffset) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TopicFragmentsTarget_FragmentOffset.Unmarshal(m, b)
+}
+func (m *TopicFragmentsTarget_FragmentOffset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TopicFragmentsTarget_FragmentOffset.Marshal(b, m, deterministic)
+}
+func (m *TopicFragmentsTarget_FragmentOffset) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TopicFragmentsTarget_FragmentOffset.Merge(m, src)
+}
+func (m *TopicFragmentsTarget_FragmentOffset) XXX_Size() int {
+	return xxx_messageInfo_TopicFragmentsTarget_FragmentOffset.Size(m)
+}
+func (m *TopicFragmentsTarget_FragmentOffset) XXX_DiscardUnknown() {
+	xxx_messageInfo_TopicFragmentsTarget_FragmentOffset.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TopicFragmentsTarget_FragmentOffset proto.InternalMessageInfo
+
+func (m *TopicFragmentsTarget_FragmentOffset) GetFragmentId() uint32 {
+	if m != nil {
+		return m.FragmentId
+	}
+	return 0
+}
+
+func (m *TopicFragmentsTarget_FragmentOffset) GetStartOffset() uint64 {
+	if m != nil {
+		return m.StartOffset
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterEnum("shapleq.proto.SessionType", SessionType_name, SessionType_value)
-	proto.RegisterType((*Group)(nil), "shapleq.proto.Group")
-	proto.RegisterType((*Fragment)(nil), "shapleq.proto.Fragment")
-	proto.RegisterType((*Topic)(nil), "shapleq.proto.Topic")
+	proto.RegisterType((*FragmentInfo)(nil), "shapleq.proto.FragmentInfo")
+	proto.RegisterType((*TopicInfo)(nil), "shapleq.proto.TopicInfo")
+	proto.RegisterType((*TopicFragmentsTarget)(nil), "shapleq.proto.TopicFragmentsTarget")
+	proto.RegisterType((*TopicFragmentsTarget_FragmentOffset)(nil), "shapleq.proto.TopicFragmentsTarget.FragmentOffset")
 }
 
-func init() {
-	proto.RegisterFile("data.proto", fileDescriptor_871986018790d2fd)
-}
+func init() { proto.RegisterFile("data.proto", fileDescriptor_871986018790d2fd) }
 
 var fileDescriptor_871986018790d2fd = []byte{
-	// 330 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x91, 0x4d, 0x4f, 0xab, 0x40,
-	0x14, 0x86, 0x2f, 0x1f, 0xed, 0x2d, 0xa7, 0xa1, 0x97, 0x7b, 0x56, 0xb8, 0x30, 0x92, 0xae, 0xd0,
-	0xc4, 0xba, 0x70, 0xe1, 0xba, 0x68, 0xab, 0x24, 0x5a, 0xcd, 0xd0, 0x6e, 0x8c, 0x09, 0x99, 0x32,
-	0x43, 0x25, 0xb6, 0xcc, 0x38, 0x83, 0x31, 0xfe, 0x09, 0x7f, 0xb3, 0x61, 0xa8, 0x49, 0x77, 0xe7,
-	0x7d, 0x9e, 0xf0, 0x72, 0x4e, 0x06, 0x80, 0xd1, 0x86, 0x4e, 0xa4, 0x12, 0x8d, 0x40, 0x5f, 0xbf,
-	0x52, 0xb9, 0xe5, 0xef, 0x5d, 0x1c, 0xbf, 0x40, 0xef, 0x56, 0x89, 0x0f, 0x89, 0x47, 0x30, 0xd8,
-	0xb4, 0x43, 0x5e, 0xb1, 0xd0, 0x8a, 0xac, 0xd8, 0x25, 0x7f, 0x4d, 0x4e, 0x59, 0xab, 0xc4, 0x67,
-	0xcd, 0x55, 0xab, 0xec, 0x4e, 0x99, 0x9c, 0x32, 0x3c, 0x06, 0xe8, 0xbe, 0xaa, 0xe9, 0x8e, 0x87,
-	0x4e, 0x64, 0xc5, 0x1e, 0xf1, 0x0c, 0x59, 0xd0, 0x1d, 0x1f, 0x97, 0x30, 0x98, 0x2b, 0xba, 0xd9,
-	0xf1, 0xba, 0xc1, 0x11, 0xd8, 0xfb, 0x6a, 0x9f, 0xd8, 0x15, 0xc3, 0x13, 0x18, 0x6e, 0xa9, 0x6e,
-	0x72, 0x51, 0x96, 0x9a, 0x37, 0xfb, 0x62, 0x68, 0xd1, 0xa3, 0x21, 0x78, 0x0a, 0xc1, 0x5a, 0x89,
-	0x37, 0xae, 0x72, 0xca, 0x98, 0xe2, 0x5a, 0x73, 0x1d, 0x3a, 0x91, 0x13, 0x7b, 0xe4, 0x5f, 0xc7,
-	0xa7, 0xbf, 0x78, 0xfc, 0x6d, 0x41, 0x6f, 0x29, 0x64, 0x55, 0x20, 0x82, 0x6b, 0x56, 0xb1, 0xcc,
-	0x2a, 0x66, 0xc6, 0x08, 0x86, 0x8c, 0xeb, 0x42, 0x55, 0xb2, 0xa9, 0x44, 0x6d, 0xfe, 0xe4, 0x91,
-	0x43, 0x84, 0xe7, 0x80, 0x8a, 0xcb, 0x6d, 0x55, 0xd0, 0x36, 0xe6, 0x25, 0x2d, 0x1a, 0xa1, 0xcc,
-	0x39, 0x3e, 0xf9, 0x7f, 0x60, 0xe6, 0x46, 0xb4, 0x85, 0xe5, 0xfe, 0xac, 0x94, 0xe9, 0xd0, 0x8d,
-	0x9c, 0xd8, 0x27, 0x87, 0xe8, 0xec, 0x0a, 0x86, 0x19, 0xd7, 0xba, 0x12, 0xf5, 0xf2, 0x4b, 0x72,
-	0xf4, 0xa0, 0x37, 0xbd, 0x79, 0x48, 0x17, 0xc1, 0x1f, 0xf4, 0xc1, 0x7b, 0x5a, 0x25, 0xf7, 0x69,
-	0x76, 0x37, 0x23, 0x81, 0x85, 0x23, 0x80, 0x6c, 0x95, 0x64, 0xd7, 0x24, 0x4d, 0x66, 0x24, 0xb0,
-	0x93, 0xfe, 0xb3, 0x3b, 0xb9, 0x90, 0xeb, 0x75, 0xdf, 0x3c, 0xcf, 0xe5, 0x4f, 0x00, 0x00, 0x00,
-	0xff, 0xff, 0x7c, 0x28, 0x48, 0x24, 0xbb, 0x01, 0x00, 0x00,
+	// 371 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xcd, 0x6e, 0x9b, 0x40,
+	0x14, 0x85, 0xcb, 0x4f, 0x5d, 0x71, 0x31, 0x2e, 0x1d, 0x75, 0x81, 0x2a, 0x55, 0xa5, 0x5e, 0xd1,
+	0x4a, 0xa5, 0x92, 0xb3, 0xc8, 0xda, 0x24, 0xb6, 0x82, 0xe4, 0x38, 0xd1, 0x80, 0x37, 0xd9, 0xa0,
+	0x31, 0x0c, 0x0e, 0x89, 0xcd, 0x90, 0x99, 0xd9, 0xe4, 0x35, 0xf2, 0x76, 0x79, 0x9b, 0x88, 0x41,
+	0x24, 0x38, 0xca, 0x6e, 0xee, 0x77, 0xa5, 0x73, 0xce, 0x9c, 0x0b, 0x50, 0x10, 0x49, 0xc2, 0x86,
+	0x33, 0xc9, 0x90, 0x23, 0x6e, 0x49, 0xb3, 0xa7, 0x0f, 0xdd, 0x38, 0xbd, 0x83, 0xf1, 0x92, 0x93,
+	0xdd, 0x81, 0xd6, 0x32, 0xae, 0x4b, 0x86, 0x26, 0xa0, 0x57, 0x85, 0xa7, 0xf9, 0x5a, 0xe0, 0x60,
+	0xbd, 0x2a, 0xd0, 0x2f, 0xb0, 0xf7, 0x44, 0xc8, 0x8c, 0x95, 0xa5, 0xa0, 0xd2, 0xd3, 0x7d, 0x2d,
+	0x30, 0x31, 0xb4, 0xe8, 0x4a, 0x11, 0xf4, 0x07, 0xdc, 0x2d, 0x67, 0xf7, 0x94, 0x67, 0xa4, 0x28,
+	0x38, 0x15, 0x82, 0x0a, 0xcf, 0xf0, 0x8d, 0xc0, 0xc2, 0x5f, 0x3b, 0x3e, 0xef, 0xf1, 0xf4, 0x49,
+	0x03, 0x2b, 0x65, 0x4d, 0x95, 0x2b, 0x27, 0x04, 0x66, 0x4d, 0x0e, 0x54, 0x79, 0x59, 0x58, 0xbd,
+	0x91, 0x0f, 0x76, 0x41, 0x45, 0xce, 0xab, 0x46, 0x56, 0xac, 0x56, 0x6e, 0x16, 0x1e, 0x22, 0xf4,
+	0x0f, 0x10, 0xa7, 0xcd, 0xbe, 0xca, 0x49, 0x3b, 0x66, 0x25, 0xc9, 0x25, 0xe3, 0x9e, 0xa1, 0xf2,
+	0x7e, 0x1b, 0x6c, 0x96, 0x6a, 0xd1, 0x0a, 0x96, 0xfd, 0xf7, 0x0a, 0xe1, 0x99, 0xbe, 0x11, 0x38,
+	0x78, 0x88, 0xa6, 0xcf, 0x1a, 0x7c, 0x57, 0xa1, 0xfa, 0x1a, 0x44, 0x4a, 0xf8, 0x8e, 0x4a, 0xf4,
+	0x13, 0x40, 0xb6, 0x3c, 0x1b, 0xa4, 0xb4, 0x14, 0x59, 0xb7, 0x51, 0x57, 0xf0, 0xa5, 0xeb, 0x44,
+	0x78, 0xba, 0x6f, 0x04, 0xf6, 0x6c, 0x16, 0x1e, 0x35, 0x1b, 0x7e, 0x24, 0x1a, 0xf6, 0x73, 0x57,
+	0x1e, 0xee, 0x25, 0x7e, 0xa4, 0x30, 0x39, 0x5e, 0xb5, 0xc5, 0xf7, 0x31, 0xb3, 0xd7, 0x8b, 0xc0,
+	0x5b, 0x72, 0xf4, 0x1b, 0xc6, 0x42, 0x12, 0xfe, 0xee, 0x34, 0xb6, 0x62, 0x9d, 0xc6, 0xdf, 0x53,
+	0xb0, 0x13, 0x2a, 0x44, 0xc5, 0xea, 0xf4, 0xb1, 0xa1, 0xc8, 0x82, 0xcf, 0xf3, 0xf3, 0xcb, 0x78,
+	0xed, 0x7e, 0x42, 0x0e, 0x58, 0xd7, 0x9b, 0x68, 0x15, 0x27, 0x17, 0x0b, 0xec, 0x6a, 0x68, 0x02,
+	0x90, 0x6c, 0xa2, 0xe4, 0x0c, 0xc7, 0xd1, 0x02, 0xbb, 0x7a, 0x34, 0xba, 0x31, 0xc3, 0xff, 0xcd,
+	0x76, 0x3b, 0x52, 0x5f, 0x39, 0x79, 0x09, 0x00, 0x00, 0xff, 0xff, 0xf5, 0xa8, 0x4c, 0x48, 0x41,
+	0x02, 0x00, 0x00,
 }

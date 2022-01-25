@@ -1,6 +1,7 @@
 package message
 
 import (
+	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
 )
@@ -40,7 +41,7 @@ func NewDescribeTopicResponseMsg(topicName, description string, replicationFacto
 		return response
 	}
 
-	topic := &shapleqproto.Topic{
+	topic := &shapleqproto.TopicInfo{
 		Name:              topicName,
 		Description:       description,
 		ReplicationFactor: replicationFactor,
@@ -90,7 +91,7 @@ func NewCreateTopicFragmentResponseMsg(fragmentId uint32, err pqerror.PQError) *
 		response.ErrorCode = int32(err.Code())
 		response.ErrorMessage = err.Error()
 	} else {
-		response.Fragment = &shapleqproto.Fragment{
+		response.Fragment = &shapleqproto.FragmentInfo{
 			Id:         fragmentId,
 			LastOffset: 0,
 		}
@@ -123,7 +124,7 @@ func NewDescribeTopicFragmentResponseMsg(fragmentId uint32, lastOffset uint64, b
 		response.ErrorCode = int32(err.Code())
 		response.ErrorMessage = err.Error()
 	} else {
-		response.Fragment = &shapleqproto.Fragment{
+		response.Fragment = &shapleqproto.FragmentInfo{
 			Id:              fragmentId,
 			LastOffset:      lastOffset,
 			BrokerAddresses: brokerAddresses,
@@ -141,8 +142,20 @@ func NewPongMsg(msg string, serverVersion uint32, serverTime uint64) *shapleqpro
 }
 
 // Stream messages
-func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topicName string, fragmentIds []uint32) *shapleqproto.ConnectRequest {
-	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicName: topicName, FragmentIds: fragmentIds}
+func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topicTargets []*common.TopicFragments) *shapleqproto.ConnectRequest {
+	var targets []*shapleqproto.TopicFragmentsTarget
+	for _, topicObject := range topicTargets {
+		var offsets []*shapleqproto.TopicFragmentsTarget_FragmentOffset
+		for fragmentId := range topicObject.FragmentIdOffsets() {
+			offsets = append(offsets, &shapleqproto.TopicFragmentsTarget_FragmentOffset{FragmentId: fragmentId})
+		}
+
+		targets = append(targets, &shapleqproto.TopicFragmentsTarget{
+			TopicName: topicObject.Topic(),
+			Offsets:   offsets,
+		})
+	}
+	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, TopicTargets: targets}
 }
 
 func NewConnectResponseMsg() *shapleqproto.ConnectResponse {
@@ -157,15 +170,23 @@ func NewPutResponseMsg(topicName string, fragmentId uint32, offset uint64) *shap
 	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, TopicName: topicName, FragmentId: fragmentId, LastOffset: offset}
 }
 
-func NewFetchRequestMsg(fragmentOffsets map[uint32]uint64, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
-	var offsets []*shapleqproto.FetchRequest_OffsetInfo
-	for id, offset := range fragmentOffsets {
-		offsets = append(offsets, &shapleqproto.FetchRequest_OffsetInfo{
-			FragmentId:  id,
-			StartOffset: offset,
+func NewFetchRequestMsg(topicFragments []*common.TopicFragments, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
+	var topicTargets []*shapleqproto.TopicFragmentsTarget
+	for _, topicObject := range topicFragments {
+		var offsets []*shapleqproto.TopicFragmentsTarget_FragmentOffset
+		for fragmentId, startOffset := range topicObject.FragmentIdOffsets() {
+			offsets = append(offsets, &shapleqproto.TopicFragmentsTarget_FragmentOffset{
+				FragmentId:  fragmentId,
+				StartOffset: startOffset,
+			})
+		}
+
+		topicTargets = append(topicTargets, &shapleqproto.TopicFragmentsTarget{
+			TopicName: topicObject.Topic(),
+			Offsets:   offsets,
 		})
 	}
-	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, FragmentOffsets: offsets, MaxBatchSize: maxBatchSize,
+	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, TopicTargets: topicTargets, MaxBatchSize: maxBatchSize,
 		FlushInterval: flushInterval}
 }
 

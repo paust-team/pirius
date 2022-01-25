@@ -146,7 +146,7 @@ func (a *Admin) DeleteTopic(topicName string) error {
 	return nil
 }
 
-func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.Topic, error) {
+func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.TopicInfo, error) {
 
 	request := message.NewDescribeTopicRequestMsg(topicName)
 	response := &shapleqproto.DescribeTopicResponse{}
@@ -184,7 +184,7 @@ func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 
 // fragment RPCs
 
-func (a *Admin) CreateFragment(topicName string) (*shapleqproto.Fragment, error) {
+func (a *Admin) CreateFragment(topicName string) (*shapleqproto.FragmentInfo, error) {
 
 	request := message.NewCreateTopicFragmentRequestMsg(topicName)
 	response := &shapleqproto.CreateFragmentResponse{}
@@ -220,7 +220,7 @@ func (a *Admin) DeleteFragment(topicName string, fragmentId uint32) error {
 	return nil
 }
 
-func (a *Admin) DescribeFragment(topicName string, fragmentId uint32) (*shapleqproto.Fragment, error) {
+func (a *Admin) DescribeFragment(topicName string, fragmentId uint32) (*shapleqproto.FragmentInfo, error) {
 	request := message.NewDescribeTopicFragmentRequestMsg(topicName, fragmentId)
 	response := &shapleqproto.DescribeFragmentResponse{}
 
