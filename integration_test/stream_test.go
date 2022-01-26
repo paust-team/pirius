@@ -10,7 +10,7 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestConnect", t).
+	testContext := DefaultShapleQTestContext(t).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
@@ -24,7 +24,7 @@ func TestConnect(t *testing.T) {
 
 func TestPubSub(t *testing.T) {
 
-	testContext := DefaultShapleQTestContext("TestPubSub", t).
+	testContext := DefaultShapleQTestContext(t).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
@@ -79,7 +79,7 @@ func TestPubSub(t *testing.T) {
 
 func TestMultiClient(t *testing.T) {
 
-	testContext := DefaultShapleQTestContext("TestMultiClient", t).
+	testContext := DefaultShapleQTestContext(t).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
@@ -134,7 +134,7 @@ func TestMultiClient(t *testing.T) {
 }
 
 func TestBatchedFetch(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestBatchedFetch", t).
+	testContext := DefaultShapleQTestContext(t).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
@@ -182,7 +182,8 @@ func TestBatchedFetch(t *testing.T) {
 }
 
 func TestMultiFragmentsTotalConsume(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestMultiFragmentsTotalConsume", t).
+
+	testContext := DefaultShapleQTestContext(t).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
@@ -224,7 +225,7 @@ func TestMultiFragmentsTotalConsume(t *testing.T) {
 }
 
 func TestMultiFragmentsOptionalConsume(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestMultiFragmentsOptionalConsume", t)
+	testContext := DefaultShapleQTestContext(t)
 	testContext.
 		WithBrokerTimeout(1500).
 		RunBrokers().

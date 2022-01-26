@@ -248,7 +248,7 @@ type ShapleQTestContext struct {
 	params            *TestParams
 }
 
-func DefaultShapleQTestContext(testName string, t *testing.T) *ShapleQTestContext {
+func DefaultShapleQTestContext(t *testing.T) *ShapleQTestContext {
 	return &ShapleQTestContext{
 		logLevel:          defaultLogLevel,
 		brokerPorts:       []uint{1101},
@@ -261,7 +261,7 @@ func DefaultShapleQTestContext(testName string, t *testing.T) *ShapleQTestContex
 		consumers:         []*consumerTestContext{},
 		running:           false,
 		t:                 t,
-		params:            predefinedTestParams[testName],
+		params:            predefinedTestParams[t.Name()],
 	}
 }
 

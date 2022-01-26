@@ -6,7 +6,7 @@ import (
 )
 
 func TestHeartBeat(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestHeartBeat", t)
+	testContext := DefaultShapleQTestContext(t)
 	testContext.RunBrokers()
 	defer testContext.Terminate()
 
@@ -25,7 +25,7 @@ func TestHeartBeat(t *testing.T) {
 }
 
 func TestCreateTopicAndFragment(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestCreateTopicAndFragment", t)
+	testContext := DefaultShapleQTestContext(t)
 	testContext.RunBrokers()
 	defer testContext.Terminate()
 
@@ -58,7 +58,7 @@ func TestCreateTopicAndFragment(t *testing.T) {
 }
 
 func TestDeleteTopicAndFragment(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestDeleteTopicAndFragment", t)
+	testContext := DefaultShapleQTestContext(t)
 	testContext.RunBrokers()
 	defer testContext.Terminate()
 
@@ -102,7 +102,7 @@ func TestDeleteTopicAndFragment(t *testing.T) {
 }
 
 func TestDescribeFragment(t *testing.T) {
-	testContext := DefaultShapleQTestContext("TestDescribeFragment", t)
+	testContext := DefaultShapleQTestContext(t)
 	testContext.RunBrokers()
 	defer testContext.Terminate()
 
