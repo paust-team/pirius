@@ -54,9 +54,33 @@ func contains(s [][]byte, e []byte) bool {
 	return false
 }
 
-func TestStreamClient_Connect(t *testing.T) {
-	topic := "test_topic1"
+func setupTopicAndFragments(topic string, fragmentCount int, t *testing.T) map[uint32]uint64 {
+	fragmentOffsets := make(map[uint32]uint64)
+	adminConfig := config2.NewAdminConfig()
+	adminConfig.SetLogLevel(testLogLevel)
+	adminConfig.SetServerAddresses(brokerAddrs)
+	admin := client.NewAdmin(adminConfig)
+	defer admin.Close()
 
+	if err := admin.Connect(); err != nil {
+		panic(err)
+	}
+
+	if err := admin.CreateTopic(topic, "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < fragmentCount; i++ {
+		fragment, err := admin.CreateFragment(topic)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fragmentOffsets[fragment.Id] = 1 // set start offset with 1
+	}
+	return fragmentOffsets
+}
+
+func TestStreamClient_Connect(t *testing.T) {
 	// zk client to reset
 	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
@@ -86,20 +110,12 @@ func TestStreamClient_Connect(t *testing.T) {
 
 	Sleep(1)
 
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	admin := client.NewAdmin(adminConfig)
-	if err := admin.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// setup topic and fragments
+	topic := "test_topic1"
+	fragmentCount := 1
+	fragmentOffsets := setupTopicAndFragments(topic, fragmentCount, t)
 
-	if err := admin.CreateTopic(topic, "meta"); err != nil {
-		t.Error(err)
-		return
-	}
-
+	// test connect
 	producerConfig := config2.NewProducerConfig()
 	producerConfig.SetLogLevel(testLogLevel)
 	producerConfig.SetServerAddresses(zkAddrs)
@@ -113,7 +129,7 @@ func TestStreamClient_Connect(t *testing.T) {
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(testLogLevel)
 	consumerConfig.SetServerAddresses(zkAddrs)
-	consumer := client.NewConsumer(consumerConfig, topic)
+	consumer := client.NewConsumer(consumerConfig, topic, fragmentOffsets)
 	defer consumer.Close()
 	if err := consumer.Connect(); err != nil {
 		t.Error(err)
@@ -122,15 +138,6 @@ func TestStreamClient_Connect(t *testing.T) {
 }
 
 func TestPubSub(t *testing.T) {
-
-	expectedRecords := [][]byte{
-		{'g', 'o', 'o', 'g', 'l', 'e'},
-		{'p', 'a', 'u', 's', 't', 'q'},
-		{'1', '2', '3', '4', '5', '6'},
-	}
-	topic := "topic1"
-	nodeId := common.GenerateNodeId()
-	actualRecords := make([][]byte, 0)
 
 	// zk client to reset
 	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
@@ -159,21 +166,17 @@ func TestPubSub(t *testing.T) {
 
 	Sleep(1)
 
-	// Create topic rpc
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	admin := client.NewAdmin(adminConfig)
-	if err := admin.Connect(); err != nil {
-		t.Error(err)
-		return
+	// setup topic and fragments
+	expectedRecords := [][]byte{
+		{'g', 'o', 'o', 'g', 'l', 'e'},
+		{'p', 'a', 'u', 's', 't', 'q'},
+		{'1', '2', '3', '4', '5', '6'},
 	}
-	defer admin.Close()
-
-	if err := admin.CreateTopic(topic, ""); err != nil {
-		t.Error(err)
-		return
-	}
+	nodeId := common.GenerateNodeId()
+	actualRecords := make([][]byte, 0)
+	topic := "topic1"
+	fragmentCount := 1
+	fragmentOffsets := setupTopicAndFragments(topic, fragmentCount, t)
 
 	// Start producer
 	producerConfig := config2.NewProducerConfig()
@@ -208,7 +211,7 @@ func TestPubSub(t *testing.T) {
 					return
 				}
 			case fragment := <-fragmentCh:
-				fmt.Println("publish succeed, offset :", fragment.LastOffset)
+				fmt.Printf("publish succeed. fragmentId=%d offset=%d\n", fragment.FragmentId, fragment.LastOffset)
 				published++
 				if published == len(expectedRecords) {
 					return
@@ -220,13 +223,13 @@ func TestPubSub(t *testing.T) {
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(testLogLevel)
 	consumerConfig.SetServerAddresses(zkAddrs)
-	consumer := client.NewConsumer(consumerConfig, topic)
+	consumer := client.NewConsumer(consumerConfig, topic, fragmentOffsets)
 	if err := consumer.Connect(); err != nil {
 		t.Error(err)
 		return
 	}
 
-	receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
+	receiveCh, subErrCh, err := consumer.Subscribe(1, 0)
 	if err != nil {
 		t.Error(err)
 		return
@@ -240,7 +243,8 @@ func TestPubSub(t *testing.T) {
 			select {
 			case received := <-receiveCh:
 				actualRecords = append(actualRecords, received.Items[0].Data)
-				fmt.Printf("received fetch result. seq = %d, node id = %s\n", received.Items[0].SeqNum, received.Items[0].NodeId)
+				fmt.Printf("received fetch result. fragmentId = %d, seq = %d, node id = %s\n",
+					received.Items[0].FragmentId, received.Items[0].SeqNum, received.Items[0].NodeId)
 				if len(actualRecords) == len(expectedRecords) {
 					return
 				}
@@ -267,18 +271,19 @@ func TestPubSub(t *testing.T) {
 	}
 
 	time.Sleep(time.Duration(3) * time.Second) // sleep 3 seconds to wait until last offset to be flushed to zk
-	//targetTopicValue, err := zkClient.GetTopicData(topic)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
+	for fragmentId := range fragmentOffsets {
+		fragmentValue, err := zkClient.GetTopicFragmentData(topic, fragmentId)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	//if uint64(len(expectedRecords)) != targetTopicValue.LastOffset() {
-	//	t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), targetTopicValue.LastOffset())
-	//}
+		if uint64(len(expectedRecords)) != fragmentValue.LastOffset() {
+			t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), fragmentValue.LastOffset())
+		}
+	}
 }
 
 func TestMultiClient(t *testing.T) {
-	topic := "topic3"
 
 	//zk client to reset
 	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
@@ -307,23 +312,12 @@ func TestMultiClient(t *testing.T) {
 
 	Sleep(1)
 
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	admin := client.NewAdmin(adminConfig)
-	if err := admin.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// setup topic and fragments
+	topic := "topic3"
+	fragmentCount := 1
+	fragmentOffsets := setupTopicAndFragments(topic, fragmentCount, t)
 
-	if err := admin.CreateTopic(topic, "meta"); err != nil {
-		t.Error(err)
-		return
-	}
-
-	admin.Close()
-	Sleep(1)
-
+	// test multi client
 	runProducer := func(fileName string) [][]byte {
 		nodeId := common.GenerateNodeId()
 		records := getRecordsFromFile(fileName)
@@ -400,14 +394,14 @@ func TestMultiClient(t *testing.T) {
 		consumerConfig.SetLogLevel(testLogLevel)
 		consumerConfig.SetServerAddresses(zkAddrs)
 		consumerConfig.SetBrokerTimeout(30000)
-		consumer := client.NewConsumer(consumerConfig, topic)
+		consumer := client.NewConsumer(consumerConfig, topic, fragmentOffsets)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
 			wg.Done()
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(1, 1, 0)
+		receiveCh, subErrCh, err := consumer.Subscribe(1, 0)
 		if err != nil {
 			t.Error(err)
 			wg.Done()
@@ -460,10 +454,6 @@ func TestMultiClient(t *testing.T) {
 }
 
 func TestBatchClient(t *testing.T) {
-	topic := "topic4"
-	var maxBatchSize uint32 = 32
-	var flushInterval uint32 = 200
-
 	//zk client to reset
 	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
 	if err := zkClient.Connect(); err != nil {
@@ -491,23 +481,14 @@ func TestBatchClient(t *testing.T) {
 
 	Sleep(1)
 
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	admin := client.NewAdmin(adminConfig)
-	if err := admin.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// setup topic and fragments
+	var maxBatchSize uint32 = 32
+	var flushInterval uint32 = 200
+	topic := "topic4"
+	fragmentCount := 1
+	fragmentOffsets := setupTopicAndFragments(topic, fragmentCount, t)
 
-	if err := admin.CreateTopic(topic, "meta"); err != nil {
-		t.Error(err)
-		return
-	}
-
-	admin.Close()
-	Sleep(1)
-
+	// test batch client
 	runProducer := func(fileName string) [][]byte {
 		nodeId := common.GenerateNodeId()
 		records := getRecordsFromFile(fileName)
@@ -581,14 +562,14 @@ func TestBatchClient(t *testing.T) {
 		consumerConfig.SetLogLevel(testLogLevel)
 		consumerConfig.SetServerAddresses(zkAddrs)
 		consumerConfig.SetBrokerTimeout(30000)
-		consumer := client.NewConsumer(consumerConfig, topic)
+		consumer := client.NewConsumer(consumerConfig, topic, fragmentOffsets)
 		if err := consumer.Connect(); err != nil {
 			t.Error(err)
 			wg.Done()
 			return
 		}
 
-		receiveCh, subErrCh, err := consumer.Subscribe(1, maxBatchSize, flushInterval)
+		receiveCh, subErrCh, err := consumer.Subscribe(maxBatchSize, flushInterval)
 		if err != nil {
 			t.Error(err)
 			wg.Done()

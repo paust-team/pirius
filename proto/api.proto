@@ -218,14 +218,20 @@ message PutRequest {
 
 message PutResponse {
     int32 magic = 1;
-    Fragment fragment = 2;
+    string topic_name = 2;
+    uint32 fragment_id = 3;
+    uint64 last_offset = 4;
 }
 
 message FetchRequest {
+    message OffsetInfo {
+        uint32 fragment_id = 1;
+        uint64 start_offset = 2;
+    }
     int32 magic = 1;
-    uint64 start_offset = 2;
-    uint32 max_batch_size = 3;
-    uint32 flush_interval = 4;
+    uint32 max_batch_size = 2;
+    uint32 flush_interval = 3;
+    repeated OffsetInfo fragmentOffsets = 4;
 }
 
 message FetchResponse {
@@ -234,7 +240,9 @@ message FetchResponse {
     uint64 offset = 3;
     uint64 seq_num = 4;
     string node_id = 5;
-    uint64 last_offset = 6;
+    string topic_name = 6;
+    uint32 fragment_id = 7;
+    uint64 last_offset = 8;
 }
 
 message BatchedFetchResponse {
@@ -243,6 +251,8 @@ message BatchedFetchResponse {
         uint64 offset = 2;
         uint64 seq_num = 3;
         string node_id = 4;
+        string topic_name = 5;
+        uint32 fragment_id = 6;
     }
     int32 magic = 1;
     repeated Fetched items = 2;

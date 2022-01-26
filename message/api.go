@@ -149,25 +149,28 @@ func NewConnectResponseMsg() *shapleqproto.ConnectResponse {
 	return &shapleqproto.ConnectResponse{Magic: MAGIC_NUM}
 }
 
-func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string) *shapleqproto.PutRequest {
-	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId}
+func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string, fragmentId uint32) *shapleqproto.PutRequest {
+	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId, FragmentId: fragmentId}
 }
 
-func NewPutResponseMsg(fragmentId uint32, offset uint64) *shapleqproto.PutResponse {
-	fragment := &shapleqproto.Fragment{
-		Id: fragmentId, LastOffset: offset,
+func NewPutResponseMsg(topicName string, fragmentId uint32, offset uint64) *shapleqproto.PutResponse {
+	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, TopicName: topicName, FragmentId: fragmentId, LastOffset: offset}
+}
+
+func NewFetchRequestMsg(fragmentOffsets map[uint32]uint64, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
+	var offsets []*shapleqproto.FetchRequest_OffsetInfo
+	for id, offset := range fragmentOffsets {
+		offsets = append(offsets, &shapleqproto.FetchRequest_OffsetInfo{
+			FragmentId:  id,
+			StartOffset: offset,
+		})
 	}
-
-	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, Fragment: fragment}
-}
-
-func NewFetchRequestMsg(startOffset uint64, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
-	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, StartOffset: startOffset, MaxBatchSize: maxBatchSize,
+	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, FragmentOffsets: offsets, MaxBatchSize: maxBatchSize,
 		FlushInterval: flushInterval}
 }
 
-func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId string, lastOffset uint64) *shapleqproto.FetchResponse {
-	return &shapleqproto.FetchResponse{Data: data, Offset: offset, SeqNum: seqNum, NodeId: nodeId, LastOffset: lastOffset}
+func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId string, topicName string, lastOffset uint64, fragmentId uint32) *shapleqproto.FetchResponse {
+	return &shapleqproto.FetchResponse{Data: data, Offset: offset, SeqNum: seqNum, NodeId: nodeId, LastOffset: lastOffset, FragmentId: fragmentId, TopicName: topicName}
 }
 
 func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqproto.BatchedFetchResponse {
@@ -179,10 +182,12 @@ func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqpro
 			lastOffset = fetched.LastOffset
 		}
 		items = append(items, &shapleqproto.BatchedFetchResponse_Fetched{
-			Data:   fetched.Data,
-			Offset: fetched.Offset,
-			SeqNum: fetched.SeqNum,
-			NodeId: fetched.NodeId,
+			Data:       fetched.Data,
+			Offset:     fetched.Offset,
+			SeqNum:     fetched.SeqNum,
+			NodeId:     fetched.NodeId,
+			TopicName:  fetched.TopicName,
+			FragmentId: fetched.FragmentId,
 		})
 	}
 	return &shapleqproto.BatchedFetchResponse{Magic: MAGIC_NUM, Items: items, LastOffset: lastOffset}

@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"encoding/binary"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/message"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 type FetchPipe struct {
@@ -54,7 +56,6 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 		defer close(inStreamClosed)
 
 		for in := range inStream {
-			topicName := f.session.TopicName()
 			once.Do(func() {
 				if f.session.State() != internals.ON_SUBSCRIBE {
 					err := f.session.SetState(internals.ON_SUBSCRIBE)
@@ -69,63 +70,74 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
-			first := true
-			prevKey := storage.NewRecordKeyFromData(topicName, req.StartOffset)
+			for _, fragmentOffset := range req.FragmentOffsets {
+				wg.Add(1)
+				go func(fo *shapleq_proto.FetchRequest_OffsetInfo) {
+					defer wg.Done()
+					f.iterateRecords(f.session.TopicName(), fo.FragmentId, fo.StartOffset, outStream, inStreamClosed)
+				}(fragmentOffset)
+			}
 
-			it := f.db.Scan(storage.RecordCF)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					select {
-					case <-inStreamClosed:
-						return
-					case <-time.After(time.Millisecond * 10):
-						if f.session.IsClosed() {
-							return
-						}
-
-						var currentLastOffset uint64 = 0 // TODO:: get current last offset of fragment
-						it.Seek(prevKey.Data())
-						if !first && it.Valid() {
-							it.Next()
-						}
-
-						for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), []byte(topicName+"@")); it.Next() {
-							key := storage.NewRecordKey(it.Key())
-							keyOffset := key.Offset()
-
-							if first {
-								if keyOffset != req.StartOffset {
-									break
-								}
-							} else {
-								if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
-									break
-								}
-							}
-
-							value := storage.NewRecordValue(it.Value())
-							value.SeqNum()
-							fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), currentLastOffset)
-
-							select {
-							case <-inStreamClosed:
-								return
-							case outStream <- fetchRes:
-								prevKey.SetData(key.Data())
-								first = false
-							}
-						}
-					}
-
-					runtime.Gosched()
-				}
-			}()
 			runtime.Gosched()
 		}
 	}()
 
 	return outStream, errCh, nil
+}
+
+func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOffset uint64, outStream chan interface{}, inStreamClosed chan struct{}) {
+
+	first := true
+	prevKey := storage.NewRecordKeyFromData(topicName, fragmentId, startOffset)
+	it := f.db.Scan(storage.RecordCF)
+
+	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
+	copy(prefix, topicName+"@")
+	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
+
+	for {
+		select {
+		case <-inStreamClosed:
+			return
+		case <-time.After(time.Millisecond * 10):
+			if f.session.IsClosed() {
+				return
+			}
+
+			var currentLastOffset uint64 = 0 // TODO:: get current last offset of fragment
+			it.Seek(prevKey.Data())
+			if !first && it.Valid() {
+				it.Next()
+			}
+
+			for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), prefix); it.Next() {
+				key := storage.NewRecordKey(it.Key())
+				keyOffset := key.Offset()
+
+				if first {
+					if keyOffset != startOffset {
+						break
+					}
+				} else {
+					if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
+						break
+					}
+				}
+
+				value := storage.NewRecordValue(it.Value())
+				value.SeqNum()
+				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), topicName, currentLastOffset, fragmentId)
+
+				select {
+				case <-inStreamClosed:
+					return
+				case outStream <- fetchRes:
+					prevKey.SetData(key.Data())
+					first = false
+				}
+			}
+		}
+
+		runtime.Gosched()
+	}
 }

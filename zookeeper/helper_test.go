@@ -7,6 +7,7 @@ import (
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -34,6 +35,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// brokers
 func TestZKClient_AddBroker(t *testing.T) {
 	host, err := network.GetOutboundIP()
 	if err != nil {
@@ -58,6 +60,28 @@ func TestZKClient_AddBroker(t *testing.T) {
 	}
 }
 
+func TestZKClient_RemoveBroker(t *testing.T) {
+	broker := "127.0.0.1:1101"
+	if err := zkqClient.AddBroker(broker); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := zkqClient.RemoveBroker(broker); err != nil {
+		t.Fatal(err)
+	}
+
+	brokers, err := zkqClient.GetBrokers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range brokers {
+		if b == broker {
+			t.Error("broker did not deleted")
+		}
+	}
+}
+
+// topics
 func TestZKClient_AddTopic(t *testing.T) {
 	expectedTopic := "topic1"
 	expectedTopicDescription := "topicMeta1"
@@ -106,59 +130,6 @@ func TestZKClient_AddTopic(t *testing.T) {
 	}
 }
 
-func TestZKClient_AddTopicFragmentBroker(t *testing.T) {
-	expectedTopic := "topic3"
-	expectedTopicMeta := "topicMeta1"
-	var expectedNumFragments uint32 = 1
-	var expectedReplicationFactor uint32 = 1
-	var expectedNumPublishers uint64 = 1
-	var expectedFragmentId uint32 = 1
-	var expectedLastOffset uint64 = 1
-	var expectedNumSubscribers uint64 = 1
-
-	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
-		expectedReplicationFactor, expectedNumPublishers)
-	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
-		t.Fatal(err)
-	}
-
-	topicFragmentValue := common.NewFragmentDataFromValues(expectedLastOffset, expectedNumSubscribers)
-	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
-		t.Fatal(err)
-	}
-
-	topics, err := zkqClient.GetTopics()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(topics) == 0 {
-		t.Fatal("no topics")
-	}
-	if topics[len(topics)-1] != expectedTopic {
-		t.Fatal("failed to add topic ", expectedTopic)
-	}
-
-	host, err := network.GetOutboundIP()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	brokerAddr := host.String() + ":1101"
-	err = zkqClient.AddTopicFragmentBroker(expectedTopic, expectedFragmentId, brokerAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	brokers, err := zkqClient.GetTopicFragmentBrokers(expectedTopic, expectedFragmentId)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if brokers[len(brokers)-1] != brokerAddr {
-		t.Fatal("failed to add topic broker ", host)
-	}
-}
-
 func TestZKClient_RemoveTopic(t *testing.T) {
 	topic := "topic5"
 	expectedTopicMeta := "topicMeta1"
@@ -188,24 +159,118 @@ func TestZKClient_RemoveTopic(t *testing.T) {
 	}
 }
 
-func TestZKClient_RemoveBroker(t *testing.T) {
-	broker := "127.0.0.1:1101"
-	if err := zkqClient.AddBroker(broker); err != nil {
+// topic fragments
+func TestZKClient_AddTopicFragment(t *testing.T) {
+	expectedTopic := "topic7"
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumFragments uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedFragmentId uint32 = 1
+	var expectedLastOffset uint64 = 1
+	var expectedNumSubscribers uint64 = 1
+
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := zkqClient.RemoveBroker(broker); err != nil {
+	topicFragmentValue := common.NewFragmentDataFromValues(expectedLastOffset, expectedNumSubscribers)
+	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkqClient.GetBrokers()
+	fragments, err := zkqClient.GetTopicFragments(expectedTopic)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, b := range brokers {
-		if b == broker {
-			t.Error("broker did not deleted")
+
+	if fragments[len(fragments)-1] != strconv.Itoa(int(expectedFragmentId)) {
+		t.Fatal("failed to add topic fragment ")
+	}
+}
+
+func TestZKClient_RemoveTopicFragment(t *testing.T) {
+	expectedTopic := "topic8"
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumFragments uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedFragmentId uint32 = 1
+	var expectedLastOffset uint64 = 1
+	var expectedNumSubscribers uint64 = 1
+
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
+		t.Fatal(err)
+	}
+
+	topicFragmentValue := common.NewFragmentDataFromValues(expectedLastOffset, expectedNumSubscribers)
+	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := zkqClient.RemoveTopicFragment(expectedTopic, expectedFragmentId); err != nil {
+		t.Fatal(err)
+	}
+
+	fragments, err := zkqClient.GetTopicFragments(expectedTopic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, fragmentId := range fragments {
+		if fragmentId == strconv.Itoa(int(expectedFragmentId)) {
+			t.Error("topic fragment did not deleted")
 		}
+	}
+}
+
+// topic fragment brokers
+func TestZKClient_AddTopicFragmentBroker(t *testing.T) {
+	expectedTopic := "topic3"
+	expectedTopicMeta := "topicMeta1"
+	var expectedNumFragments uint32 = 1
+	var expectedReplicationFactor uint32 = 1
+	var expectedNumPublishers uint64 = 1
+	var expectedFragmentId uint32 = 1
+	var expectedLastOffset uint64 = 1
+	var expectedNumSubscribers uint64 = 1
+
+	topicValue := common.NewTopicDataFromValues(expectedTopicMeta, expectedNumFragments,
+		expectedReplicationFactor, expectedNumPublishers)
+	if err := zkqClient.AddTopic(expectedTopic, topicValue); err != nil {
+		t.Fatal(err)
+	}
+
+	topicFragmentValue := common.NewFragmentDataFromValues(expectedLastOffset, expectedNumSubscribers)
+	if err := zkqClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
+		t.Fatal(err)
+	}
+
+	host, err := network.GetOutboundIP()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	brokerAddr := host.String() + ":1101"
+	err = zkqClient.AddTopicFragmentBroker(expectedTopic, expectedFragmentId, brokerAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	brokers, err := zkqClient.GetTopicFragmentBrokers(expectedTopic, expectedFragmentId)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(brokers) == 0 {
+		t.Fatal("no brokers")
+	}
+	if brokers[len(brokers)-1] != brokerAddr {
+		t.Fatal("failed to add topic broker ", host)
 	}
 }
 
@@ -267,6 +332,7 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 	}
 }
 
+// etc
 func TestZKQClient_IncreaseLastOffset(t *testing.T) {
 	expectedTopic := "topic6"
 	expectedTopicDescription := "topicMeta6"
