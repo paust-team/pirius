@@ -1,169 +1,130 @@
 package integration_test
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/common"
-	"log"
-	"os"
 	"sync"
 	"testing"
 )
 
-func getRecordsFromFile(fileName string) [][]byte {
-	f, err := os.Open(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	var records [][]byte
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		data := []byte(scanner.Text())
-		records = append(records, data)
-	}
-	return records
-}
-
-func contains(s [][]byte, e []byte) bool {
-	for _, a := range s {
-		if bytes.Compare(a, e) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func TestConnect(t *testing.T) {
-	testContext := DefaultShapleQTestContext(t)
-	testContext.Start()
-	defer testContext.Stop()
+	testContext := DefaultShapleQTestContext("TestConnect", t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
 
-	// setup topic and fragments
-	nodeId := common.GenerateNodeId()
-	topic := "topic1"
-	fragmentCount := 1
-	fragmentOffsets := testContext.SetupTopicAndFragments(topic, fragmentCount)
+	// test body
+	testParams := testContext.TestParams()
 
-	// test connect
-	testContext.AddProducerContext(nodeId, topic)
-	testContext.AddConsumerContext(nodeId, topic, fragmentOffsets)
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic)
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets)
 }
 
 func TestPubSub(t *testing.T) {
 
-	testContext := DefaultShapleQTestContext(t)
-	testContext.Start()
-	defer testContext.Stop()
+	testContext := DefaultShapleQTestContext("TestPubSub", t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
 
-	// setup topic and fragments
-	topic := "topic2"
-	fragmentCount := 1
-	fragmentOffsets := testContext.SetupTopicAndFragments(topic, fragmentCount)
-
-	expectedRecords := [][]byte{
-		{'g', 'o', 'o', 'g', 'l', 'e'},
-		{'p', 'a', 'u', 's', 't', 'q'},
-		{'1', '2', '3', '4', '5', '6'},
-	}
-	nodeId := common.GenerateNodeId()
-	actualRecords := make([][]byte, 0)
+	// test body
+	testParams := testContext.TestParams()
+	expectedRecords := testParams.testRecords[0]
+	receivedRecords := make([][]byte, 0)
 
 	// setup clients
-	testContext.AddProducerContext(nodeId, topic).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+		onError(func(err error) {
+			t.Error(err)
+		}).
 		asyncPublish(expectedRecords).
 		waitFinished()
 
-	testContext.AddConsumerContext(nodeId, topic, fragmentOffsets).
-		onSubscribe(1, 0, func(received *client.SubscribeResult) bool {
-			actualRecords = append(actualRecords, received.Items[0].Data)
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+		onComplete(func() {
+			for _, record := range expectedRecords {
+				if !contains(receivedRecords, record) {
+					t.Error("Record is not exists: ", record)
+				}
+			}
+		}).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+			receivedRecords = append(receivedRecords, received.Items[0].Data)
 			fmt.Printf("received fetch result. fragmentId = %d, seq = %d, node id = %s\n", received.Items[0].FragmentId, received.Items[0].SeqNum, received.Items[0].NodeId)
-			if len(actualRecords) == len(expectedRecords) {
+			if len(receivedRecords) == len(expectedRecords) {
 				return true
 			} else {
 				return false
 			}
 		}).
-		onComplete(func() {
-			for _, record := range expectedRecords {
-				if !contains(actualRecords, record) {
-					t.Error("Record is not exists: ", record)
-				}
-			}
-			Sleep(3) // sleep 3 seconds to wait until last offset to be flushed to zk
-			for fragmentId := range fragmentOffsets {
-				fragmentValue, err := testContext.zkClient.GetTopicFragmentData(topic, fragmentId)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				if uint64(len(expectedRecords)) != fragmentValue.LastOffset() {
-					t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), fragmentValue.LastOffset())
-				}
-			}
-		}).
 		waitFinished()
+
+	Sleep(3) // sleep 3 seconds to wait until last offset to be flushed to zk
+	for fragmentId := range testParams.fragmentOffsets {
+		fragmentValue, err := testContext.zkClient.GetTopicFragmentData(testParams.topic, fragmentId)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if uint64(len(expectedRecords)) != fragmentValue.LastOffset() {
+			t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), fragmentValue.LastOffset())
+		}
+	}
 }
 
 func TestMultiClient(t *testing.T) {
 
-	testContext := DefaultShapleQTestContext(t)
-	testContext.Start()
-	defer testContext.Stop()
+	testContext := DefaultShapleQTestContext("TestMultiClient", t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
 
-	// setup topic and fragments
-	topic := "topic3"
-	fragmentCount := 1
-	fragmentOffsets := testContext.SetupTopicAndFragments(topic, fragmentCount)
-
-	// setup clients
-	var totalPublishedRecords [][]byte
+	// test body
+	testParams := testContext.TestParams()
+	var expectedRecords [][]byte
+	receivedRecords := make([]records, testParams.consumerCount)
 	var wg sync.WaitGroup
 
-	// setup 3 producers
-	records1 := getRecordsFromFile("data1.txt")
-	records2 := getRecordsFromFile("data2.txt")
-	records3 := getRecordsFromFile("data3.txt")
+	// setup producers
+	for i := 0; i < testParams.producerCount; i++ {
+		records := testParams.testRecords[i]
+		expectedRecords = append(expectedRecords, records...)
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+			onError(func(err error) {
+				t.Error(err)
+			}).
+			asyncPublish(records)
+	}
 
-	totalPublishedRecords = append(totalPublishedRecords, records1...)
-	totalPublishedRecords = append(totalPublishedRecords, records2...)
-	totalPublishedRecords = append(totalPublishedRecords, records3...)
-
-	testContext.AddProducerContext(common.GenerateNodeId(), topic).
-		asyncPublish(records1)
-	testContext.AddProducerContext(common.GenerateNodeId(), topic).
-		asyncPublish(records2)
-	testContext.AddProducerContext(common.GenerateNodeId(), topic).
-		asyncPublish(records3)
-
-	// setup n consumers
-	var consumerCount = 5
-	type SubscribedRecords [][]byte
-	totalSubscribedRecords := make([]SubscribedRecords, consumerCount)
-
-	for i := 0; i < consumerCount; i++ {
+	// setup consumers
+	for i := 0; i < testParams.consumerCount; i++ {
 		wg.Add(1)
 		func(index int) {
 			nodeId := fmt.Sprintf("consumer%024d", index)
-			testContext.AddConsumerContext(nodeId, topic, fragmentOffsets).
-				onSubscribe(1, 0, func(received *client.SubscribeResult) bool {
-					totalSubscribedRecords[index] = append(totalSubscribedRecords[index], received.Items[0].Data)
-					if len(totalSubscribedRecords[index]) == len(totalPublishedRecords) {
+			testContext.AddConsumerContext(nodeId, testParams.topic, testParams.fragmentOffsets).
+				onComplete(func() {
+					for _, record := range receivedRecords[index] {
+						if !contains(expectedRecords, record) {
+							t.Errorf("Record(%s) is not exists: consumer(%s) ", record, nodeId)
+						}
+					}
+					wg.Done()
+				}).
+				onError(func(err error) {
+					t.Error(err)
+					wg.Done()
+				}).
+				onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+					receivedRecords[index] = append(receivedRecords[index], received.Items[0].Data)
+					if len(receivedRecords[index]) == len(expectedRecords) {
 						fmt.Printf("consumer(%s) is finished\n", nodeId)
 						return true
 					} else {
 						return false
-					}
-				}).
-				onComplete(func() {
-					wg.Done()
-					for _, record := range totalSubscribedRecords[index] {
-						if !contains(totalPublishedRecords, record) {
-							t.Errorf("Record(%s) is not exists: consumer(%s) ", record, nodeId)
-						}
 					}
 				})
 		}(i)
@@ -172,48 +133,48 @@ func TestMultiClient(t *testing.T) {
 }
 
 func TestBatchedFetch(t *testing.T) {
-	testContext := DefaultShapleQTestContext(t)
-	testContext.Start()
-	defer testContext.Stop()
+	testContext := DefaultShapleQTestContext("TestBatchedFetch", t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
 
-	// setup topic and fragments
-	topic := "topic4"
-	fragmentCount := 1
-	fragmentOffsets := testContext.SetupTopicAndFragments(topic, fragmentCount)
-	nodeId := common.GenerateNodeId()
-	// setup clients
-	var totalPublishedRecords [][]byte
+	// test body
+	testParams := testContext.TestParams()
+	var expectedRecords [][]byte
+	receivedRecords := make([][]byte, 0)
 
-	// setup producer
-	records1 := getRecordsFromFile("data1.txt")
-	totalPublishedRecords = append(totalPublishedRecords, records1...)
+	// setup producers
+	for i := 0; i < testParams.producerCount; i++ {
+		records := testParams.testRecords[i]
+		expectedRecords = append(expectedRecords, records...)
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+			onError(func(err error) {
+				t.Error(err)
+			}).
+			asyncPublish(records)
+	}
 
-	testContext.AddProducerContext(nodeId, topic).
-		asyncPublish(records1)
-
-	// setup consumer with batch size and flush interval
-	var maxBatchSize uint32 = 32
-	var flushInterval uint32 = 200
-	actualRecords := make([][]byte, 0)
-
-	testContext.AddConsumerContext(nodeId, topic, fragmentOffsets).
-		onSubscribe(maxBatchSize, flushInterval, func(received *client.SubscribeResult) bool {
-			for _, data := range received.Items {
-				actualRecords = append(actualRecords, data.Data)
+	// setup consumer
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+		onComplete(func() {
+			for _, record := range receivedRecords {
+				if !contains(expectedRecords, record) {
+					t.Errorf("Record(%s) is not exists", record)
+				}
 			}
-
-			if len(actualRecords) == len(totalPublishedRecords) {
-				fmt.Printf("consumer(%s) is finished\n", nodeId)
+		}).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+			for _, data := range received.Items {
+				receivedRecords = append(receivedRecords, data.Data)
+			}
+			if len(receivedRecords) == len(expectedRecords) {
+				fmt.Println("consumer is finished")
 				return true
 			} else {
 				return false
-			}
-		}).
-		onComplete(func() {
-			for _, record := range actualRecords {
-				if !contains(totalPublishedRecords, record) {
-					t.Errorf("Record(%s) is not exists: consumer(%s) ", record, nodeId)
-				}
 			}
 		}).
 		waitFinished()
