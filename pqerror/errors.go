@@ -424,7 +424,7 @@ func (e InvalidMsgTypeToUnpackError) IsSessionCloseable() {}
 type TopicNotSetError struct{}
 
 func (e TopicNotSetError) Error() string {
-	return "topic isn't set"
+	return "topic does not set"
 }
 
 func (e TopicNotSetError) Code() PQCode {
@@ -433,6 +433,19 @@ func (e TopicNotSetError) Code() PQCode {
 
 func (e TopicNotSetError) IsSessionCloseable() {}
 func (e TopicNotSetError) IsClientVisible()    {}
+
+type TopicFragmentOffsetNotSetError struct{}
+
+func (e TopicFragmentOffsetNotSetError) Error() string {
+	return "offset for topic-fragment should be larger than 0"
+}
+
+func (e TopicFragmentOffsetNotSetError) Code() PQCode {
+	return ErrTopicFragmentOffsetNotSet
+}
+
+func (e TopicFragmentOffsetNotSetError) IsSessionCloseable() {}
+func (e TopicFragmentOffsetNotSetError) IsClientVisible()    {}
 
 type InvalidNodeIdError struct {
 	Id string

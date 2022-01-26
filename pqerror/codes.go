@@ -7,14 +7,15 @@ const (
 	Success PQCode = 0x0000
 
 	// 01 - msg or field error
-	ErrInvalidMsgType     = 0x0100
-	ErrInvalidStartOffset = 0x0101
-	ErrMarshalAnyFailed   = 0x0102
-	ErrUnmarshalAnyFailed = 0x0103
-	ErrMarshalFailed      = 0x0104
-	ErrUnmarshalFailed    = 0x0105
-	ErrTopicNotSet        = 0x0106
-	ErrInvalidNodeId      = 0x0107
+	ErrInvalidMsgType            = 0x0100
+	ErrInvalidStartOffset        = 0x0101
+	ErrMarshalAnyFailed          = 0x0102
+	ErrUnmarshalAnyFailed        = 0x0103
+	ErrMarshalFailed             = 0x0104
+	ErrUnmarshalFailed           = 0x0105
+	ErrTopicNotSet               = 0x0106
+	ErrInvalidNodeId             = 0x0107
+	ErrTopicFragmentOffsetNotSet = 0x0108
 
 	// 02 - zookeeper related error
 	ErrZKConnection          = 0x0200

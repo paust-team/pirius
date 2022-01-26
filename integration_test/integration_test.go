@@ -461,7 +461,30 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerBatchSize:     32,
 		consumerFlushInterval: 100,
 	},
-
+	"TestMultiFragmentsTotalConsume": {
+		topic:         "topic5",
+		brokerCount:   1,
+		consumerCount: 1,
+		producerCount: 1,
+		fragmentCount: 4,
+		testRecords: []records{
+			getRecordsFromFile("data1.txt"),
+		},
+		consumerBatchSize:     1,
+		consumerFlushInterval: 0,
+	},
+	"TestMultiFragmentsOptionalConsume": {
+		topic:         "topic6",
+		brokerCount:   1,
+		consumerCount: 3,
+		producerCount: 1,
+		fragmentCount: 3,
+		testRecords: []records{
+			getRecordsFromFile("data2.txt"),
+		},
+		consumerBatchSize:     1,
+		consumerFlushInterval: 0,
+	},
 	// RPC tests
 	"TestHeartBeat": {
 		topic:            "rpc-topic1",

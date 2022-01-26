@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/common"
+	"github.com/paust-team/shapleq/pqerror"
 	"sync"
 	"testing"
 )
@@ -178,4 +179,109 @@ func TestBatchedFetch(t *testing.T) {
 			}
 		}).
 		waitFinished()
+}
+
+func TestMultiFragmentsTotalConsume(t *testing.T) {
+	testContext := DefaultShapleQTestContext("TestMultiFragmentsTotalConsume", t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
+
+	// test body
+	testParams := testContext.TestParams()
+	var expectedRecords [][]byte = testParams.testRecords[0]
+	receivedRecords := make([][]byte, 0)
+
+	// setup producer
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		asyncPublish(expectedRecords)
+
+	// setup consumer
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+		onComplete(func() {
+			for _, record := range receivedRecords {
+				if !contains(expectedRecords, record) {
+					t.Errorf("Record(%s) is not exists", record)
+				}
+			}
+		}).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+			receivedRecords = append(receivedRecords, received.Items[0].Data)
+			if len(receivedRecords) == len(expectedRecords) {
+				fmt.Println("consumer is finished")
+				return true
+			} else {
+				return false
+			}
+		}).
+		waitFinished()
+}
+
+func TestMultiFragmentsOptionalConsume(t *testing.T) {
+	testContext := DefaultShapleQTestContext("TestMultiFragmentsOptionalConsume", t)
+	testContext.
+		WithBrokerTimeout(1500).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
+
+	// test body
+	testParams := testContext.TestParams()
+	var expectedRecords [][]byte = testParams.testRecords[0]
+	receivedRecords := map[uint32]records{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	// setup producer
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		asyncPublish(expectedRecords)
+
+	// setup consumer for each fragment
+	for fragmentId, offset := range testParams.fragmentOffsets {
+		wg.Add(1)
+		func(fid uint32, startOffset uint64) {
+			nodeId := fmt.Sprintf("consumer%024d", fid)
+			receivedRecordsForFragments := records{}
+			testContext.AddConsumerContext(nodeId, testParams.topic, map[uint32]uint64{fid: startOffset}).
+				onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+					receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
+					return false
+				}).
+				onError(func(err error) {
+					// escape when timed out
+					if _, ok := err.(pqerror.SocketClosedError); ok {
+						fmt.Printf("consumer for fragment(%d) is finished from timeout\n", fid)
+						for _, record := range receivedRecordsForFragments {
+							if !contains(expectedRecords, record) {
+								t.Errorf("Record(%s) is not exists: consumer for fragment(%d) ", record, fid)
+							}
+						}
+						mu.Lock()
+						receivedRecords[fid] = receivedRecordsForFragments
+						mu.Unlock()
+					}
+					wg.Done()
+				})
+		}(fragmentId, offset)
+	}
+
+	wg.Wait()
+	// check total received records count
+	totalCount := 0
+	for _, record := range receivedRecords {
+		totalCount += len(record)
+	}
+
+	if totalCount != len(expectedRecords) {
+		t.Errorf("Published %d data but received %d data", len(expectedRecords), totalCount)
+	}
 }
