@@ -71,6 +71,10 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
 			for _, fragmentOffset := range req.FragmentOffsets {
+				if fragmentOffset.StartOffset == 0 {
+					errCh <- pqerror.TopicFragmentOffsetNotSetError{}
+					return
+				}
 				wg.Add(1)
 				go func(fo *shapleq_proto.FetchRequest_OffsetInfo) {
 					defer wg.Done()

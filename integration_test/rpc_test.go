@@ -2,55 +2,19 @@ package integration_test
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/broker"
-	"github.com/paust-team/shapleq/broker/config"
-	"github.com/paust-team/shapleq/client"
-	config2 "github.com/paust-team/shapleq/client/config"
-	"github.com/paust-team/shapleq/zookeeper"
-	"sync"
 	"testing"
 )
 
 func TestHeartBeat(t *testing.T) {
+	testContext := DefaultShapleQTestContext(t)
+	testContext.RunBrokers()
+	defer testContext.Terminate()
 
-	// zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
-
-	// Start broker
-	brokerConfig := config.NewBrokerConfig()
-	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKQuorum(zkAddrs)
-	brokerInstance := broker.NewBroker(brokerConfig)
-	bwg := sync.WaitGroup{}
-	bwg.Add(1)
-
-	defer brokerInstance.Clean()
-	defer bwg.Wait()
-	defer brokerInstance.Stop()
-
-	go func() {
-		defer bwg.Done()
-		brokerInstance.Start()
-	}()
-
-	Sleep(1)
-
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	adminClient := client.NewAdmin(adminConfig)
-	defer adminClient.Close()
-
+	adminClient := testContext.CreateAdminClient()
 	if err := adminClient.Connect(); err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
+	defer adminClient.Close()
 
 	pongMsg, err := adminClient.Heartbeat("test", 1)
 	if err != nil {
@@ -61,55 +25,26 @@ func TestHeartBeat(t *testing.T) {
 }
 
 func TestCreateTopicAndFragment(t *testing.T) {
+	testContext := DefaultShapleQTestContext(t)
+	testContext.RunBrokers()
+	defer testContext.Terminate()
 
-	// zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
+	adminClient := testContext.CreateAdminClient()
+	if err := adminClient.Connect(); err != nil {
+		t.Fatal(err)
 	}
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
-
-	// Start broker
-	brokerConfig := config.NewBrokerConfig()
-	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKQuorum(zkAddrs)
-	brokerInstance := broker.NewBroker(brokerConfig)
-	bwg := sync.WaitGroup{}
-	bwg.Add(1)
-
-	defer brokerInstance.Clean()
-	defer bwg.Wait()
-	defer brokerInstance.Stop()
-
-	go func() {
-		defer bwg.Done()
-		brokerInstance.Start()
-	}()
-
-	Sleep(1)
-
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	adminClient := client.NewAdmin(adminConfig)
 	defer adminClient.Close()
 
-	if err := adminClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// test body
+	testParams := testContext.TestParams()
 
-	expectedTopicName := "test-tp1"
-	expectedDescription := "test-description"
-	err := adminClient.CreateTopic(expectedTopicName, expectedDescription)
+	err := adminClient.CreateTopic(testParams.topic, testParams.topicDescription)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(expectedTopicName)
+	fragment, err := adminClient.CreateFragment(testParams.topic)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -123,46 +58,26 @@ func TestCreateTopicAndFragment(t *testing.T) {
 }
 
 func TestDeleteTopicAndFragment(t *testing.T) {
+	testContext := DefaultShapleQTestContext(t)
+	testContext.RunBrokers()
+	defer testContext.Terminate()
 
-	// Start broker
-	brokerConfig := config.NewBrokerConfig()
-	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKQuorum(zkAddrs)
-	brokerInstance := broker.NewBroker(brokerConfig)
-	bwg := sync.WaitGroup{}
-	bwg.Add(1)
-
-	defer brokerInstance.Clean()
-	defer bwg.Wait()
-	defer brokerInstance.Stop()
-
-	go func() {
-		defer bwg.Done()
-		brokerInstance.Start()
-	}()
-
-	Sleep(1)
-
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	adminClient := client.NewAdmin(adminConfig)
+	adminClient := testContext.CreateAdminClient()
+	if err := adminClient.Connect(); err != nil {
+		t.Fatal(err)
+	}
 	defer adminClient.Close()
 
-	if err := adminClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// test body
+	testParams := testContext.TestParams()
 
-	expectedTopicName := "test-tp2"
-	expectedDescription := "test-description"
-	err := adminClient.CreateTopic(expectedTopicName, expectedDescription)
+	err := adminClient.CreateTopic(testParams.topic, testParams.topicDescription)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(expectedTopicName)
+	fragment, err := adminClient.CreateFragment(testParams.topic)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -172,70 +87,41 @@ func TestDeleteTopicAndFragment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = adminClient.DeleteFragment(expectedTopicName, fragment.Id); err != nil {
+	if err = adminClient.DeleteFragment(testParams.topic, fragment.Id); err != nil {
 		t.Fatal(err)
 	}
 
 	// TODO:: get list of fragments and check whether the fragment is deleted
 
-	if err = adminClient.DeleteTopic(expectedTopicName); err != nil {
+	if err = adminClient.DeleteTopic(testParams.topic); err != nil {
 		t.Fatal(err)
 	}
-	topic, err := adminClient.DescribeTopic(expectedTopicName)
-	fmt.Println(topic.Name)
-
+	if _, err := adminClient.DescribeTopic(testParams.topic); err == nil {
+		t.Fatal(err)
+	}
 }
 
 func TestDescribeFragment(t *testing.T) {
+	testContext := DefaultShapleQTestContext(t)
+	testContext.RunBrokers()
+	defer testContext.Terminate()
 
-	// zk client to reset
-	zkClient := zookeeper.NewZKQClient(zkAddrs, zkTimeoutMS, zkFlushIntervalMS)
-	if err := zkClient.Connect(); err != nil {
-		t.Error(err)
-		return
+	adminClient := testContext.CreateAdminClient()
+	if err := adminClient.Connect(); err != nil {
+		t.Fatal(err)
 	}
-	defer zkClient.Close()
-	defer zkClient.RemoveAllPath()
-
-	// Start broker
-	brokerConfig := config.NewBrokerConfig()
-	brokerConfig.SetLogLevel(testLogLevel)
-	brokerConfig.SetZKQuorum(zkAddrs)
-	brokerInstance := broker.NewBroker(brokerConfig)
-	bwg := sync.WaitGroup{}
-	bwg.Add(1)
-
-	defer brokerInstance.Clean()
-	defer bwg.Wait()
-	defer brokerInstance.Stop()
-
-	go func() {
-		defer bwg.Done()
-		brokerInstance.Start()
-	}()
-
-	Sleep(1)
-
-	adminConfig := config2.NewAdminConfig()
-	adminConfig.SetLogLevel(testLogLevel)
-	adminConfig.SetServerAddresses(brokerAddrs)
-	adminClient := client.NewAdmin(adminConfig)
 	defer adminClient.Close()
 
-	if err := adminClient.Connect(); err != nil {
-		t.Error(err)
-		return
-	}
+	// test body
+	testParams := testContext.TestParams()
 
-	expectedTopicName := "test-tp3"
-	expectedDescription := "test-description"
-	err := adminClient.CreateTopic(expectedTopicName, expectedDescription)
+	err := adminClient.CreateTopic(testParams.topic, testParams.topicDescription)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(expectedTopicName)
+	fragment, err := adminClient.CreateFragment(testParams.topic)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -246,7 +132,7 @@ func TestDescribeFragment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fragment, err = adminClient.DescribeFragment(expectedTopicName, fragment.Id)
+	fragment, err = adminClient.DescribeFragment(testParams.topic, fragment.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +141,7 @@ func TestDescribeFragment(t *testing.T) {
 		t.Error("fragmentId mismatched")
 	}
 
-	topic, err := adminClient.DescribeTopic(expectedTopicName)
+	topic, err := adminClient.DescribeTopic(testParams.topic)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,5 +151,4 @@ func TestDescribeFragment(t *testing.T) {
 	} else if topic.FragmentIds[0] != expectedFragmentId {
 		t.Error("fragmentId mismatched in topic")
 	}
-
 }

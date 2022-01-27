@@ -123,7 +123,7 @@ func (a *Admin) CreateTopic(topicName string, topicDescription string) error {
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return err
+		return pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (a *Admin) DeleteTopic(topicName string) error {
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return err
+		return pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return nil
 }
@@ -159,7 +159,7 @@ func (a *Admin) DescribeTopic(topicName string) (*shapleqproto.Topic, error) {
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return nil, err
+		return nil, pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return response.Topic, nil
 }
@@ -177,7 +177,7 @@ func (a *Admin) ListTopic() (*shapleqproto.ListTopicResponse, error) {
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return nil, err
+		return nil, pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return response, nil
 }
@@ -197,7 +197,7 @@ func (a *Admin) CreateFragment(topicName string) (*shapleqproto.Fragment, error)
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return nil, err
+		return nil, pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return response.Fragment, nil
 }
@@ -232,7 +232,7 @@ func (a *Admin) DescribeFragment(topicName string, fragmentId uint32) (*shapleqp
 
 	if response.ErrorCode != 0 {
 		a.logger.Error(response.ErrorMessage)
-		return nil, err
+		return nil, pqerror.ZKOperateError{ErrStr: response.ErrorMessage}
 	}
 	return response.Fragment, nil
 }
