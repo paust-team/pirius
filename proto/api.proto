@@ -162,7 +162,7 @@ message DeleteGroupResponse {
 message ConnectRequest {
     int32 magic = 1;
     SessionType session_type = 2;
-    repeated TopicFragmentsTarget topicTargets = 3;
+    repeated Topic topics = 3;
 }
 
 message ConnectResponse {
@@ -202,7 +202,7 @@ message FetchRequest {
     int32 magic = 1;
     uint32 max_batch_size = 2;
     uint32 flush_interval = 3;
-    repeated TopicFragmentsTarget topicTargets = 4;
+    repeated Topic topics = 4;
 }
 
 message FetchResponse {

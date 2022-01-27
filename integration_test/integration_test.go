@@ -162,11 +162,11 @@ type consumerTestContext struct {
 	onErrorFn    func(error)
 }
 
-func newConsumerTestContext(nodeId string, topicTargets []*common.TopicFragments) *consumerTestContext {
+func newConsumerTestContext(nodeId string, topics []*common.Topic) *consumerTestContext {
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(defaultLogLevel)
 	consumerConfig.SetServerAddresses([]string{"127.0.0.1:2181"})
-	consumer := client.NewConsumer(consumerConfig, topicTargets)
+	consumer := client.NewConsumer(consumerConfig, topics)
 	return &consumerTestContext{
 		config:   consumerConfig,
 		nodeId:   nodeId,
@@ -296,8 +296,8 @@ func (s *ShapleQTestContext) SetupTopics() *ShapleQTestContext {
 			s.t.Fatal(err)
 		}
 
-		var topicTargets []*common.TopicFragments
-		for _, topic := range s.params.topics {
+		var topics []*common.Topic
+		for _, topic := range s.params.topicNames {
 			if err := adminClient.CreateTopic(topic, ""); err != nil {
 				s.t.Fatal(err)
 			}
@@ -310,10 +310,10 @@ func (s *ShapleQTestContext) SetupTopics() *ShapleQTestContext {
 				}
 				fragmentOffsets[fragment.Id] = 1 // set start offset with 1
 			}
-			topicTargets = append(topicTargets, common.NewTopicFragmentsWithOffset(topic, fragmentOffsets))
+			topics = append(topics, common.NewTopicFromFragmentOffsets(topic, fragmentOffsets))
 		}
 
-		s.params.topicTargets = topicTargets
+		s.params.topics = topics
 	}
 	return s
 }
@@ -355,8 +355,8 @@ func (s *ShapleQTestContext) AddProducerContext(nodeId string, topic string) *pr
 	return ctx
 }
 
-func (s *ShapleQTestContext) AddConsumerContext(nodeId string, topicTargets []*common.TopicFragments) *consumerTestContext {
-	ctx := newConsumerTestContext(nodeId, topicTargets)
+func (s *ShapleQTestContext) AddConsumerContext(nodeId string, topics []*common.Topic) *consumerTestContext {
+	ctx := newConsumerTestContext(nodeId, topics)
 	if err := ctx.start(); err != nil {
 		s.t.Error(err)
 	} else {
@@ -402,7 +402,7 @@ func contains(s [][]byte, e []byte) bool {
 // test parameters
 type records [][]byte
 type TestParams struct {
-	topics                []string
+	topicNames            []string
 	topicDescriptions     []string
 	brokerCount           int
 	producerCount         int
@@ -412,12 +412,12 @@ type TestParams struct {
 	nodeId                string
 	consumerBatchSize     uint32
 	consumerFlushInterval uint32
-	topicTargets          []*common.TopicFragments
+	topics                []*common.Topic
 }
 
 var predefinedTestParams = map[string]*TestParams{
 	"TestConnect": {
-		topics:                []string{"topic1"},
+		topicNames:            []string{"topic1"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         1,
@@ -427,7 +427,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestPubSub": {
-		topics:                []string{"topic2"},
+		topicNames:            []string{"topic2"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         1,
@@ -443,7 +443,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestMultiClient": {
-		topics:                []string{"topic3"},
+		topicNames:            []string{"topic3"},
 		brokerCount:           1,
 		consumerCount:         5,
 		producerCount:         3,
@@ -457,7 +457,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestBatchedFetch": {
-		topics:                []string{"topic4"},
+		topicNames:            []string{"topic4"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         2,
@@ -470,7 +470,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 100,
 	},
 	"TestMultiFragmentsTotalConsume": {
-		topics:                []string{"topic5"},
+		topicNames:            []string{"topic5"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         1,
@@ -482,7 +482,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestMultiFragmentsOptionalConsume": {
-		topics:                []string{"topic6"},
+		topicNames:            []string{"topic6"},
 		brokerCount:           1,
 		consumerCount:         3,
 		producerCount:         1,
@@ -494,7 +494,7 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestMultiTopic": {
-		topics:                []string{"topic7", "topic8"},
+		topicNames:            []string{"topic7", "topic8"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         2,
@@ -509,19 +509,19 @@ var predefinedTestParams = map[string]*TestParams{
 
 	// RPC tests
 	"TestHeartBeat": {
-		topics:            []string{"rpc-topic1"},
+		topicNames:        []string{"rpc-topic1"},
 		topicDescriptions: []string{"test-description1"},
 	},
 	"TestCreateTopicAndFragment": {
-		topics:            []string{"rpc-topic2"},
+		topicNames:        []string{"rpc-topic2"},
 		topicDescriptions: []string{"test-description2"},
 	},
 	"TestDeleteTopicAndFragment": {
-		topics:            []string{"rpc-topic3"},
+		topicNames:        []string{"rpc-topic3"},
 		topicDescriptions: []string{"test-description3"},
 	},
 	"TestDescribeFragment": {
-		topics:            []string{"rpc-topic4"},
+		topicNames:        []string{"rpc-topic4"},
 		topicDescriptions: []string{"test-description4"},
 	},
 }

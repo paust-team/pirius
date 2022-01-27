@@ -15,29 +15,29 @@ import (
 
 type Consumer struct {
 	*client
-	zkqClient    *zookeeper.ZKQClient
-	config       *config.ConsumerConfig
-	topicTargets []*common.TopicFragments
-	logger       *logger.QLogger
-	ctx          context.Context
-	cancel       context.CancelFunc
+	zkqClient *zookeeper.ZKQClient
+	config    *config.ConsumerConfig
+	topics    []*common.Topic
+	logger    *logger.QLogger
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
-func NewConsumer(config *config.ConsumerConfig, topicTargets []*common.TopicFragments) *Consumer {
-	return NewConsumerWithContext(context.Background(), config, topicTargets)
+func NewConsumer(config *config.ConsumerConfig, topics []*common.Topic) *Consumer {
+	return NewConsumerWithContext(context.Background(), config, topics)
 }
 
-func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topicTargets []*common.TopicFragments) *Consumer {
+func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, topics []*common.Topic) *Consumer {
 	l := logger.NewQLogger("Consumer", config.LogLevel())
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
-		client:       newClient(config.ClientConfigBase),
-		zkqClient:    zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
-		config:       config,
-		topicTargets: topicTargets,
-		logger:       l,
-		ctx:          ctx,
-		cancel:       cancel,
+		client:    newClient(config.ClientConfigBase),
+		zkqClient: zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
+		config:    config,
+		topics:    topics,
+		logger:    l,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 	return consumer
 }
@@ -55,15 +55,15 @@ func (c *Consumer) Connect() error {
 	}
 	connectionTargets := make(map[string]*connectionTarget)
 
-	for _, topicFragments := range c.topicTargets {
-		topic := topicFragments.Topic()
+	for _, topicFragments := range c.topics {
+		topic := topicFragments.TopicName()
 		if len(topicFragments.FragmentIds()) == 0 {
 			return pqerror.TopicFragmentNotExistsError{Topic: topic}
 		}
 
 		for fragmentId, startOffset := range topicFragments.FragmentOffsets() {
 			// get brokers from fragment
-			addresses, err := c.zkqClient.GetTopicFragmentBrokers(topic, fragmentId)
+			addresses, err := c.zkqClient.GetBrokersOfTopic(topic, fragmentId)
 			if err != nil {
 				return pqerror.ZKOperateError{ErrStr: err.Error()}
 			}
@@ -77,13 +77,13 @@ func (c *Consumer) Connect() error {
 			// update connection target map
 			for _, address := range addresses {
 				if connectionTargets[address] == nil { // create single connection for each address
-					topicFragment := common.NewTopicFragmentsWithOffset(topic, common.FragmentOffsetMap{fragmentId: startOffset})
-					connectionTargets[address] = &connectionTarget{address: address, topicTargets: []*common.TopicFragments{topicFragment}}
-				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topicTargets in connection
+					topicFragment := common.NewTopicFromFragmentOffsets(topic, common.FragmentOffsetMap{fragmentId: startOffset})
+					connectionTargets[address] = &connectionTarget{address: address, topics: []*common.Topic{topicFragment}}
+				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topic in connection
 					topicFragments.AddFragmentOffset(fragmentId, startOffset)
-				} else { // if topic in connection-target doesn't exist, append new topicFragments to topicTargets
-					topicFragment := common.NewTopicFragmentsWithOffset(topic, common.FragmentOffsetMap{fragmentId: startOffset})
-					connectionTargets[address].topicTargets = append(connectionTargets[address].topicTargets, topicFragment)
+				} else { // if topic in connection-target doesn't exist, append new topicFragments to topics
+					topicFragment := common.NewTopicFromFragmentOffsets(topic, common.FragmentOffsetMap{fragmentId: startOffset})
+					connectionTargets[address].topics = append(connectionTargets[address].topics, topicFragment)
 				}
 			}
 		}
@@ -134,7 +134,7 @@ func (c *Consumer) Subscribe(maxBatchSize uint32, flushInterval uint32) (<-chan 
 
 	// send fetch request to every streams
 	for _, conn := range c.connections {
-		reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(conn.topicTargets, maxBatchSize, flushInterval))
+		reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(conn.topics, maxBatchSize, flushInterval))
 		if err != nil {
 			return nil, nil, err
 		}

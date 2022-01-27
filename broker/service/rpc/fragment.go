@@ -67,7 +67,7 @@ func (s *fragmentRPCService) DescribeFragment(request *shapleqproto.DescribeFrag
 		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	brokerAddresses, err := s.zkqClient.GetTopicFragmentBrokers(request.TopicName, request.FragmentId)
+	brokerAddresses, err := s.zkqClient.GetBrokersOfTopic(request.TopicName, request.FragmentId)
 	if err != nil {
 		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}

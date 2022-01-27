@@ -38,13 +38,13 @@ func TestCreateTopicAndFragment(t *testing.T) {
 	// test body
 	testParams := testContext.TestParams()
 
-	err := adminClient.CreateTopic(testParams.topics[0], testParams.topicDescriptions[0])
+	err := adminClient.CreateTopic(testParams.topicNames[0], testParams.topicDescriptions[0])
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(testParams.topics[0])
+	fragment, err := adminClient.CreateFragment(testParams.topicNames[0])
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -71,13 +71,13 @@ func TestDeleteTopicAndFragment(t *testing.T) {
 	// test body
 	testParams := testContext.TestParams()
 
-	err := adminClient.CreateTopic(testParams.topics[0], testParams.topicDescriptions[0])
+	err := adminClient.CreateTopic(testParams.topicNames[0], testParams.topicDescriptions[0])
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(testParams.topics[0])
+	fragment, err := adminClient.CreateFragment(testParams.topicNames[0])
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -87,16 +87,16 @@ func TestDeleteTopicAndFragment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = adminClient.DeleteFragment(testParams.topics[0], fragment.Id); err != nil {
+	if err = adminClient.DeleteFragment(testParams.topicNames[0], fragment.Id); err != nil {
 		t.Fatal(err)
 	}
 
 	// TODO:: get list of fragments and check whether the fragment is deleted
 
-	if err = adminClient.DeleteTopic(testParams.topics[0]); err != nil {
+	if err = adminClient.DeleteTopic(testParams.topicNames[0]); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adminClient.DescribeTopic(testParams.topics[0]); err == nil {
+	if _, err := adminClient.DescribeTopic(testParams.topicNames[0]); err == nil {
 		t.Fatal(err)
 	}
 }
@@ -115,13 +115,13 @@ func TestDescribeFragment(t *testing.T) {
 	// test body
 	testParams := testContext.TestParams()
 
-	err := adminClient.CreateTopic(testParams.topics[0], testParams.topicDescriptions[0])
+	err := adminClient.CreateTopic(testParams.topicNames[0], testParams.topicDescriptions[0])
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	fragment, err := adminClient.CreateFragment(testParams.topics[0])
+	fragment, err := adminClient.CreateFragment(testParams.topicNames[0])
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -132,7 +132,7 @@ func TestDescribeFragment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fragment, err = adminClient.DescribeFragment(testParams.topics[0], fragment.Id)
+	fragment, err = adminClient.DescribeFragment(testParams.topicNames[0], fragment.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestDescribeFragment(t *testing.T) {
 		t.Error("fragmentId mismatched")
 	}
 
-	topic, err := adminClient.DescribeTopic(testParams.topics[0])
+	topic, err := adminClient.DescribeTopic(testParams.topicNames[0])
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,13 +14,13 @@ import (
 )
 
 type connectionTarget struct {
-	address      string
-	topicTargets []*common.TopicFragments
+	address string
+	topics  []*common.Topic
 }
 
-func (c connectionTarget) findTopicFragments(topic string) *common.TopicFragments {
-	for _, topicFragment := range c.topicTargets {
-		if topicFragment.Topic() == topic {
+func (c connectionTarget) findTopicFragments(topic string) *common.Topic {
+	for _, topicFragment := range c.topics {
+		if topicFragment.TopicName() == topic {
 			return topicFragment
 		}
 	}
@@ -196,7 +196,7 @@ func (c *client) establishStream(sessionType shapleqproto.SessionType, target *c
 	}
 	sock := network.NewSocket(conn, c.config.BrokerTimeout(), c.config.BrokerTimeout())
 	reqMsg, err := message.NewQMessageFromMsg(message.STREAM,
-		message.NewConnectRequestMsg(sessionType, target.topicTargets))
+		message.NewConnectRequestMsg(sessionType, target.topics))
 	if err != nil {
 		return err
 	}
@@ -218,8 +218,8 @@ func (c *client) establishStream(sessionType shapleqproto.SessionType, target *c
 func (c *client) getConnections(topic string, fragmentId uint32) []*connection {
 	var connections []*connection
 	for _, conn := range c.connections {
-		for _, topicFragments := range conn.topicTargets {
-			if topicFragments.Topic() == topic && utils.Contains(topicFragments.FragmentIds(), fragmentId) {
+		for _, topicFragments := range conn.topics {
+			if topicFragments.TopicName() == topic && utils.Contains(topicFragments.FragmentIds(), fragmentId) {
 				connections = append(connections, conn)
 			}
 		}

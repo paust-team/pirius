@@ -47,12 +47,12 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 
 		for in := range inStream {
 			req := in.(*shapleq_proto.ConnectRequest)
-			for _, topicTarget := range req.TopicTargets {
-				if len(topicTarget.GetTopicName()) == 0 {
+			for _, topic := range req.Topics {
+				if len(topic.GetTopicName()) == 0 {
 					errCh <- pqerror.TopicNotSetError{}
 					return
 				}
-				if _, err := c.zkqClient.GetTopicData(topicTarget.GetTopicName()); err != nil {
+				if _, err := c.zkqClient.GetTopicData(topic.GetTopicName()); err != nil {
 					errCh <- err
 					return
 				}
@@ -65,26 +65,26 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 					}
 				}
 				c.session.SetType(req.SessionType)
-				c.session.AddTopicTarget(topicTarget)
+				c.session.AddTopic(topic)
 
 				switch req.SessionType {
 				case shapleq_proto.SessionType_PUBLISHER:
-					_, err := c.zkqClient.AddNumPublishers(topicTarget.TopicName, 1)
+					_, err := c.zkqClient.AddNumPublishers(topic.TopicName, 1)
 					if err != nil {
 						errCh <- err
 						return
 					}
 					// register topic broker address only if publisher appears
-					for _, fragmentOffset := range topicTarget.Offsets {
-						err = c.zkqClient.AddTopicFragmentBroker(topicTarget.TopicName, fragmentOffset.FragmentId, c.brokerAddr)
+					for _, fragmentOffset := range topic.Offsets {
+						err = c.zkqClient.AddBrokerForTopic(topic.TopicName, fragmentOffset.FragmentId, c.brokerAddr)
 						if err != nil {
 							errCh <- err
 							return
 						}
 					}
 				case shapleq_proto.SessionType_SUBSCRIBER:
-					for _, fragmentOffset := range topicTarget.Offsets {
-						_, err := c.zkqClient.AddNumSubscriber(topicTarget.TopicName, fragmentOffset.FragmentId, 1)
+					for _, fragmentOffset := range topic.Offsets {
+						_, err := c.zkqClient.AddNumSubscriber(topic.TopicName, fragmentOffset.FragmentId, 1)
 						if err != nil {
 							errCh <- err
 							return

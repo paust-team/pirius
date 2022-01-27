@@ -210,7 +210,7 @@ func (b *Broker) tearDownZookeeper() {
 				b.logger.Errorf("error occurred on tearing down zookeeper: %s", err.Error())
 				continue
 			}
-			_ = b.zkqClient.RemoveTopicFragmentBroker(topic, uint32(fragmentId), b.config.Hostname())
+			_ = b.zkqClient.RemoveBrokerOfTopic(topic, uint32(fragmentId), b.config.Hostname())
 		}
 	}
 	b.zkqClient.Close()
@@ -291,13 +291,13 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 					sc.session.Close()
 					switch sc.session.Type() {
 					case shapleq_proto.SessionType_PUBLISHER:
-						for _, topicTarget := range sc.session.TopicTargets() {
-							_, _ = b.zkqClient.AddNumPublishers(topicTarget.Topic(), -1)
+						for _, topic := range sc.session.Topics() {
+							_, _ = b.zkqClient.AddNumPublishers(topic.TopicName(), -1)
 						}
 					case shapleq_proto.SessionType_SUBSCRIBER:
-						for _, topicTarget := range sc.session.TopicTargets() {
-							for _, id := range topicTarget.FragmentIds() {
-								_, _ = b.zkqClient.AddNumSubscriber(topicTarget.Topic(), id, -1)
+						for _, topic := range sc.session.Topics() {
+							for _, id := range topic.FragmentIds() {
+								_, _ = b.zkqClient.AddNumSubscriber(topic.TopicName(), id, -1)
 							}
 						}
 					}

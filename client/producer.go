@@ -94,7 +94,7 @@ func (p *Producer) Connect() error {
 			p.publishTargets[topic] = append(p.publishTargets[topic], &topicFragmentPair{topic: topic, fragmentId: fragmentId})
 
 			// get brokers from fragment
-			addresses, err := p.zkqClient.GetTopicFragmentBrokers(topic, fragmentId)
+			addresses, err := p.zkqClient.GetBrokersOfTopic(topic, fragmentId)
 			if err != nil {
 				return pqerror.ZKOperateError{ErrStr: err.Error()}
 			}
@@ -114,13 +114,13 @@ func (p *Producer) Connect() error {
 			// update connection target map
 			for _, address := range addresses {
 				if connectionTargets[address] == nil { // create single connection for each address
-					topicFragment := common.NewTopicFragments(topic, []uint32{fragmentId})
-					connectionTargets[address] = &connectionTarget{address: address, topicTargets: []*common.TopicFragments{topicFragment}}
-				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topicTargets in connection
+					topicFragment := common.NewTopic(topic, []uint32{fragmentId})
+					connectionTargets[address] = &connectionTarget{address: address, topics: []*common.Topic{topicFragment}}
+				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topic in connection
 					topicFragments.AddFragmentId(fragmentId)
-				} else { // if topic in connection-target doesn't exists, append new topicFragments to topicTargets
-					topicFragment := common.NewTopicFragments(topic, []uint32{fragmentId})
-					connectionTargets[address].topicTargets = append(connectionTargets[address].topicTargets, topicFragment)
+				} else { // if topic in connection-target doesn't exists, append new topicFragments to topics
+					topicFragment := common.NewTopic(topic, []uint32{fragmentId})
+					connectionTargets[address].topics = append(connectionTargets[address].topics, topicFragment)
 				}
 			}
 		}

@@ -18,8 +18,8 @@ func TestConnect(t *testing.T) {
 	// test body
 	testParams := testContext.TestParams()
 
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0])
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets)
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0])
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics)
 }
 
 func TestPubSub(t *testing.T) {
@@ -35,14 +35,14 @@ func TestPubSub(t *testing.T) {
 	receivedRecords := make([][]byte, 0)
 
 	// setup clients
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords).
 		waitFinished()
 
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
 		onComplete(func() {
 			for _, record := range expectedRecords {
 				if !contains(receivedRecords, record) {
@@ -71,8 +71,8 @@ func TestPubSub(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer adminClient.Close()
-	for _, fragmentId := range testParams.topicTargets[0].FragmentIds() {
-		fragment, err := adminClient.DescribeFragment(testParams.topicTargets[0].Topic(), fragmentId)
+	for _, fragmentId := range testParams.topics[0].FragmentIds() {
+		fragment, err := adminClient.DescribeFragment(testParams.topics[0].TopicName(), fragmentId)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +100,7 @@ func TestMultiClient(t *testing.T) {
 	for i := 0; i < testParams.producerCount; i++ {
 		records := testParams.testRecords[i]
 		expectedRecords = append(expectedRecords, records...)
-		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0]).
 			onError(func(err error) {
 				t.Error(err)
 			}).
@@ -112,7 +112,7 @@ func TestMultiClient(t *testing.T) {
 		wg.Add(1)
 		func(index int) {
 			nodeId := fmt.Sprintf("consumer%024d", index)
-			testContext.AddConsumerContext(nodeId, testParams.topicTargets).
+			testContext.AddConsumerContext(nodeId, testParams.topics).
 				onComplete(func() {
 					for _, record := range receivedRecords[index] {
 						if !contains(expectedRecords, record) {
@@ -154,7 +154,7 @@ func TestBatchedFetch(t *testing.T) {
 	for i := 0; i < testParams.producerCount; i++ {
 		records := testParams.testRecords[i]
 		expectedRecords = append(expectedRecords, records...)
-		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0]).
 			onError(func(err error) {
 				t.Error(err)
 			}).
@@ -162,7 +162,7 @@ func TestBatchedFetch(t *testing.T) {
 	}
 
 	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
 		onComplete(func() {
 			for _, record := range receivedRecords {
 				if !contains(expectedRecords, record) {
@@ -200,14 +200,14 @@ func TestMultiFragmentsTotalConsume(t *testing.T) {
 	receivedRecords := make([][]byte, 0)
 
 	// setup producer
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords)
 
 	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
 		onComplete(func() {
 			for _, record := range receivedRecords {
 				if !contains(expectedRecords, record) {
@@ -246,21 +246,21 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 	var mu sync.Mutex
 
 	// setup producer
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topicNames[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords)
 
 	// setup consumer for each fragment
-	for fragmentId, offset := range testParams.topicTargets[0].FragmentOffsets() {
+	for fragmentId, offset := range testParams.topics[0].FragmentOffsets() {
 		wg.Add(1)
 		fid := fragmentId
 		startOffset := offset
 		nodeId := fmt.Sprintf("consumer%024d", fid)
 		receivedRecordsForFragments := records{}
-		topicTarget := common.NewTopicFragmentsWithOffset(testParams.topicTargets[0].Topic(), common.FragmentOffsetMap{fid: startOffset})
-		testContext.AddConsumerContext(nodeId, []*common.TopicFragments{topicTarget}).
+		topic := common.NewTopicFromFragmentOffsets(testParams.topics[0].TopicName(), common.FragmentOffsetMap{fid: startOffset})
+		testContext.AddConsumerContext(nodeId, []*common.Topic{topic}).
 			onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
 				receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
 				return false
@@ -307,7 +307,7 @@ func TestMultiTopic(t *testing.T) {
 	receivedRecords := make([][]byte, 0)
 
 	// setup clients from topic
-	for i, topic := range testParams.topics {
+	for i, topic := range testParams.topicNames {
 		// setup a producer per topic
 		records := testParams.testRecords[i]
 		expectedRecords = append(expectedRecords, records...)
@@ -319,7 +319,7 @@ func TestMultiTopic(t *testing.T) {
 	}
 
 	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
 		onComplete(func() {
 			for _, record := range receivedRecords {
 				if !contains(expectedRecords, record) {

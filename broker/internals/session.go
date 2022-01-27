@@ -64,7 +64,7 @@ type Session struct {
 	sock          *network.Socket
 	state         *SessionState
 	sessType      shapleq_proto.SessionType
-	topicTargets  []*common.TopicFragments
+	topics        []*common.Topic
 	rTimeout      uint
 	wTimeout      uint
 	maxBatchSize  uint32 // for fetch
@@ -77,7 +77,7 @@ func NewSession(conn net.Conn, timeout int) *Session {
 		state: &SessionState{
 			sync.RWMutex{}, NONE,
 		},
-		topicTargets:  []*common.TopicFragments{},
+		topics:        []*common.Topic{},
 		maxBatchSize:  1,
 		flushInterval: 100,
 	}
@@ -106,22 +106,22 @@ func (s *Session) SetType(sessType shapleq_proto.SessionType) {
 	s.sessType = sessType
 }
 
-func (s *Session) TopicTargets() []*common.TopicFragments {
-	return s.topicTargets
+func (s *Session) Topics() []*common.Topic {
+	return s.topics
 }
 
-func (s *Session) SetTopicTargets(targets []*common.TopicFragments) {
-	s.topicTargets = targets
+func (s *Session) SetTopics(topics []*common.Topic) {
+	s.topics = topics
 }
 
-func (s *Session) AddTopicTarget(target *shapleq_proto.TopicFragmentsTarget) {
+func (s *Session) AddTopic(topic *shapleq_proto.Topic) {
 	startOffsets := common.FragmentOffsetMap{}
-	for _, offset := range target.Offsets {
+	for _, offset := range topic.Offsets {
 		startOffsets[offset.FragmentId] = offset.StartOffset
 	}
 
-	topicFragments := common.NewTopicFragmentsWithOffset(target.TopicName, startOffsets)
-	s.topicTargets = append(s.topicTargets, topicFragments)
+	topicFragments := common.NewTopicFromFragmentOffsets(topic.TopicName, startOffsets)
+	s.topics = append(s.topics, topicFragments)
 }
 
 func (s *Session) MaxBatchSize() uint32 {

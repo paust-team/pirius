@@ -70,17 +70,17 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
 			f.session.SetFlushInterval(req.GetFlushInterval())
 
-			for _, topicTarget := range req.TopicTargets {
-				for _, offset := range topicTarget.Offsets {
+			for _, topic := range req.Topics {
+				for _, offset := range topic.Offsets {
 					if offset.StartOffset == 0 {
 						errCh <- pqerror.TopicFragmentOffsetNotSetError{}
 						return
 					}
 					wg.Add(1)
-					go func(topicName string, offset *shapleq_proto.TopicFragmentsTarget_FragmentOffset) {
+					go func(topicName string, offset *shapleq_proto.Topic_FragmentOffset) {
 						defer wg.Done()
 						f.iterateRecords(topicName, offset.FragmentId, offset.StartOffset, outStream, inStreamClosed)
-					}(topicTarget.TopicName, offset)
+					}(topic.TopicName, offset)
 				}
 			}
 

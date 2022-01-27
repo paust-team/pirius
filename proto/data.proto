@@ -21,7 +21,7 @@ message TopicInfo {
     repeated uint32 fragmentIds = 4;
 }
 
-message TopicFragmentsTarget {
+message Topic {
     message FragmentOffset {
         uint32 fragment_id = 1;
         uint64 start_offset = 2;
