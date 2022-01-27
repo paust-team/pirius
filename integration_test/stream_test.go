@@ -18,8 +18,8 @@ func TestConnect(t *testing.T) {
 	// test body
 	testParams := testContext.TestParams()
 
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic)
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets)
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0])
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets)
 }
 
 func TestPubSub(t *testing.T) {
@@ -35,14 +35,14 @@ func TestPubSub(t *testing.T) {
 	receivedRecords := make([][]byte, 0)
 
 	// setup clients
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords).
 		waitFinished()
 
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
 		onComplete(func() {
 			for _, record := range expectedRecords {
 				if !contains(receivedRecords, record) {
@@ -65,14 +65,20 @@ func TestPubSub(t *testing.T) {
 		waitFinished()
 
 	Sleep(3) // sleep 3 seconds to wait until last offset to be flushed to zk
-	for fragmentId := range testParams.fragmentOffsets {
-		fragmentValue, err := testContext.zkClient.GetTopicFragmentData(testParams.topic, fragmentId)
+
+	adminClient := testContext.CreateAdminClient()
+	if err := adminClient.Connect(); err != nil {
+		t.Fatal(err)
+	}
+	defer adminClient.Close()
+	for _, fragmentId := range testParams.topicTargets[0].FragmentIds() {
+		fragment, err := adminClient.DescribeFragment(testParams.topicTargets[0].Topic(), fragmentId)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if uint64(len(expectedRecords)) != fragmentValue.LastOffset() {
-			t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), fragmentValue.LastOffset())
+		if uint64(len(expectedRecords)) != fragment.LastOffset {
+			t.Errorf("expected last offset (%d) is not matched with (%d)", len(expectedRecords), fragment.LastOffset)
 		}
 	}
 }
@@ -94,7 +100,7 @@ func TestMultiClient(t *testing.T) {
 	for i := 0; i < testParams.producerCount; i++ {
 		records := testParams.testRecords[i]
 		expectedRecords = append(expectedRecords, records...)
-		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
 			onError(func(err error) {
 				t.Error(err)
 			}).
@@ -106,7 +112,7 @@ func TestMultiClient(t *testing.T) {
 		wg.Add(1)
 		func(index int) {
 			nodeId := fmt.Sprintf("consumer%024d", index)
-			testContext.AddConsumerContext(nodeId, testParams.topic, testParams.fragmentOffsets).
+			testContext.AddConsumerContext(nodeId, testParams.topicTargets).
 				onComplete(func() {
 					for _, record := range receivedRecords[index] {
 						if !contains(expectedRecords, record) {
@@ -148,7 +154,7 @@ func TestBatchedFetch(t *testing.T) {
 	for i := 0; i < testParams.producerCount; i++ {
 		records := testParams.testRecords[i]
 		expectedRecords = append(expectedRecords, records...)
-		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+		testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
 			onError(func(err error) {
 				t.Error(err)
 			}).
@@ -156,7 +162,7 @@ func TestBatchedFetch(t *testing.T) {
 	}
 
 	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
 		onComplete(func() {
 			for _, record := range receivedRecords {
 				if !contains(expectedRecords, record) {
@@ -194,14 +200,14 @@ func TestMultiFragmentsTotalConsume(t *testing.T) {
 	receivedRecords := make([][]byte, 0)
 
 	// setup producer
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords)
 
 	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topic, testParams.fragmentOffsets).
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
 		onComplete(func() {
 			for _, record := range receivedRecords {
 				if !contains(expectedRecords, record) {
@@ -240,21 +246,21 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 	var mu sync.Mutex
 
 	// setup producer
-	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topic).
+	testContext.AddProducerContext(common.GenerateNodeId(), testParams.topics[0]).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		asyncPublish(expectedRecords)
 
 	// setup consumer for each fragment
-	for fragmentId, offset := range testParams.fragmentOffsets {
+	for fragmentId, offset := range testParams.topicTargets[0].FragmentOffsets() {
 		wg.Add(1)
 		fid := fragmentId
 		startOffset := offset
-
 		nodeId := fmt.Sprintf("consumer%024d", fid)
 		receivedRecordsForFragments := records{}
-		testContext.AddConsumerContext(nodeId, testParams.topic, map[uint32]uint64{fid: startOffset}).
+		topicTarget := common.NewTopicFragmentsWithOffset(testParams.topicTargets[0].Topic(), common.FragmentOffsetMap{fid: startOffset})
+		testContext.AddConsumerContext(nodeId, []*common.TopicFragments{topicTarget}).
 			onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
 				receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
 				return false
@@ -286,4 +292,54 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 	if totalCount != len(expectedRecords) {
 		t.Errorf("Published %d data but received %d data", len(expectedRecords), totalCount)
 	}
+}
+
+func TestMultiTopic(t *testing.T) {
+
+	testContext := DefaultShapleQTestContext(t).
+		RunBrokers().
+		SetupTopics()
+	defer testContext.Terminate()
+
+	// test body
+	testParams := testContext.TestParams()
+	var expectedRecords [][]byte
+	receivedRecords := make([][]byte, 0)
+
+	// setup clients from topic
+	for i, topic := range testParams.topics {
+		// setup a producer per topic
+		records := testParams.testRecords[i]
+		expectedRecords = append(expectedRecords, records...)
+		testContext.AddProducerContext(common.GenerateNodeId(), topic).
+			onError(func(err error) {
+				t.Error(err)
+			}).
+			asyncPublish(records)
+	}
+
+	// setup consumer
+	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topicTargets).
+		onComplete(func() {
+			for _, record := range receivedRecords {
+				if !contains(expectedRecords, record) {
+					t.Errorf("Record(%s) is not exists", record)
+				}
+			}
+		}).
+		onError(func(err error) {
+			t.Error(err)
+		}).
+		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+			for _, data := range received.Items {
+				receivedRecords = append(receivedRecords, data.Data)
+			}
+			if len(receivedRecords) == len(expectedRecords) {
+				fmt.Println("consumer is finished")
+				return true
+			} else {
+				return false
+			}
+		}).
+		waitFinished()
 }
