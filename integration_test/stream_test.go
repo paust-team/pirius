@@ -249,30 +249,31 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 	// setup consumer for each fragment
 	for fragmentId, offset := range testParams.fragmentOffsets {
 		wg.Add(1)
-		func(fid uint32, startOffset uint64) {
-			nodeId := fmt.Sprintf("consumer%024d", fid)
-			receivedRecordsForFragments := records{}
-			testContext.AddConsumerContext(nodeId, testParams.topic, map[uint32]uint64{fid: startOffset}).
-				onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
-					receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
-					return false
-				}).
-				onError(func(err error) {
-					// escape when timed out
-					if _, ok := err.(pqerror.SocketClosedError); ok {
-						fmt.Printf("consumer for fragment(%d) is finished from timeout\n", fid)
-						for _, record := range receivedRecordsForFragments {
-							if !contains(expectedRecords, record) {
-								t.Errorf("Record(%s) is not exists: consumer for fragment(%d) ", record, fid)
-							}
+		fid := fragmentId
+		startOffset := offset
+
+		nodeId := fmt.Sprintf("consumer%024d", fid)
+		receivedRecordsForFragments := records{}
+		testContext.AddConsumerContext(nodeId, testParams.topic, map[uint32]uint64{fid: startOffset}).
+			onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+				receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
+				return false
+			}).
+			onError(func(err error) {
+				// escape when timed out
+				if _, ok := err.(pqerror.SocketClosedError); ok {
+					fmt.Printf("consumer(%s) for fragment(%d) is finished from timeout\n", nodeId, fid)
+					for _, record := range receivedRecordsForFragments {
+						if !contains(expectedRecords, record) {
+							t.Errorf("Record(%s) is not exists: consumer(%s) for fragment(%d) ", record, nodeId, fid)
 						}
-						mu.Lock()
-						receivedRecords[fid] = receivedRecordsForFragments
-						mu.Unlock()
 					}
-					wg.Done()
-				})
-		}(fragmentId, offset)
+					mu.Lock()
+					receivedRecords[fid] = receivedRecordsForFragments
+					mu.Unlock()
+				}
+				wg.Done()
+			})
 	}
 
 	wg.Wait()
