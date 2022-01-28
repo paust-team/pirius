@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
@@ -19,6 +20,7 @@ type topicFragmentPair struct {
 }
 
 type PublishResult struct {
+	Topic      string
 	FragmentId uint32
 	LastOffset uint64
 }
@@ -27,31 +29,32 @@ type Producer struct {
 	*client
 	zkqClient          *zookeeper.ZKQClient
 	config             *config.ProducerConfig
-	topic              string
+	publishTopics      []string
 	logger             *logger.QLogger
 	ctx                context.Context
 	cancel             context.CancelFunc
 	publishCh          chan *message.QMessage
-	publishTargets     []*topicFragmentPair
-	currentTargetIndex int
+	publishTargets     map[string][]*topicFragmentPair
+	targetIndexCounter map[string]int
 }
 
-func NewProducer(config *config.ProducerConfig, topic string) *Producer {
-	return NewProducerWithContext(context.Background(), config, topic)
+func NewProducer(config *config.ProducerConfig, publishTopics []string) *Producer {
+	return NewProducerWithContext(context.Background(), config, publishTopics)
 }
 
-func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, topic string) *Producer {
+func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, publishTopics []string) *Producer {
 	l := logger.NewQLogger("Producer", config.LogLevel())
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
 		client:             newClient(config.ClientConfigBase),
 		zkqClient:          zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
-		topic:              topic,
+		publishTopics:      publishTopics,
 		logger:             l,
 		ctx:                ctx,
 		cancel:             cancel,
 		publishCh:          make(chan *message.QMessage),
-		currentTargetIndex: 0,
+		publishTargets:     map[string][]*topicFragmentPair{},
+		targetIndexCounter: map[string]int{},
 	}
 	return producer
 }
@@ -67,52 +70,62 @@ func (p *Producer) Connect() error {
 	if err := p.zkqClient.Connect(); err != nil {
 		return err
 	}
-	// get all fragments : producer publishes data for all fragments of a topic
-	fragments, err := p.zkqClient.GetTopicFragments(p.topic)
-
-	if err != nil {
-		return err
-	}
-
-	if len(fragments) == 0 {
-		return pqerror.TopicFragmentNotExistsError{Topic: p.topic}
-	}
-
 	connectionTargets := make(map[string]*connectionTarget)
-	for _, fragment := range fragments {
-		fid, err := strconv.ParseUint(fragment, 10, 32)
+
+	for _, topic := range p.publishTopics {
+		p.publishTargets[topic] = []*topicFragmentPair{}
+		p.targetIndexCounter[topic] = 0
+		// get all fragments : producer publishes data for all fragments of a topic
+		fragments, err := p.zkqClient.GetTopicFragments(topic)
 		if err != nil {
 			return err
 		}
-		fragmentId := uint32(fid)
-		p.publishTargets = append(p.publishTargets, &topicFragmentPair{topic: p.topic, fragmentId: fragmentId})
 
-		// get brokers from fragment
-		addresses, err := p.zkqClient.GetTopicFragmentBrokers(p.topic, fragmentId)
-		if err != nil {
-			return pqerror.ZKOperateError{ErrStr: err.Error()}
+		if len(fragments) == 0 {
+			return pqerror.TopicFragmentNotExistsError{Topic: topic}
 		}
-		// if any broker for topic-fragment doesn't exist, pick a random broker to publish
-		if len(addresses) == 0 {
-			brokerAddresses, err := p.zkqClient.GetBrokers()
-			if err == nil && len(brokerAddresses) != 0 {
-				brokerAddr := brokerAddresses[rand.Intn(len(brokerAddresses))]
-				addresses = append(addresses, brokerAddr)
-			} else {
-				return pqerror.TopicFragmentBrokerNotExistsError{}
+
+		for _, fragment := range fragments {
+			fid, err := strconv.ParseUint(fragment, 10, 32)
+			if err != nil {
+				return err
 			}
-		} else if len(addresses) > 1 {
-			return pqerror.UnhandledError{ErrStr: "cannot handle replicated fragments: methods not implemented"}
-		}
+			fragmentId := uint32(fid)
+			p.publishTargets[topic] = append(p.publishTargets[topic], &topicFragmentPair{topic: topic, fragmentId: fragmentId})
 
-		for _, address := range addresses {
-			if connectionTargets[address] == nil { // create single connection for each address
-				connectionTargets[address] = &connectionTarget{address: address, topic: p.topic, fragmentIds: []uint32{fragmentId}}
-			} else { // append related fragment id for connection
-				connectionTargets[address].fragmentIds = append(connectionTargets[address].fragmentIds, fragmentId)
+			// get brokers from fragment
+			addresses, err := p.zkqClient.GetBrokersOfTopic(topic, fragmentId)
+			if err != nil {
+				return pqerror.ZKOperateError{ErrStr: err.Error()}
+			}
+			// if any broker for topic-fragment doesn't exist, pick a random broker to publish
+			if len(addresses) == 0 {
+				brokerAddresses, err := p.zkqClient.GetBrokers()
+				if err == nil && len(brokerAddresses) != 0 {
+					brokerAddr := brokerAddresses[rand.Intn(len(brokerAddresses))]
+					addresses = append(addresses, brokerAddr)
+				} else {
+					return pqerror.TopicFragmentBrokerNotExistsError{}
+				}
+			} else if len(addresses) > 1 {
+				return pqerror.UnhandledError{ErrStr: "cannot handle replicated fragments: methods not implemented"}
+			}
+
+			// update connection target map
+			for _, address := range addresses {
+				if connectionTargets[address] == nil { // create single connection for each address
+					topicFragment := common.NewTopic(topic, []uint32{fragmentId})
+					connectionTargets[address] = &connectionTarget{address: address, topics: []*common.Topic{topicFragment}}
+				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topic in connection
+					topicFragments.AddFragmentId(fragmentId)
+				} else { // if topic in connection-target doesn't exists, append new topicFragments to topics
+					topicFragment := common.NewTopic(topic, []uint32{fragmentId})
+					connectionTargets[address].topics = append(connectionTargets[address].topics, topicFragment)
+				}
 			}
 		}
 	}
+
 	var targets []*connectionTarget
 	for _, target := range connectionTargets {
 		targets = append(targets, target)
@@ -122,22 +135,26 @@ func (p *Producer) Connect() error {
 }
 
 type PublishData struct {
+	Topic  string
 	Data   []byte
 	SeqNum uint64
 	NodeId string
 }
 
-func (p *Producer) getNextPublishTarget() *topicFragmentPair {
+func (p *Producer) getNextPublishTarget(topic string) *topicFragmentPair {
 	defer func() {
-		p.currentTargetIndex = (p.currentTargetIndex + 1) % len(p.publishTargets)
+		p.targetIndexCounter[topic] = (p.targetIndexCounter[topic] + 1) % len(p.publishTargets[topic])
 	}()
-	return p.publishTargets[p.currentTargetIndex]
+	return p.publishTargets[topic][p.targetIndexCounter[topic]]
 }
 
 func (p *Producer) Publish(data *PublishData) (*PublishResult, error) {
+	if _, exists := p.publishTargets[data.Topic]; !exists {
+		return nil, pqerror.TopicNotSetError{}
+	}
 
-	pair := p.getNextPublishTarget()
-	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.fragmentId))
+	pair := p.getNextPublishTarget(data.Topic)
+	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.topic, pair.fragmentId))
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +187,8 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *PublishResu
 				select {
 				case data, ok := <-from:
 					if ok {
-						pair := p.getNextPublishTarget()
-						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.fragmentId))
+						pair := p.getNextPublishTarget(data.Topic)
+						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.topic, pair.fragmentId))
 						if err != nil {
 							errCh <- err
 						} else {
@@ -229,7 +246,7 @@ func (p *Producer) handleMessage(msg *message.QMessage) (*PublishResult, error) 
 	if res, err := msg.UnpackTo(&shapleqproto.PutResponse{}); err == nil {
 		putRes := res.(*shapleqproto.PutResponse)
 		p.logger.Debug("received response - fragmentId: %d / offset: %d", putRes.FragmentId, putRes.LastOffset)
-		return &PublishResult{FragmentId: putRes.FragmentId, LastOffset: putRes.LastOffset}, nil
+		return &PublishResult{Topic: putRes.TopicName, FragmentId: putRes.FragmentId, LastOffset: putRes.LastOffset}, nil
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return nil, errors.New(res.(*shapleqproto.Ack).GetMsg())
 	} else {

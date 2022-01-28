@@ -85,7 +85,7 @@ func (b bootstrappingHelper) RemoveBroker(hostName string) error {
 	return nil
 }
 
-func (b bootstrappingHelper) GetTopicFragmentBrokers(topicName string, fragmentId uint32) ([]string, error) {
+func (b bootstrappingHelper) GetBrokersOfTopic(topicName string, fragmentId uint32) ([]string, error) {
 	if brokersBytes, err := b.client.Get(GetTopicFragmentBrokerBasePath(topicName, fragmentId)); err == nil {
 		if len(brokersBytes) == 0 {
 			b.logger.Info("no broker exists")
@@ -101,8 +101,8 @@ func (b bootstrappingHelper) GetTopicFragmentBrokers(topicName string, fragmentI
 	}
 }
 
-func (b bootstrappingHelper) AddTopicFragmentBroker(topicName string, fragmentId uint32, hostName string) error {
-	topicBrokers, err := b.GetTopicFragmentBrokers(topicName, fragmentId)
+func (b bootstrappingHelper) AddBrokerForTopic(topicName string, fragmentId uint32, hostName string) error {
+	topicBrokers, err := b.GetBrokersOfTopic(topicName, fragmentId)
 	if err != nil {
 		return err
 	}
@@ -122,8 +122,8 @@ func (b bootstrappingHelper) AddTopicFragmentBroker(topicName string, fragmentId
 	return nil
 }
 
-func (b bootstrappingHelper) RemoveTopicFragmentBroker(topicName string, fragmentId uint32, hostName string) error {
-	topicFragmentBrokers, err := b.GetTopicFragmentBrokers(topicName, fragmentId)
+func (b bootstrappingHelper) RemoveBrokerOfTopic(topicName string, fragmentId uint32, hostName string) error {
+	topicFragmentBrokers, err := b.GetBrokersOfTopic(topicName, fragmentId)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ type topicManagingHelper struct {
 	logger *logger.QLogger
 }
 
-func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.TopicData) error {
+func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.FrameForTopic) error {
 	if err := t.client.Create(constants.TopicsLockPath, GetTopicPath(topicName), topicData.Data()); err != nil {
 		if err == zk.ErrNodeExists { // ignore creating duplicated topic path
 			return nil
@@ -190,7 +190,7 @@ func (t *topicManagingHelper) AddNumPublishers(topicName string, delta int) (uin
 	return numPublishers, nil
 }
 
-func (t *topicManagingHelper) GetTopicData(topicName string) (*common.TopicData, error) {
+func (t *topicManagingHelper) GetTopicData(topicName string) (*common.FrameForTopic, error) {
 	if result, err := t.client.Get(GetTopicPath(topicName)); err == nil {
 		return common.NewTopicData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
@@ -327,7 +327,7 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 	}()
 }
 
-func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FragmentData, error) {
+func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FrameForFragment, error) {
 	if result, err := f.client.Get(GetTopicFragmentPath(topicName, fragmentId)); err == nil {
 		return common.NewFragmentData(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
@@ -337,7 +337,7 @@ func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragment
 	}
 }
 
-func (f *fragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FragmentData) error {
+func (f *fragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FrameForFragment) error {
 	if err := f.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
 		if err == zk.ErrNodeExists {
 			return &pqerror.ZKTargetAlreadyExistsError{Target: fmt.Sprintf("%s/%d", topicName, fragmentId)}

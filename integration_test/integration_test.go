@@ -59,6 +59,7 @@ func (b *brokerTestContext) stop() {
 type producerTestContext struct {
 	config    *config2.ProducerConfig
 	nodeId    string
+	topic     string
 	instance  *client.Producer
 	wg        sync.WaitGroup
 	publishCh chan *client.PublishData
@@ -69,10 +70,11 @@ func newProducerTestContext(nodeId string, topic string) *producerTestContext {
 	producerConfig := config2.NewProducerConfig()
 	producerConfig.SetLogLevel(defaultLogLevel)
 	producerConfig.SetServerAddresses([]string{"127.0.0.1:2181"})
-	producer := client.NewProducer(producerConfig, topic)
+	producer := client.NewProducer(producerConfig, []string{topic})
 
 	return &producerTestContext{
 		config:    producerConfig,
+		topic:     topic,
 		nodeId:    nodeId,
 		instance:  producer,
 		wg:        sync.WaitGroup{},
@@ -131,6 +133,7 @@ func (p *producerTestContext) asyncPublish(records [][]byte) *producerTestContex
 	go func(recordsToPublish [][]byte) {
 		for index, record := range recordsToPublish {
 			p.publishCh <- &client.PublishData{
+				Topic:  p.topic,
 				Data:   record,
 				NodeId: p.nodeId,
 				SeqNum: uint64(index),
@@ -159,11 +162,11 @@ type consumerTestContext struct {
 	onErrorFn    func(error)
 }
 
-func newConsumerTestContext(nodeId string, topic string, fragmentOffsets map[uint32]uint64) *consumerTestContext {
+func newConsumerTestContext(nodeId string, topics []*common.Topic) *consumerTestContext {
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(defaultLogLevel)
 	consumerConfig.SetServerAddresses([]string{"127.0.0.1:2181"})
-	consumer := client.NewConsumer(consumerConfig, topic, fragmentOffsets)
+	consumer := client.NewConsumer(consumerConfig, topics)
 	return &consumerTestContext{
 		config:   consumerConfig,
 		nodeId:   nodeId,
@@ -239,7 +242,6 @@ type ShapleQTestContext struct {
 	zkAddrs           []string
 	zkTimeoutMS       uint
 	zkFlushIntervalMS uint
-	zkClient          *zookeeper.ZKQClient
 	brokers           []*brokerTestContext
 	producers         []*producerTestContext
 	consumers         []*consumerTestContext
@@ -293,19 +295,25 @@ func (s *ShapleQTestContext) SetupTopics() *ShapleQTestContext {
 		if err := adminClient.Connect(); err != nil {
 			s.t.Fatal(err)
 		}
-		fragmentOffsets := make(map[uint32]uint64)
-		if err := adminClient.CreateTopic(s.params.topic, s.params.topicDescription); err != nil {
-			s.t.Fatal(err)
-		}
 
-		for i := 0; i < s.params.fragmentCount; i++ {
-			fragment, err := adminClient.CreateFragment(s.params.topic)
-			if err != nil {
+		var topics []*common.Topic
+		for _, topic := range s.params.topicNames {
+			if err := adminClient.CreateTopic(topic, ""); err != nil {
 				s.t.Fatal(err)
 			}
-			fragmentOffsets[fragment.Id] = 1 // set start offset with 1
+
+			fragmentOffsets := common.FragmentOffsetMap{}
+			for i := 0; i < s.params.fragmentCountPerTopic; i++ {
+				fragment, err := adminClient.CreateFragment(topic)
+				if err != nil {
+					s.t.Fatal(err)
+				}
+				fragmentOffsets[fragment.Id] = 1 // set start offset with 1
+			}
+			topics = append(topics, common.NewTopicFromFragmentOffsets(topic, fragmentOffsets))
 		}
-		s.params.fragmentOffsets = fragmentOffsets
+
+		s.params.topics = topics
 	}
 	return s
 }
@@ -347,8 +355,8 @@ func (s *ShapleQTestContext) AddProducerContext(nodeId string, topic string) *pr
 	return ctx
 }
 
-func (s *ShapleQTestContext) AddConsumerContext(nodeId string, topic string, fragmentOffsets map[uint32]uint64) *consumerTestContext {
-	ctx := newConsumerTestContext(nodeId, topic, fragmentOffsets)
+func (s *ShapleQTestContext) AddConsumerContext(nodeId string, topics []*common.Topic) *consumerTestContext {
+	ctx := newConsumerTestContext(nodeId, topics)
 	if err := ctx.start(); err != nil {
 		s.t.Error(err)
 	} else {
@@ -394,36 +402,36 @@ func contains(s [][]byte, e []byte) bool {
 // test parameters
 type records [][]byte
 type TestParams struct {
-	topic                 string
-	topicDescription      string
+	topicNames            []string
+	topicDescriptions     []string
 	brokerCount           int
 	producerCount         int
 	consumerCount         int
-	fragmentCount         int
+	fragmentCountPerTopic int
 	testRecords           []records // length of test-records should be equal to producerCount
 	nodeId                string
 	consumerBatchSize     uint32
 	consumerFlushInterval uint32
-	fragmentOffsets       map[uint32]uint64
+	topics                []*common.Topic
 }
 
 var predefinedTestParams = map[string]*TestParams{
 	"TestConnect": {
-		topic:                 "topic1",
+		topicNames:            []string{"topic1"},
 		brokerCount:           1,
 		consumerCount:         1,
 		producerCount:         1,
-		fragmentCount:         1,
+		fragmentCountPerTopic: 1,
 		testRecords:           []records{},
 		consumerBatchSize:     1,
 		consumerFlushInterval: 0,
 	},
 	"TestPubSub": {
-		topic:         "topic2",
-		brokerCount:   1,
-		consumerCount: 1,
-		producerCount: 1,
-		fragmentCount: 1,
+		topicNames:            []string{"topic2"},
+		brokerCount:           1,
+		consumerCount:         1,
+		producerCount:         1,
+		fragmentCountPerTopic: 1,
 		testRecords: []records{
 			{
 				{'g', 'o', 'o', 'g', 'l', 'e'},
@@ -435,11 +443,11 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestMultiClient": {
-		topic:         "topic3",
-		brokerCount:   1,
-		consumerCount: 5,
-		producerCount: 3,
-		fragmentCount: 1,
+		topicNames:            []string{"topic3"},
+		brokerCount:           1,
+		consumerCount:         5,
+		producerCount:         3,
+		fragmentCountPerTopic: 1,
 		testRecords: []records{
 			getRecordsFromFile("data1.txt"),
 			getRecordsFromFile("data2.txt"),
@@ -449,11 +457,11 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestBatchedFetch": {
-		topic:         "topic4",
-		brokerCount:   1,
-		consumerCount: 1,
-		producerCount: 2,
-		fragmentCount: 1,
+		topicNames:            []string{"topic4"},
+		brokerCount:           1,
+		consumerCount:         1,
+		producerCount:         2,
+		fragmentCountPerTopic: 1,
 		testRecords: []records{
 			getRecordsFromFile("data1.txt"),
 			getRecordsFromFile("data2.txt"),
@@ -462,11 +470,11 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 100,
 	},
 	"TestMultiFragmentsTotalConsume": {
-		topic:         "topic5",
-		brokerCount:   1,
-		consumerCount: 1,
-		producerCount: 1,
-		fragmentCount: 4,
+		topicNames:            []string{"topic5"},
+		brokerCount:           1,
+		consumerCount:         1,
+		producerCount:         1,
+		fragmentCountPerTopic: 4,
 		testRecords: []records{
 			getRecordsFromFile("data1.txt"),
 		},
@@ -474,32 +482,46 @@ var predefinedTestParams = map[string]*TestParams{
 		consumerFlushInterval: 0,
 	},
 	"TestMultiFragmentsOptionalConsume": {
-		topic:         "topic6",
-		brokerCount:   1,
-		consumerCount: 3,
-		producerCount: 1,
-		fragmentCount: 3,
+		topicNames:            []string{"topic6"},
+		brokerCount:           1,
+		consumerCount:         3,
+		producerCount:         1,
+		fragmentCountPerTopic: 3,
 		testRecords: []records{
 			getRecordsFromFile("data2.txt"),
 		},
 		consumerBatchSize:     1,
 		consumerFlushInterval: 0,
 	},
+	"TestMultiTopic": {
+		topicNames:            []string{"topic7", "topic8"},
+		brokerCount:           1,
+		consumerCount:         1,
+		producerCount:         2,
+		fragmentCountPerTopic: 1,
+		testRecords: []records{
+			getRecordsFromFile("data1.txt"),
+			getRecordsFromFile("data2.txt"),
+		},
+		consumerBatchSize:     1,
+		consumerFlushInterval: 0,
+	},
+
 	// RPC tests
 	"TestHeartBeat": {
-		topic:            "rpc-topic1",
-		topicDescription: "test-description1",
+		topicNames:        []string{"rpc-topic1"},
+		topicDescriptions: []string{"test-description1"},
 	},
 	"TestCreateTopicAndFragment": {
-		topic:            "rpc-topic2",
-		topicDescription: "test-description2",
+		topicNames:        []string{"rpc-topic2"},
+		topicDescriptions: []string{"test-description2"},
 	},
 	"TestDeleteTopicAndFragment": {
-		topic:            "rpc-topic3",
-		topicDescription: "test-description3",
+		topicNames:        []string{"rpc-topic3"},
+		topicDescriptions: []string{"test-description3"},
 	},
 	"TestDescribeFragment": {
-		topic:            "rpc-topic4",
-		topicDescription: "test-description4",
+		topicNames:        []string{"rpc-topic4"},
+		topicDescriptions: []string{"test-description4"},
 	},
 }

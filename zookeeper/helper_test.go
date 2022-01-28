@@ -256,12 +256,12 @@ func TestZKClient_AddTopicFragmentBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
-	err = zkqClient.AddTopicFragmentBroker(expectedTopic, expectedFragmentId, brokerAddr)
+	err = zkqClient.AddBrokerForTopic(expectedTopic, expectedFragmentId, brokerAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkqClient.GetTopicFragmentBrokers(expectedTopic, expectedFragmentId)
+	brokers, err := zkqClient.GetBrokersOfTopic(expectedTopic, expectedFragmentId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,18 +309,18 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := zkqClient.AddTopicFragmentBroker(topic, expectedFragmentId, brokerAddr); err != nil {
+	if err := zkqClient.AddBrokerForTopic(topic, expectedFragmentId, brokerAddr); err != nil {
 		var e pqerror.ZKTargetAlreadyExistsError
 		if !errors.As(err, &e) {
 			t.Fatal(err)
 		}
 	}
 
-	if err := zkqClient.RemoveTopicFragmentBroker(topic, expectedFragmentId, brokerAddr); err != nil {
+	if err := zkqClient.RemoveBrokerOfTopic(topic, expectedFragmentId, brokerAddr); err != nil {
 		t.Fatal(err)
 	}
 
-	brokers, err := zkqClient.GetTopicFragmentBrokers(topic, expectedFragmentId)
+	brokers, err := zkqClient.GetBrokersOfTopic(topic, expectedFragmentId)
 	if err != nil {
 		t.Fatal(err)
 	}

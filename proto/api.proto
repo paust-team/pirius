@@ -57,7 +57,7 @@ message DescribeTopicRequest {
 
 message DescribeTopicResponse {
     int32 magic = 1;
-    Topic topic = 2;
+    TopicInfo topic = 2;
     int32 error_code = 3;
     string error_message = 4;
 }
@@ -93,7 +93,7 @@ message CreateFragmentRequest {
 
 message CreateFragmentResponse {
     int32 magic = 1;
-    Fragment fragment = 2;
+    FragmentInfo fragment = 2;
     int32 error_code = 3;
     string error_message = 4;
 }
@@ -118,32 +118,7 @@ message DescribeFragmentRequest {
 
 message DescribeFragmentResponse {
     int32 magic = 1;
-    Fragment fragment = 2;
-    int32 error_code = 3;
-    string error_message = 4;
-}
-
-// group
-message CreateGroupRequest {
-    int32 magic = 1;
-    string group_name = 2;
-    string description = 3;
-}
-
-message CreateGroupResponse {
-    int32 magic = 1;
-    Group group = 2;
-    int32 error_code = 3;
-    string error_message = 4;
-}
-
-message ListGroupsRequest {
-    int32 magic = 1;
-}
-
-message ListGroupsResponse {
-    int32 magic = 1;
-    repeated Group group = 2;
+    FragmentInfo fragment = 2;
     int32 error_code = 3;
     string error_message = 4;
 }
@@ -187,8 +162,7 @@ message DeleteGroupResponse {
 message ConnectRequest {
     int32 magic = 1;
     SessionType session_type = 2;
-    string topic_name = 3;
-    repeated uint32 fragment_ids = 4;
+    repeated Topic topics = 3;
 }
 
 message ConnectResponse {
@@ -213,7 +187,8 @@ message PutRequest {
     bytes data = 2;
     uint64 seq_num = 3;
     string node_id = 4;
-    uint32 fragment_id = 5;
+    string topic_name = 5;
+    uint32 fragment_id = 6;
 }
 
 message PutResponse {
@@ -224,14 +199,10 @@ message PutResponse {
 }
 
 message FetchRequest {
-    message OffsetInfo {
-        uint32 fragment_id = 1;
-        uint64 start_offset = 2;
-    }
     int32 magic = 1;
     uint32 max_batch_size = 2;
     uint32 flush_interval = 3;
-    repeated OffsetInfo fragmentOffsets = 4;
+    repeated Topic topics = 4;
 }
 
 message FetchResponse {
