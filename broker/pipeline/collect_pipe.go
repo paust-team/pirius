@@ -12,7 +12,7 @@ import (
 
 type CollectPipe struct {
 	session       *internals.Session
-	queue         chan *shapleqproto.FetchResponse
+	queueForTopic map[string]chan *shapleqproto.FetchResponse
 	startTime     time.Time
 	maxBatchSize  int
 	flushInterval int64
@@ -28,7 +28,7 @@ func (c *CollectPipe) Build(in ...interface{}) error {
 	if !casted {
 		return pqerror.PipeBuildFailError{PipeName: "collect"}
 	}
-
+	c.queueForTopic = map[string]chan *shapleqproto.FetchResponse{}
 	return nil
 }
 
@@ -46,16 +46,19 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 		var handleFetchResponse func(response *shapleqproto.FetchResponse)
 
 		for in := range inStream {
+			fetchRes := in.(*shapleqproto.FetchResponse)
 			once.Do(func() {
 				c.maxBatchSize = int(c.session.MaxBatchSize())
 				c.flushInterval = int64(c.session.FlushInterval())
 				c.startTime = time.Now()
 
 				if c.maxBatchSize > 1 {
-					c.queue = make(chan *shapleqproto.FetchResponse, c.maxBatchSize)
-					go c.watchQueue(inStreamClosed, outStream, errCh)
+					for _, topic := range c.session.Topics() {
+						c.queueForTopic[topic.TopicName()] = make(chan *shapleqproto.FetchResponse, c.maxBatchSize)
+						go c.watchQueue(topic.TopicName(), inStreamClosed, outStream, errCh)
+					}
 					handleFetchResponse = func(fetchRes *shapleqproto.FetchResponse) {
-						c.queue <- fetchRes
+						c.queueForTopic[fetchRes.TopicName] <- fetchRes
 					}
 				} else {
 					handleFetchResponse = func(fetchRes *shapleqproto.FetchResponse) {
@@ -69,7 +72,7 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 				}
 			})
 
-			handleFetchResponse(in.(*shapleqproto.FetchResponse))
+			handleFetchResponse(fetchRes)
 		}
 
 	}()
@@ -77,24 +80,24 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 	return outStream, errCh, nil
 }
 
-func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
+func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
 	var collected []*shapleqproto.FetchResponse
 
 	for {
 		select {
 		case <-inStreamClosed:
 			return
-		case data := <-c.queue:
+		case data := <-c.queueForTopic[topicName]:
 			collected = append(collected, data)
 			if len(collected) >= c.maxBatchSize {
-				if err := c.flush(collected, outStream); err != nil {
+				if err := c.flush(topicName, collected, outStream); err != nil {
 					errCh <- err
 				}
 				collected = nil
 			}
 		default:
 			if len(collected) > 0 && time.Since(c.startTime).Milliseconds() >= c.flushInterval {
-				if err := c.flush(collected, outStream); err != nil {
+				if err := c.flush(topicName, collected, outStream); err != nil {
 					errCh <- err
 				}
 				collected = nil
@@ -104,10 +107,10 @@ func (c *CollectPipe) watchQueue(inStreamClosed chan struct{}, outStream chan in
 	}
 }
 
-func (c *CollectPipe) flush(fetchResults []*shapleqproto.FetchResponse, outStream chan interface{}) error {
+func (c *CollectPipe) flush(topicName string, fetchResults []*shapleqproto.FetchResponse, outStream chan interface{}) error {
 	c.startTime = time.Now()
 
-	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(fetchResults))
+	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(topicName, fetchResults))
 	if err != nil {
 		return err
 	}
