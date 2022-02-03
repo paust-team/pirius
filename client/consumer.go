@@ -154,7 +154,6 @@ func (c *Consumer) Close() {
 
 type FetchedData struct {
 	Data           []byte
-	TopicName      string
 	FragmentId     uint32
 	Offset, SeqNum uint64
 	NodeId         string
@@ -162,6 +161,7 @@ type FetchedData struct {
 
 type SubscribeResult struct {
 	Items      []*FetchedData
+	TopicName  string
 	LastOffset uint64
 }
 
@@ -172,13 +172,12 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset, fetchRes.SeqNum, fetchRes.NodeId))
 		fetched := &FetchedData{
 			Data:       fetchRes.Data,
-			TopicName:  fetchRes.TopicName,
 			FragmentId: fetchRes.FragmentId,
 			Offset:     fetchRes.Offset,
 			SeqNum:     fetchRes.SeqNum,
 			NodeId:     fetchRes.NodeId,
 		}
-		return &SubscribeResult{Items: []*FetchedData{fetched}, LastOffset: fetchRes.LastOffset}, nil
+		return &SubscribeResult{Items: []*FetchedData{fetched}, TopicName: fetchRes.TopicName, LastOffset: fetchRes.LastOffset}, nil
 
 	} else if res, err := msg.UnpackTo(&shapleqproto.BatchedFetchResponse{}); err == nil {
 		fetchRes := res.(*shapleqproto.BatchedFetchResponse)
@@ -189,14 +188,13 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 		for _, item := range fetchRes.Items {
 			fetched = append(fetched, &FetchedData{
 				Data:       item.Data,
-				TopicName:  item.TopicName,
 				FragmentId: item.FragmentId,
 				Offset:     item.Offset,
 				SeqNum:     item.SeqNum,
 				NodeId:     item.NodeId,
 			})
 		}
-		return &SubscribeResult{Items: fetched, LastOffset: fetchRes.LastOffset}, nil
+		return &SubscribeResult{Items: fetched, TopicName: fetchRes.TopicName, LastOffset: fetchRes.LastOffset}, nil
 
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return &SubscribeResult{}, errors.New(res.(*shapleqproto.Ack).Msg)

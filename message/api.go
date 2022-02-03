@@ -194,7 +194,7 @@ func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId strin
 	return &shapleqproto.FetchResponse{Data: data, Offset: offset, SeqNum: seqNum, NodeId: nodeId, LastOffset: lastOffset, FragmentId: fragmentId, TopicName: topicName}
 }
 
-func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqproto.BatchedFetchResponse {
+func NewBatchFetchResponseMsg(topicName string, batched []*shapleqproto.FetchResponse) *shapleqproto.BatchedFetchResponse {
 	var items []*shapleqproto.BatchedFetchResponse_Fetched
 	var lastOffset uint64 = 0
 
@@ -207,11 +207,10 @@ func NewBatchFetchResponseMsg(batched []*shapleqproto.FetchResponse) *shapleqpro
 			Offset:     fetched.Offset,
 			SeqNum:     fetched.SeqNum,
 			NodeId:     fetched.NodeId,
-			TopicName:  fetched.TopicName,
 			FragmentId: fetched.FragmentId,
 		})
 	}
-	return &shapleqproto.BatchedFetchResponse{Magic: MAGIC_NUM, Items: items, LastOffset: lastOffset}
+	return &shapleqproto.BatchedFetchResponse{Magic: MAGIC_NUM, Items: items, TopicName: topicName, LastOffset: lastOffset}
 }
 
 func NewAckMsg(code uint32, msg string) *shapleqproto.Ack {
