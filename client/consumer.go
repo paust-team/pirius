@@ -154,6 +154,7 @@ func (c *Consumer) Close() {
 
 type FetchedData struct {
 	Data           []byte
+	TopicName      string
 	FragmentId     uint32
 	Offset, SeqNum uint64
 	NodeId         string
@@ -171,6 +172,7 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset, fetchRes.SeqNum, fetchRes.NodeId))
 		fetched := &FetchedData{
 			Data:       fetchRes.Data,
+			TopicName:  fetchRes.TopicName,
 			FragmentId: fetchRes.FragmentId,
 			Offset:     fetchRes.Offset,
 			SeqNum:     fetchRes.SeqNum,
@@ -187,6 +189,7 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 		for _, item := range fetchRes.Items {
 			fetched = append(fetched, &FetchedData{
 				Data:       item.Data,
+				TopicName:  item.TopicName,
 				FragmentId: item.FragmentId,
 				Offset:     item.Offset,
 				SeqNum:     item.SeqNum,
