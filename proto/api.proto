@@ -222,12 +222,12 @@ message BatchedFetchResponse {
         uint64 offset = 2;
         uint64 seq_num = 3;
         string node_id = 4;
-        string topic_name = 5;
         uint32 fragment_id = 6;
     }
     int32 magic = 1;
     repeated Fetched items = 2;
     uint64 last_offset = 3;
+    string topic_name = 4;
 }
 
 message Ack {
