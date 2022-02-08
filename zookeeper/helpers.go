@@ -275,12 +275,18 @@ func (t *topicManagingHelper) RemoveTopicPaths() {
 
 type fragmentOffset struct {
 	id         uint32
-	LastOffset uint64
+	lastOffset uint64
 	topicName  string
 }
 
+func (t *fragmentOffset) LastOffset() uint64 {
+	return atomic.LoadUint64(&t.lastOffset)
+}
+func (t *fragmentOffset) SetLastOffset(offset uint64) {
+	atomic.StoreUint64(&t.lastOffset, offset)
+}
 func (t *fragmentOffset) IncreaseLastOffset() uint64 {
-	return atomic.AddUint64(&t.LastOffset, 1)
+	return atomic.AddUint64(&t.lastOffset, 1)
 }
 
 type fragmentManagingHelper struct {
@@ -306,7 +312,7 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 				if offsetMap[fragment.topicName] == nil {
 					offsetMap[fragment.topicName] = make(map[uint32]uint64)
 				}
-				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset
+				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset()
 			case <-time.After(time.Millisecond * time.Duration(interval)):
 				if f.client.IsClosed() {
 					return
@@ -376,12 +382,12 @@ func (f *fragmentManagingHelper) IncreaseLastOffset(topicName string, fragmentId
 		fragment = &fragmentOffset{fragmentId, 0, topicName}
 	}
 
-	if !loaded {
+	if !loaded { // if fragmentOffsetMap is not initialized, load last offset from zk
 		fragmentData, err := f.GetTopicFragmentData(topicName, fragmentId)
 		if err != nil {
 			return 0, err
 		}
-		fragment.LastOffset = fragmentData.LastOffset()
+		fragment.SetLastOffset(fragmentData.LastOffset())
 	}
 	offset := fragment.IncreaseLastOffset()
 	if f.offsetFlusher != nil {
