@@ -263,7 +263,7 @@ func (t *topicManagingHelper) RemoveTopicPaths() {
 						}
 					}
 				}
-
+				deletePaths = append(deletePaths, GetTopicFragmentBasePath(topic))
 				deletePaths = append(deletePaths, GetTopicPath(topic))
 			}
 			t.client.DeleteAll("", deletePaths)
