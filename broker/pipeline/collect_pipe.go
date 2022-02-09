@@ -13,7 +13,6 @@ import (
 type CollectPipe struct {
 	session       *internals.Session
 	queueForTopic map[string]chan *shapleqproto.FetchResponse
-	startTime     time.Time
 	maxBatchSize  int
 	flushInterval int64
 }
@@ -50,7 +49,6 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			once.Do(func() {
 				c.maxBatchSize = int(c.session.MaxBatchSize())
 				c.flushInterval = int64(c.session.FlushInterval())
-				c.startTime = time.Now()
 
 				if c.maxBatchSize > 1 {
 					for _, topic := range c.session.Topics() {
@@ -82,6 +80,7 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 
 func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
 	var collected []*shapleqproto.FetchResponse
+	startTime := time.Now()
 
 	for {
 		select {
@@ -91,13 +90,15 @@ func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{},
 			collected = append(collected, data)
 			if len(collected) >= c.maxBatchSize {
 				if err := c.flush(topicName, collected, outStream); err != nil {
+					startTime = time.Now()
 					errCh <- err
 				}
 				collected = nil
 			}
 		default:
-			if len(collected) > 0 && time.Since(c.startTime).Milliseconds() >= c.flushInterval {
+			if len(collected) > 0 && time.Since(startTime).Milliseconds() >= c.flushInterval {
 				if err := c.flush(topicName, collected, outStream); err != nil {
+					startTime = time.Now()
 					errCh <- err
 				}
 				collected = nil
@@ -108,8 +109,6 @@ func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{},
 }
 
 func (c *CollectPipe) flush(topicName string, fetchResults []*shapleqproto.FetchResponse, outStream chan interface{}) error {
-	c.startTime = time.Now()
-
 	out, err := message.NewQMessageFromMsg(message.STREAM, message.NewBatchFetchResponseMsg(topicName, fetchResults))
 	if err != nil {
 		return err
