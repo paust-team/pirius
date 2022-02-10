@@ -29,8 +29,8 @@ func NewSubscribeCmd() *cobra.Command {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 			consumerConfig.Load(configPath)
-			topicFragments := common.NewTopicFragmentsWithOffset(topicName, common.FragmentOffsetMap{fragmentId: startOffset})
-			consumer := client.NewConsumer(consumerConfig, []*common.TopicFragments{topicFragments})
+			topicFragments := common.NewTopicFromFragmentOffsets(topicName, common.FragmentOffsetMap{fragmentId: startOffset})
+			consumer := client.NewConsumer(consumerConfig, []*common.Topic{topicFragments})
 			if err := consumer.Connect(); err != nil {
 				log.Fatal(err)
 			}
