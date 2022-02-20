@@ -90,17 +90,17 @@ func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{},
 			collected = append(collected, data)
 			if len(collected) >= c.maxBatchSize {
 				if err := c.flush(topicName, collected, outStream); err != nil {
-					startTime = time.Now()
 					errCh <- err
 				}
+				startTime = time.Now()
 				collected = nil
 			}
 		default:
 			if len(collected) > 0 && time.Since(startTime).Milliseconds() >= c.flushInterval {
 				if err := c.flush(topicName, collected, outStream); err != nil {
-					startTime = time.Now()
 					errCh <- err
 				}
+				startTime = time.Now()
 				collected = nil
 			}
 		}
