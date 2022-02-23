@@ -305,6 +305,9 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 		}()
 
 		offsetMap := make(map[string]map[uint32]uint64)
+		flushInterval := time.Millisecond * time.Duration(interval)
+		timer := time.NewTimer(flushInterval)
+		defer timer.Stop()
 
 		for {
 			select {
@@ -313,7 +316,7 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 					offsetMap[fragment.topicName] = make(map[uint32]uint64)
 				}
 				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset()
-			case <-time.After(time.Millisecond * time.Duration(interval)):
+			case <-timer.C:
 				if f.client.IsClosed() {
 					return
 				}
@@ -329,6 +332,7 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 				}
 				offsetMap = make(map[string]map[uint32]uint64)
 			}
+			timer.Reset(flushInterval)
 		}
 	}()
 }

@@ -100,12 +100,15 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
 	copy(prefix, topicName+"@")
 	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
+	iterateInterval := time.Millisecond * 10
+	timer := time.NewTimer(iterateInterval)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-inStreamClosed:
 			return
-		case <-time.After(time.Millisecond * 10):
+		case <-timer.C:
 			if f.session.IsClosed() {
 				return
 			}
@@ -115,11 +118,10 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 			if !first && it.Valid() {
 				it.Next()
 			}
-
 			for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), prefix); it.Next() {
+
 				key := storage.NewRecordKey(it.Key())
 				keyOffset := key.Offset()
-
 				if first {
 					if keyOffset != startOffset {
 						break
@@ -143,6 +145,7 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 				}
 			}
 		}
+		timer.Reset(iterateInterval)
 
 		runtime.Gosched()
 	}
