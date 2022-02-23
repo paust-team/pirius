@@ -5,7 +5,6 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -112,7 +111,6 @@ func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{},
 				timer.Reset(blockingInterval)
 			}
 		}
-		runtime.Gosched()
 	}
 }
 

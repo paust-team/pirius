@@ -86,6 +86,7 @@ func TestPubSub(t *testing.T) {
 func TestMultiClient(t *testing.T) {
 
 	testContext := DefaultShapleQTestContext(t).
+		WithBrokerTimeout(0).
 		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()

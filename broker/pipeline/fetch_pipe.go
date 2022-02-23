@@ -9,7 +9,6 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
-	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -83,8 +82,6 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 					}(topic.TopicName, offset)
 				}
 			}
-
-			runtime.Gosched()
 		}
 	}()
 
@@ -146,7 +143,5 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 			}
 		}
 		timer.Reset(iterateInterval)
-
-		runtime.Gosched()
 	}
 }

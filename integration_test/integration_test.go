@@ -13,6 +13,7 @@ import (
 	"github.com/paust-team/shapleq/zookeeper"
 	"log"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -127,6 +128,7 @@ func (p *producerTestContext) asyncPublish(records [][]byte) *producerTestContex
 					return
 				}
 			}
+			runtime.Gosched()
 		}
 	}(len(records))
 
@@ -215,6 +217,7 @@ func (c *consumerTestContext) onSubscribe(maxBatchSize, flushInterval uint32, fn
 				}
 				return
 			}
+			runtime.Gosched()
 		}
 	}()
 

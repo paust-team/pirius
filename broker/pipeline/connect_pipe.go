@@ -6,7 +6,6 @@ import (
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/zookeeper"
-	"runtime"
 )
 
 type ConnectPipe struct {
@@ -101,7 +100,6 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 			}
 
 			outStream <- out
-			runtime.Gosched()
 		}
 	}()
 

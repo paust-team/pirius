@@ -4,7 +4,6 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"runtime"
 )
 
 func IsConnectRequest(data interface{}) (interface{}, bool) {
@@ -101,7 +100,6 @@ func (d *DispatchPipe) Ready(inStream <-chan interface{}) ([]<-chan interface{},
 				errCh <- pqerror.InvalidMsgTypeToUnpackError{}
 				return
 			}
-			runtime.Gosched()
 		}
 	}()
 
