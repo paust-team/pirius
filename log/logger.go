@@ -121,7 +121,7 @@ func (l *QLogger) Debug(v ...interface{}) {
 }
 
 func (l *QLogger) Debugf(format string, v ...interface{}) {
-	l.log(Debug, fmt.Sprintf(format, v))
+	l.log(Debug, fmt.Sprintf(format, v...))
 }
 
 func (l *QLogger) Info(v ...interface{}) {
@@ -129,7 +129,7 @@ func (l *QLogger) Info(v ...interface{}) {
 }
 
 func (l *QLogger) Infof(format string, v ...interface{}) {
-	l.log(Info, fmt.Sprintf(format, v))
+	l.log(Info, fmt.Sprintf(format, v...))
 }
 
 func (l *QLogger) Warning(v ...interface{}) {
@@ -137,7 +137,7 @@ func (l *QLogger) Warning(v ...interface{}) {
 }
 
 func (l *QLogger) Warningf(format string, v ...interface{}) {
-	l.log(Warning, fmt.Sprintf(format, v))
+	l.log(Warning, fmt.Sprintf(format, v...))
 }
 
 func (l *QLogger) Error(v ...interface{}) {
@@ -145,7 +145,7 @@ func (l *QLogger) Error(v ...interface{}) {
 }
 
 func (l *QLogger) Errorf(format string, v ...interface{}) {
-	l.log(Error, fmt.Sprintf(format, v))
+	l.log(Error, fmt.Sprintf(format, v...))
 	l.Print()
 }
 
