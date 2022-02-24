@@ -61,57 +61,57 @@ func (s *Socket) ContinuousRead(ctx context.Context) (<-chan *message.QMessage, 
 			case <-ctx.Done():
 				return
 			default:
-			}
-			timeout := time.Time{}
-			if s.rTimeout > 0 {
-				timeout = time.Now().Add(time.Millisecond * time.Duration(s.rTimeout))
-			}
-			err := s.conn.SetReadDeadline(timeout)
-			if err != nil {
-				errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
-				return
-			}
-
-			n, err := s.conn.Read(recvBuf[0:])
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					if s.IsClosed() {
-						errCh <- pqerror.SocketClosedError{}
-						return
-					}
-
-					errCh <- pqerror.ReadTimeOutError{}
-					return
-				} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
-					errCh <- pqerror.SocketClosedError{}
-					return
-				} else if err == io.EOF {
-					errCh <- pqerror.SocketClosedError{}
-					return
-				} else {
+				timeout := time.Time{}
+				if s.rTimeout > 0 {
+					timeout = time.Now().Add(time.Millisecond * time.Duration(s.rTimeout))
+				}
+				err := s.conn.SetReadDeadline(timeout)
+				if err != nil {
 					errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
 					return
 				}
-			}
-
-			if n > 0 {
-				msgBuf = append(msgBuf, recvBuf[:n]...)
-				for {
-					msg, err := message.NewQMessage(msgBuf)
-
-					if err != nil {
-						if errors.As(err, &pqerror.NotEnoughBufferError{}) {
-							break
+				n, err := s.conn.Read(recvBuf[0:])
+				if err != nil {
+					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+						if s.IsClosed() {
+							errCh <- pqerror.SocketClosedError{}
+							return
 						}
-						errCh <- err
+
+						errCh <- pqerror.ReadTimeOutError{}
+						return
+					} else if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+						errCh <- pqerror.SocketClosedError{}
+						return
+					} else if err == io.EOF {
+						errCh <- pqerror.SocketClosedError{}
+						return
+					} else {
+						errCh <- pqerror.SocketReadError{ErrStr: err.Error()}
 						return
 					}
+				}
 
-					msgStream <- msg
-					processedByteIndex = message.HeaderSize + int(msg.Length())
-					msgBuf = msgBuf[processedByteIndex:]
+				if n > 0 {
+					msgBuf = append(msgBuf, recvBuf[:n]...)
+					for {
+						msg, err := message.NewQMessage(msgBuf)
+
+						if err != nil {
+							if errors.As(err, &pqerror.NotEnoughBufferError{}) {
+								break
+							}
+							errCh <- err
+							return
+						}
+
+						msgStream <- msg
+						processedByteIndex = message.HeaderSize + int(msg.Length())
+						msgBuf = msgBuf[processedByteIndex:]
+					}
 				}
 			}
+
 			runtime.Gosched()
 		}
 	}()
@@ -262,6 +262,5 @@ func (s *Socket) Read() (*message.QMessage, error) {
 				return msg, nil
 			}
 		}
-		runtime.Gosched()
 	}
 }

@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"runtime"
 	"sync"
 )
 
@@ -21,7 +20,6 @@ func (z *ZipPipe) Ready(inStreams []<-chan interface{}) (<-chan interface{}, <-c
 		defer waitGroup.Done()
 		for in := range inStream {
 			outStream <- in
-			runtime.Gosched()
 		}
 	}
 

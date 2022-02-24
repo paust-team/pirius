@@ -42,10 +42,7 @@ func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
 					wg.Add(1)
 					go s.handleEventStream(eventStream, sessionErrCh, &wg)
 				}
-			default:
-
 			}
-			runtime.Gosched()
 		}
 	}()
 
@@ -60,9 +57,7 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 	cancelSession := eventStream.CancelSession
 
 	err, pl := s.newPipelineBase(session, convertToInterfaceChan(msgCh))
-
-	writeErrCh, err := session.ContinuousWrite(sessionCtx,
-		convertToQMessageChan(pl.Take(0, 0)))
+	writeErrCh, err := session.ContinuousWrite(sessionCtx, convertToQMessageChan(pl.Take(0, 0)))
 	if err != nil {
 		return
 	}
@@ -74,6 +69,7 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 		select {
 		case <-sessionCtx.Done():
 			return
+
 		case err, ok := <-errCh:
 			if ok {
 				pqErr, ok := err.(pqerror.PQError)
@@ -89,9 +85,7 @@ func (s *StreamService) handleEventStream(eventStream internals.EventStream, ses
 						CancelSession: cancelSession}
 				}
 			}
-		default:
 		}
-		runtime.Gosched()
 	}
 }
 

@@ -5,7 +5,6 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -80,7 +79,11 @@ func (c *CollectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 
 func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{}, outStream chan interface{}, errCh chan error) {
 	var collected []*shapleqproto.FetchResponse
-	startTime := time.Now()
+
+	blockingInterval := time.Millisecond * 50
+	flushInterval := time.Millisecond * time.Duration(c.flushInterval)
+	timer := time.NewTimer(flushInterval)
+	defer timer.Stop()
 
 	for {
 		select {
@@ -92,19 +95,22 @@ func (c *CollectPipe) watchQueue(topicName string, inStreamClosed chan struct{},
 				if err := c.flush(topicName, collected, outStream); err != nil {
 					errCh <- err
 				}
-				startTime = time.Now()
+				timer.Reset(flushInterval)
 				collected = nil
 			}
-		default:
-			if len(collected) > 0 && time.Since(startTime).Milliseconds() >= c.flushInterval {
+		case <-timer.C:
+			if len(collected) > 0 {
 				if err := c.flush(topicName, collected, outStream); err != nil {
 					errCh <- err
 				}
-				startTime = time.Now()
+				timer.Reset(flushInterval)
 				collected = nil
+			} else {
+				// if flush time is over and no data collected,
+				// then reset timer to prevent from resource starvation
+				timer.Reset(blockingInterval)
 			}
 		}
-		runtime.Gosched()
 	}
 }
 

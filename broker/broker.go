@@ -139,7 +139,6 @@ func (b *Broker) Start() {
 				default:
 				}
 			}
-		default:
 		}
 		runtime.Gosched()
 	}
@@ -255,7 +254,6 @@ func (b *Broker) handleNewConnections(brokerCtx context.Context) (<-chan Session
 			case <-brokerCtx.Done():
 				return
 			}
-			runtime.Gosched()
 		}
 	}()
 
@@ -277,6 +275,10 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 		for sessAndCtx := range scCh {
 			txMsgCh := make(chan *message.QMessage)
 			streamMsgCh := make(chan *message.QMessage)
+
+			transactionalEvents <- internals.EventStream{sessAndCtx.session, txMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
+			streamingEvents <- internals.EventStream{sessAndCtx.session, streamMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
+
 			wg.Add(1)
 			go func(sc SessionAndContext) {
 				defer close(txMsgCh)
@@ -340,15 +342,9 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 									CancelSession: sc.cancelSession}
 							}
 						}
-					default:
 					}
-					runtime.Gosched()
 				}
 			}(sessAndCtx)
-
-			transactionalEvents <- internals.EventStream{sessAndCtx.session, txMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
-			streamingEvents <- internals.EventStream{sessAndCtx.session, streamMsgCh, sessAndCtx.ctx, sessAndCtx.cancelSession}
-			runtime.Gosched()
 		}
 	}()
 

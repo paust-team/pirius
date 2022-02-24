@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"github.com/paust-team/shapleq/pqerror"
-	"runtime"
 )
 
 type Pipeline struct {
@@ -132,12 +131,10 @@ func (p *Pipeline) Take(outletIndex int, num int) <-chan interface{} {
 		if num == 0 {
 			for out := range p.outlets[outletIndex] {
 				takeStream <- out
-				runtime.Gosched()
 			}
 		} else {
 			for i := 0; i < num; i++ {
 				takeStream <- <-p.outlets[outletIndex]
-				runtime.Gosched()
 			}
 		}
 	}()
@@ -149,17 +146,6 @@ func (p *Pipeline) Flow(inletIndex int, data ...interface{}) {
 	go func() {
 		for _, datum := range data {
 			p.Inlets[inletIndex] <- datum
-			runtime.Gosched()
 		}
 	}()
-}
-
-func WaitForPipeline(ErrChannels ...<-chan error) error {
-	errCh := pqerror.MergeErrors(ErrChannels...)
-	for err := range errCh {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
