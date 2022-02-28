@@ -160,16 +160,15 @@ type FetchedData struct {
 }
 
 type SubscribeResult struct {
-	Items      []*FetchedData
-	TopicName  string
-	LastOffset uint64
+	Items     []*FetchedData
+	TopicName string
 }
 
 func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error) {
 	if res, err := msg.UnpackTo(&shapleqproto.FetchResponse{}); err == nil {
 		fetchRes := res.(*shapleqproto.FetchResponse)
-		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d, offset: %d, seq num: %d, node id: %s",
-			fetchRes.Data, fetchRes.LastOffset, fetchRes.Offset, fetchRes.SeqNum, fetchRes.NodeId))
+		c.logger.Debug(fmt.Sprintf("received response - data : %s, offset: %d, seq num: %d, node id: %s",
+			fetchRes.Data, fetchRes.Offset, fetchRes.SeqNum, fetchRes.NodeId))
 		fetched := &FetchedData{
 			Data:       fetchRes.Data,
 			FragmentId: fetchRes.FragmentId,
@@ -177,12 +176,12 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 			SeqNum:     fetchRes.SeqNum,
 			NodeId:     fetchRes.NodeId,
 		}
-		return &SubscribeResult{Items: []*FetchedData{fetched}, TopicName: fetchRes.TopicName, LastOffset: fetchRes.LastOffset}, nil
+		return &SubscribeResult{Items: []*FetchedData{fetched}, TopicName: fetchRes.TopicName}, nil
 
 	} else if res, err := msg.UnpackTo(&shapleqproto.BatchedFetchResponse{}); err == nil {
 		fetchRes := res.(*shapleqproto.BatchedFetchResponse)
-		c.logger.Debug(fmt.Sprintf("received response - data : %s, last offset: %d",
-			fetchRes.Items, fetchRes.LastOffset))
+		c.logger.Debug(fmt.Sprintf("received response - data : %s",
+			fetchRes.Items))
 
 		var fetched []*FetchedData
 		for _, item := range fetchRes.Items {
@@ -194,7 +193,7 @@ func (c *Consumer) handleMessage(msg *message.QMessage) (*SubscribeResult, error
 				NodeId:     item.NodeId,
 			})
 		}
-		return &SubscribeResult{Items: fetched, TopicName: fetchRes.TopicName, LastOffset: fetchRes.LastOffset}, nil
+		return &SubscribeResult{Items: fetched, TopicName: fetchRes.TopicName}, nil
 
 	} else if res, err := msg.UnpackTo(&shapleqproto.Ack{}); err == nil {
 		return &SubscribeResult{}, errors.New(res.(*shapleqproto.Ack).Msg)
