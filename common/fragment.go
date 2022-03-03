@@ -15,11 +15,11 @@ type FrameForFragment struct {
 	data []byte
 }
 
-func NewFragmentData(data []byte) *FrameForFragment {
+func NewFrameForFragment(data []byte) *FrameForFragment {
 	return &FrameForFragment{data: data}
 }
 
-func NewFragmentDataFromValues(lastOffset uint64, numSubscribers uint64) *FrameForFragment {
+func NewFrameForFragmentFromValues(lastOffset uint64, numSubscribers uint64) *FrameForFragment {
 	data := make([]byte, uint64Len*2)
 	binary.BigEndian.PutUint64(data[0:], lastOffset)
 	binary.BigEndian.PutUint64(data[uint64Len:uint64Len*2], numSubscribers)

@@ -59,11 +59,11 @@ type FrameForTopic struct {
 var uint32Len = int(unsafe.Sizeof(uint32(0)))
 var uint64Len = int(unsafe.Sizeof(uint64(0)))
 
-func NewTopicData(data []byte) *FrameForTopic {
+func NewFrameForTopic(data []byte) *FrameForTopic {
 	return &FrameForTopic{data: data}
 }
 
-func NewTopicDataFromValues(description string, numFragments uint32, replicationFactor uint32, numPublishers uint64) *FrameForTopic {
+func NewFrameForTopicFromValues(description string, numFragments uint32, replicationFactor uint32, numPublishers uint64) *FrameForTopic {
 
 	data := make([]byte, uint64Len+uint32Len*2)
 	binary.BigEndian.PutUint64(data[0:], numPublishers)

@@ -51,7 +51,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 					errCh <- pqerror.TopicNotSetError{}
 					return
 				}
-				if _, err := c.zkqClient.GetTopicData(topic.GetTopicName()); err != nil {
+				if _, err := c.zkqClient.GetTopicFrame(topic.GetTopicName()); err != nil {
 					errCh <- err
 					return
 				}
