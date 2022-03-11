@@ -1,9 +1,9 @@
 package rpc
 
 import (
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"time"
 )
 
@@ -12,11 +12,11 @@ type ConnectionRPCService interface {
 }
 
 type connectionRPCService struct {
-	zkqClient *zookeeper.ZKQClient
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
 }
 
-func NewConnectionRPCService(zkqClient *zookeeper.ZKQClient) *connectionRPCService {
-	return &connectionRPCService{zkqClient}
+func NewConnectionRPCService(coordiWrapper *coordinator_helper.CoordinatorWrapper) *connectionRPCService {
+	return &connectionRPCService{coordiWrapper}
 }
 
 func (s *connectionRPCService) Heartbeat(request *shapleqproto.Ping) *shapleqproto.Pong {

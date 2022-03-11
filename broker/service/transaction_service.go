@@ -7,9 +7,9 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service/rpc"
 	"github.com/paust-team/shapleq/broker/storage"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"runtime"
 	"sync"
 )
@@ -25,12 +25,12 @@ type TransactionService struct {
 	rpcService *RPCService
 }
 
-func NewTransactionService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *TransactionService {
+func NewTransactionService(db *storage.QRocksDB, coordiWrapper *coordinator_helper.CoordinatorWrapper) *TransactionService {
 	return &TransactionService{&RPCService{
-		rpc.NewTopicRPCService(db, zkqClient),
-		rpc.NewFragmentRPCService(db, zkqClient),
+		rpc.NewTopicRPCService(db, coordiWrapper),
+		rpc.NewFragmentRPCService(db, coordiWrapper),
 		rpc.NewConfigRPCService(),
-		rpc.NewConnectionRPCService(zkqClient)},
+		rpc.NewConnectionRPCService(coordiWrapper)},
 	}
 }
 

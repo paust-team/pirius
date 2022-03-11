@@ -5,21 +5,21 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/pipeline"
 	"github.com/paust-team/shapleq/broker/storage"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	"github.com/paust-team/shapleq/zookeeper"
 	"runtime"
 	"sync"
 )
 
 type StreamService struct {
-	DB        *storage.QRocksDB
-	zkqClient *zookeeper.ZKQClient
-	addr      string
+	DB            *storage.QRocksDB
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
+	addr          string
 }
 
-func NewStreamService(DB *storage.QRocksDB, zkqClient *zookeeper.ZKQClient, addr string) *StreamService {
-	return &StreamService{DB: DB, zkqClient: zkqClient, addr: addr}
+func NewStreamService(DB *storage.QRocksDB, coordiWrapper *coordinator_helper.CoordinatorWrapper, addr string) *StreamService {
+	return &StreamService{DB: DB, coordiWrapper: coordiWrapper, addr: addr}
 }
 
 func (s *StreamService) HandleEventStreams(brokerCtx context.Context,
@@ -130,14 +130,14 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	dispatchPipe := pipeline.NewPipe("dispatch", &dispatcher)
 
 	connector = &pipeline.ConnectPipe{}
-	err = connector.Build(sess, s.zkqClient, s.addr)
+	err = connector.Build(sess, s.coordiWrapper, s.addr)
 	if err != nil {
 		return err, nil
 	}
 	connectPipe := pipeline.NewPipe("connect", &connector)
 
 	fetcher = &pipeline.FetchPipe{}
-	err = fetcher.Build(sess, s.DB, s.zkqClient)
+	err = fetcher.Build(sess, s.DB)
 	if err != nil {
 		return err, nil
 	}
@@ -151,7 +151,7 @@ func (s *StreamService) newPipelineBase(sess *internals.Session, inlet chan inte
 	collectPipe := pipeline.NewPipe("collect", &collector)
 
 	putter = &pipeline.PutPipe{}
-	err = putter.Build(sess, s.DB, s.zkqClient)
+	err = putter.Build(sess, s.DB, s.coordiWrapper)
 	if err != nil {
 		return err, nil
 	}

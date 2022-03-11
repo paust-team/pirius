@@ -3,10 +3,10 @@ package rpc
 import (
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/common"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"strconv"
 )
 
@@ -18,18 +18,18 @@ type TopicRPCService interface {
 }
 
 type topicRPCService struct {
-	DB        *storage.QRocksDB
-	zkqClient *zookeeper.ZKQClient
+	DB            *storage.QRocksDB
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
 }
 
-func NewTopicRPCService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *topicRPCService {
-	return &topicRPCService{db, zkqClient}
+func NewTopicRPCService(db *storage.QRocksDB, coordiWrapper *coordinator_helper.CoordinatorWrapper) *topicRPCService {
+	return &topicRPCService{db, coordiWrapper}
 }
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
 	topicFrame := common.NewFrameForTopicFromValues(request.TopicDescription, 0, 0, 0)
-	err := s.zkqClient.AddTopic(request.TopicName, topicFrame)
+	err := s.coordiWrapper.AddTopic(request.TopicName, topicFrame)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -39,7 +39,7 @@ func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *
 
 func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *shapleqproto.DeleteTopicResponse {
 
-	if err := s.zkqClient.RemoveTopic(request.TopicName); err != nil {
+	if err := s.coordiWrapper.RemoveTopic(request.TopicName); err != nil {
 		return message.NewDeleteTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
@@ -48,7 +48,7 @@ func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *
 
 func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqproto.ListTopicResponse {
 
-	topics, err := s.zkqClient.GetTopics()
+	topics, err := s.coordiWrapper.GetTopics()
 	if err != nil {
 		return message.NewListTopicResponseMsg(nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -58,13 +58,13 @@ func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqpro
 
 func (s topicRPCService) DescribeTopic(request *shapleqproto.DescribeTopicRequest) *shapleqproto.DescribeTopicResponse {
 
-	topicValue, err := s.zkqClient.GetTopicFrame(request.TopicName)
+	topicValue, err := s.coordiWrapper.GetTopicFrame(request.TopicName)
 
 	if err != nil {
 		return message.NewDescribeTopicResponseMsg("", "", 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	fragments, err := s.zkqClient.GetTopicFragments(request.TopicName)
+	fragments, err := s.coordiWrapper.GetTopicFragments(request.TopicName)
 	if err != nil {
 		return message.NewDescribeTopicResponseMsg("", "", 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}

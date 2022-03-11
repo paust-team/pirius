@@ -7,11 +7,11 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/service"
 	"github.com/paust-team/shapleq/broker/storage"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"golang.org/x/sys/unix"
 	"net"
 	"os"
@@ -28,7 +28,7 @@ type Broker struct {
 	sessionMgr      *internals.SessionManager
 	txService       *service.TransactionService
 	db              *storage.QRocksDB
-	zkqClient       *zookeeper.ZKQClient
+	coordiWrapper   *coordinator_helper.CoordinatorWrapper
 	logger          *logger.QLogger
 	cancelBrokerCtx context.CancelFunc
 	closed          bool
@@ -37,13 +37,11 @@ type Broker struct {
 func NewBroker(config *config.BrokerConfig) *Broker {
 
 	l := logger.NewQLogger("Broker", config.LogLevel())
-	zkqClient := zookeeper.NewZKQClient(config.ZKQuorum(), config.ZKTimeout(), config.ZKFlushInterval())
 
 	return &Broker{
-		config:    config,
-		zkqClient: zkqClient,
-		logger:    l,
-		closed:    false,
+		config: config,
+		logger: l,
+		closed: false,
 	}
 }
 
@@ -89,8 +87,8 @@ func (b *Broker) Start() {
 
 	txEventStreamCh, stEventStreamCh, sessionErrCh := b.generateEventStreams(sessionAndContextCh)
 
-	b.streamService = service.NewStreamService(b.db, b.zkqClient, fmt.Sprintf("%s:%d", b.config.Hostname(), b.config.Port()))
-	b.txService = service.NewTransactionService(b.db, b.zkqClient)
+	b.streamService = service.NewStreamService(b.db, b.coordiWrapper, fmt.Sprintf("%s:%d", b.config.Hostname(), b.config.Port()))
+	b.txService = service.NewTransactionService(b.db, b.coordiWrapper)
 
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
 	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
@@ -182,16 +180,16 @@ func (b *Broker) connectToRocksDB() error {
 
 func (b *Broker) setUpZookeeper() error {
 
-	b.zkqClient = b.zkqClient.WithLogger(b.logger)
-	if err := b.zkqClient.Connect(); err != nil {
+	b.coordiWrapper = coordinator_helper.NewCoordinatorWrapper(b.config.ZKQuorum(), b.config.ZKTimeout(), b.config.ZKFlushInterval(), b.logger)
+	if err := b.coordiWrapper.Connect(); err != nil {
 		return err
 	}
 
-	if err := b.zkqClient.CreatePathsIfNotExist(); err != nil {
+	if err := b.coordiWrapper.CreatePathsIfNotExist(); err != nil {
 		return err
 	}
 
-	if err := b.zkqClient.AddBroker(b.config.Hostname() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
+	if err := b.coordiWrapper.AddBroker(b.config.Hostname() + ":" + strconv.Itoa(int(b.config.Port()))); err != nil {
 		return err
 	}
 
@@ -199,20 +197,20 @@ func (b *Broker) setUpZookeeper() error {
 }
 
 func (b *Broker) tearDownZookeeper() {
-	_ = b.zkqClient.RemoveBroker(b.config.Hostname())
-	topics, _ := b.zkqClient.GetTopics()
+	_ = b.coordiWrapper.RemoveBroker(b.config.Hostname())
+	topics, _ := b.coordiWrapper.GetTopics()
 	for _, topic := range topics {
-		fragments, _ := b.zkqClient.GetTopicFragments(topic)
+		fragments, _ := b.coordiWrapper.GetTopicFragments(topic)
 		for _, fragment := range fragments {
 			fragmentId, err := strconv.ParseUint(fragment, 10, 32)
 			if err != nil {
 				b.logger.Errorf("error occurred on tearing down zookeeper: %s", err.Error())
 				continue
 			}
-			_ = b.zkqClient.RemoveBrokerOfTopic(topic, uint32(fragmentId), b.config.Hostname())
+			_ = b.coordiWrapper.RemoveBrokerOfTopic(topic, uint32(fragmentId), b.config.Hostname())
 		}
 	}
-	b.zkqClient.Close()
+	b.coordiWrapper.Close()
 }
 
 type SessionAndContext struct {
@@ -294,12 +292,12 @@ func (b *Broker) generateEventStreams(scCh <-chan SessionAndContext) (<-chan int
 					switch sc.session.Type() {
 					case shapleq_proto.SessionType_PUBLISHER:
 						for _, topic := range sc.session.Topics() {
-							_, _ = b.zkqClient.AddNumPublishers(topic.TopicName(), -1)
+							_, _ = b.coordiWrapper.AddNumPublishers(topic.TopicName(), -1)
 						}
 					case shapleq_proto.SessionType_SUBSCRIBER:
 						for _, topic := range sc.session.Topics() {
 							for _, id := range topic.FragmentIds() {
-								_, _ = b.zkqClient.AddNumSubscriber(topic.TopicName(), id, -1)
+								_, _ = b.coordiWrapper.AddNumSubscriber(topic.TopicName(), id, -1)
 							}
 						}
 					}

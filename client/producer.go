@@ -5,11 +5,11 @@ import (
 	"errors"
 	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/common"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"math/rand"
 	"strconv"
 )
@@ -27,7 +27,7 @@ type PublishResult struct {
 
 type Producer struct {
 	*client
-	zkqClient          *zookeeper.ZKQClient
+	coordiWrapper      *coordinator_helper.CoordinatorWrapper
 	config             *config.ProducerConfig
 	publishTopics      []string
 	logger             *logger.QLogger
@@ -47,7 +47,7 @@ func NewProducerWithContext(ctx context.Context, config *config.ProducerConfig, 
 	ctx, cancel := context.WithCancel(ctx)
 	producer := &Producer{
 		client:             newClient(config.ClientConfigBase),
-		zkqClient:          zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
+		coordiWrapper:      coordinator_helper.NewCoordinatorWrapper(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0, l),
 		publishTopics:      publishTopics,
 		logger:             l,
 		ctx:                ctx,
@@ -67,7 +67,7 @@ func (p Producer) Context() context.Context {
 }
 
 func (p *Producer) Connect() error {
-	if err := p.zkqClient.Connect(); err != nil {
+	if err := p.coordiWrapper.Connect(); err != nil {
 		return err
 	}
 	connectionTargets := make(map[string]*connectionTarget)
@@ -76,7 +76,7 @@ func (p *Producer) Connect() error {
 		p.publishTargets[topic] = []*topicFragmentPair{}
 		p.targetIndexCounter[topic] = 0
 		// get all fragments : producer publishes data for all fragments of a topic
-		fragments, err := p.zkqClient.GetTopicFragments(topic)
+		fragments, err := p.coordiWrapper.GetTopicFragments(topic)
 		if err != nil {
 			return err
 		}
@@ -94,13 +94,13 @@ func (p *Producer) Connect() error {
 			p.publishTargets[topic] = append(p.publishTargets[topic], &topicFragmentPair{topic: topic, fragmentId: fragmentId})
 
 			// get brokers from fragment
-			addresses, err := p.zkqClient.GetBrokersOfTopic(topic, fragmentId)
+			addresses, err := p.coordiWrapper.GetBrokersOfTopic(topic, fragmentId)
 			if err != nil {
 				return pqerror.ZKOperateError{ErrStr: err.Error()}
 			}
 			// if any broker for topic-fragment doesn't exist, pick a random broker to publish
 			if len(addresses) == 0 {
-				brokerAddresses, err := p.zkqClient.GetBrokers()
+				brokerAddresses, err := p.coordiWrapper.GetBrokers()
 				if err == nil && len(brokerAddresses) != 0 {
 					brokerAddr := brokerAddresses[rand.Intn(len(brokerAddresses))]
 					addresses = append(addresses, brokerAddr)
@@ -238,7 +238,7 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *PublishResu
 func (p *Producer) Close() {
 	p.cancel()
 	close(p.publishCh)
-	p.zkqClient.Close()
+	p.coordiWrapper.Close()
 	p.close()
 }
 
