@@ -213,7 +213,6 @@ message FetchResponse {
     string node_id = 5;
     string topic_name = 6;
     uint32 fragment_id = 7;
-    uint64 last_offset = 8;
 }
 
 message BatchedFetchResponse {
@@ -226,8 +225,7 @@ message BatchedFetchResponse {
     }
     int32 magic = 1;
     repeated Fetched items = 2;
-    uint64 last_offset = 3;
-    string topic_name = 4;
+    string topic_name = 3;
 }
 
 message Ack {

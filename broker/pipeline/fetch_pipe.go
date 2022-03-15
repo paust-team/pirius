@@ -110,7 +110,6 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 				return
 			}
 
-			var currentLastOffset uint64 = 0 // TODO:: get current last offset of fragment
 			it.Seek(prevKey.Data())
 			if !first && it.Valid() {
 				it.Next()
@@ -131,7 +130,7 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 
 				value := storage.NewRecordValue(it.Value())
 				value.SeqNum()
-				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), topicName, currentLastOffset, fragmentId)
+				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), topicName, fragmentId)
 
 				select {
 				case <-inStreamClosed:

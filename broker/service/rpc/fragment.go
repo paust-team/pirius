@@ -25,10 +25,10 @@ func NewFragmentRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKQClient) 
 }
 
 func (s *fragmentRPCService) createFragment(topicName string) *shapleqproto.CreateFragmentResponse {
-	fragmentValue := common.NewFragmentDataFromValues(0, 0)
+	fragmentFrame := common.NewFrameForFragmentFromValues(0, 0)
 	fragmentId := common.GenerateFragmentId()
 
-	err := s.zkqClient.AddTopicFragment(topicName, fragmentId, fragmentValue)
+	err := s.zkqClient.AddTopicFragment(topicName, fragmentId, fragmentFrame)
 	if err != nil {
 		if _, ok := err.(*pqerror.ZKTargetAlreadyExistsError); ok {
 			return s.createFragment(topicName) // recursive create for duplicated fragment id
@@ -62,7 +62,7 @@ func (s *fragmentRPCService) DeleteFragment(request *shapleqproto.DeleteFragment
 }
 
 func (s *fragmentRPCService) DescribeFragment(request *shapleqproto.DescribeFragmentRequest) *shapleqproto.DescribeFragmentResponse {
-	fragmentData, err := s.zkqClient.GetTopicFragmentData(request.TopicName, request.FragmentId)
+	fragmentData, err := s.zkqClient.GetTopicFragmentFrame(request.TopicName, request.FragmentId)
 	if err != nil {
 		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}

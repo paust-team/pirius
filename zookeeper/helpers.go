@@ -157,8 +157,8 @@ type topicManagingHelper struct {
 	logger *logger.QLogger
 }
 
-func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.FrameForTopic) error {
-	if err := t.client.Create(constants.TopicsLockPath, GetTopicPath(topicName), topicData.Data()); err != nil {
+func (t *topicManagingHelper) AddTopic(topicName string, topicFrame *common.FrameForTopic) error {
+	if err := t.client.Create(constants.TopicsLockPath, GetTopicPath(topicName), topicFrame.Data()); err != nil {
 		if err == zk.ErrNodeExists { // ignore creating duplicated topic path
 			return nil
 		}
@@ -175,14 +175,14 @@ func (t *topicManagingHelper) AddTopic(topicName string, topicData *common.Frame
 func (t *topicManagingHelper) AddNumPublishers(topicName string, delta int) (uint64, error) {
 	var numPublishers uint64
 	if err := t.client.OptimisticSet(GetTopicPath(topicName), func(value []byte) []byte {
-		topicData := common.NewTopicData(value)
-		count := int(topicData.NumPublishers()) + delta
+		topicFrame := common.NewFrameForTopic(value)
+		count := int(topicFrame.NumPublishers()) + delta
 		if count < 0 {
 			count = 0
 		}
-		topicData.SetNumPublishers(uint64(count))
+		topicFrame.SetNumPublishers(uint64(count))
 		numPublishers = uint64(count)
-		return topicData.Data()
+		return topicFrame.Data()
 	}); err != nil {
 		return 0, err
 	}
@@ -190,9 +190,9 @@ func (t *topicManagingHelper) AddNumPublishers(topicName string, delta int) (uin
 	return numPublishers, nil
 }
 
-func (t *topicManagingHelper) GetTopicData(topicName string) (*common.FrameForTopic, error) {
+func (t *topicManagingHelper) GetTopicFrame(topicName string) (*common.FrameForTopic, error) {
 	if result, err := t.client.Get(GetTopicPath(topicName)); err == nil {
-		return common.NewTopicData(result), nil
+		return common.NewFrameForTopic(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicNotExistError{Topic: topicName}
 	} else {
@@ -324,9 +324,9 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 				for topicName, fragments := range offsetMap {
 					for fragmentId, offset := range fragments {
 						_ = f.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
-							fragmentData := common.NewFragmentData(value)
-							fragmentData.SetLastOffset(offset)
-							return fragmentData.Data()
+							fragmentFrame := common.NewFrameForFragment(value)
+							fragmentFrame.SetLastOffset(offset)
+							return fragmentFrame.Data()
 						})
 					}
 				}
@@ -337,9 +337,9 @@ func (f *fragmentManagingHelper) startPeriodicFlushLastOffsets(interval uint) {
 	}()
 }
 
-func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragmentId uint32) (*common.FrameForFragment, error) {
+func (f *fragmentManagingHelper) GetTopicFragmentFrame(topicName string, fragmentId uint32) (*common.FrameForFragment, error) {
 	if result, err := f.client.Get(GetTopicFragmentPath(topicName, fragmentId)); err == nil {
-		return common.NewFragmentData(result), nil
+		return common.NewFrameForFragment(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicFragmentNotExistsError{Topic: topicName, FragmentId: fragmentId}
 	} else {
@@ -347,8 +347,8 @@ func (f *fragmentManagingHelper) GetTopicFragmentData(topicName string, fragment
 	}
 }
 
-func (f *fragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentData *common.FrameForFragment) error {
-	if err := f.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentData.Data()); err != nil {
+func (f *fragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentFrame *common.FrameForFragment) error {
+	if err := f.client.Create(constants.TopicFragmentsLockPath, GetTopicFragmentPath(topicName, fragmentId), fragmentFrame.Data()); err != nil {
 		if err == zk.ErrNodeExists {
 			return &pqerror.ZKTargetAlreadyExistsError{Target: fmt.Sprintf("%s/%d", topicName, fragmentId)}
 		}
@@ -387,11 +387,11 @@ func (f *fragmentManagingHelper) IncreaseLastOffset(topicName string, fragmentId
 	}
 
 	if !loaded { // if fragmentOffsetMap is not initialized, load last offset from zk
-		fragmentData, err := f.GetTopicFragmentData(topicName, fragmentId)
+		fragmentFrame, err := f.GetTopicFragmentFrame(topicName, fragmentId)
 		if err != nil {
 			return 0, err
 		}
-		fragment.SetLastOffset(fragmentData.LastOffset())
+		fragment.SetLastOffset(fragmentFrame.LastOffset())
 	}
 	offset := fragment.IncreaseLastOffset()
 	if f.offsetFlusher != nil {
@@ -403,11 +403,11 @@ func (f *fragmentManagingHelper) IncreaseLastOffset(topicName string, fragmentId
 func (f *fragmentManagingHelper) AddNumSubscriber(topicName string, fragmentId uint32, delta int) (uint64, error) {
 	var numSubscribers uint64
 	if err := f.client.OptimisticSet(GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
-		fragmentData := common.NewFragmentData(value)
-		count := int(fragmentData.NumSubscribers()) + delta
-		fragmentData.SetNumSubscribers(uint64(count))
+		fragmentFrame := common.NewFrameForFragment(value)
+		count := int(fragmentFrame.NumSubscribers()) + delta
+		fragmentFrame.SetNumSubscribers(uint64(count))
 		numSubscribers = uint64(count)
-		return fragmentData.Data()
+		return fragmentFrame.Data()
 	}); err != nil {
 		return 0, err
 	}

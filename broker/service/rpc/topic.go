@@ -28,8 +28,8 @@ func NewTopicRPCService(db *storage.QRocksDB, zkqClient *zookeeper.ZKQClient) *t
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
-	topicValue := common.NewTopicDataFromValues(request.TopicDescription, 0, 0, 0)
-	err := s.zkqClient.AddTopic(request.TopicName, topicValue)
+	topicFrame := common.NewFrameForTopicFromValues(request.TopicDescription, 0, 0, 0)
+	err := s.zkqClient.AddTopic(request.TopicName, topicFrame)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -58,7 +58,7 @@ func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqpro
 
 func (s topicRPCService) DescribeTopic(request *shapleqproto.DescribeTopicRequest) *shapleqproto.DescribeTopicResponse {
 
-	topicValue, err := s.zkqClient.GetTopicData(request.TopicName)
+	topicValue, err := s.zkqClient.GetTopicFrame(request.TopicName)
 
 	if err != nil {
 		return message.NewDescribeTopicResponseMsg("", "", 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
