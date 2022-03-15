@@ -65,7 +65,7 @@ func (o ChildrenOperation) Run() ([]string, error) {
 
 				if eventType != 0 {
 					onEvent(coordinator.WatchEvent{
-						Type: coordinator.EventNodeCreated,
+						Type: eventType,
 						Path: event.Path,
 						Err:  event.Err,
 					})
