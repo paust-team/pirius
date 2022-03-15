@@ -2,12 +2,12 @@ package zk_impl
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/paust-team/shapleq/coordinator"
 	logger "github.com/paust-team/shapleq/log"
 	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 var zkCoord *Coordinator
@@ -96,7 +96,7 @@ func TestCoordinator_SetWatch(t *testing.T) {
 	}
 
 	wg := sync.WaitGroup{}
-	if _, err := zkCoord.Get(testPath).OnEvent(func(event coordinator.WatchEvent) {
+	if _, err := zkCoord.Get(testPath).OnEvent(func(event coordinator.WatchEvent) coordinator.Recursable {
 		defer wg.Done()
 		if event.Type != coordinator.EventNodeDataChanged {
 			t.Error("received wrong event", event.Type)
@@ -104,7 +104,7 @@ func TestCoordinator_SetWatch(t *testing.T) {
 		if event.Err != nil {
 			t.Error(event.Err)
 		}
-
+		return false
 	}).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -146,33 +146,35 @@ func TestCoordinator_ChildrenWatch(t *testing.T) {
 	testPath := testBasePath + "/test-children-watch-created"
 
 	wg := sync.WaitGroup{}
-	setChildrenEvent := func() {
-		if _, err := zkCoord.Children(testBasePath).OnEvent(func(event coordinator.WatchEvent) {
-			defer wg.Done()
-			fmt.Println(event)
-			if event.Type != coordinator.EventNodeChildrenChanged {
-				t.Error("received wrong event", event.Type)
-			}
-			if event.Err != nil {
-				t.Error(event.Err)
-			}
-
-		}).Run(); err != nil {
-			t.Fatal(err)
+	totalEvent := 2
+	receivedEventCount := 0
+	wg.Add(totalEvent)
+	if _, err := zkCoord.Children(testBasePath).OnEvent(func(event coordinator.WatchEvent) coordinator.Recursable {
+		defer wg.Done()
+		receivedEventCount++
+		if event.Type != coordinator.EventNodeChildrenChanged {
+			t.Error("received wrong event", event.Type)
 		}
+		if event.Err != nil {
+			t.Error(event.Err)
+		}
+		if receivedEventCount == totalEvent {
+			return false
+		} else {
+			return true
+		}
+
+	}).Run(); err != nil {
+		t.Fatal(err)
 	}
 
 	// create test
-	setChildrenEvent() // setting a watch event is one-time event
-	wg.Add(1)
 	if err := zkCoord.Create(testPath, []byte{}).Run(); err != nil {
 		t.Fatal(err)
 	}
-	wg.Wait()
 
+	time.Sleep(1 * time.Second) // sleep for re-registering a watch
 	// delete test
-	setChildrenEvent()
-	wg.Add(1)
 	if err := zkCoord.Delete([]string{testPath}).Run(); err != nil {
 		t.Error(err)
 	}

@@ -10,7 +10,7 @@ import (
 type GetOperation struct {
 	conn           *zk.Conn
 	path, lockPath string
-	cb             func(event coordinator.WatchEvent)
+	cb             func(event coordinator.WatchEvent) coordinator.Recursable
 }
 
 func NewZKGetOperation(conn *zk.Conn, path string) GetOperation {
@@ -22,7 +22,7 @@ func (o GetOperation) WithLock(lockPath string) coordinator.GetOperation {
 	return o
 }
 
-func (o GetOperation) OnEvent(fn func(coordinator.WatchEvent)) coordinator.GetOperation {
+func (o GetOperation) OnEvent(fn func(coordinator.WatchEvent) coordinator.Recursable) coordinator.GetOperation {
 	o.cb = fn
 	return o
 }
@@ -46,29 +46,48 @@ func (o GetOperation) Run() ([]byte, error) {
 
 	} else {
 		var eventCh <-chan zk.Event
-		value, _, eventCh, err = o.conn.GetW(o.path)
+		path := o.path
+		conn := o.conn
+		_, _, eventCh, err = conn.GetW(path)
 		go func() {
-			for event := range eventCh {
-				var eventType coordinator.WatchEventType
-				switch event.Type {
-				case zk.EventNodeCreated:
-					eventType = coordinator.EventNodeCreated
-				case zk.EventNodeDeleted:
-					eventType = coordinator.EventNodeDeleted
-				case zk.EventNodeDataChanged:
-					eventType = coordinator.EventNodeDataChanged
-				case zk.EventNodeChildrenChanged:
-					eventType = coordinator.EventNodeChildrenChanged
-				default:
-					log.Printf("received not defined watch-event : %+v\n", event)
-				}
+			var reRegisterWatch coordinator.Recursable = false
+			for {
+				for event := range eventCh {
+					switch event.Type {
+					case zk.EventNodeCreated:
+						reRegisterWatch = onEvent(coordinator.WatchEvent{
+							Type: coordinator.EventNodeCreated,
+							Path: event.Path,
+							Err:  event.Err,
+						})
 
-				if eventType != 0 {
-					onEvent(coordinator.WatchEvent{
-						Type: eventType,
-						Path: event.Path,
-						Err:  event.Err,
-					})
+					case zk.EventNodeDeleted:
+						reRegisterWatch = onEvent(coordinator.WatchEvent{
+							Type: coordinator.EventNodeDeleted,
+							Path: event.Path,
+							Err:  event.Err,
+						})
+					case zk.EventNodeDataChanged:
+						reRegisterWatch = onEvent(coordinator.WatchEvent{
+							Type: coordinator.EventNodeDataChanged,
+							Path: event.Path,
+							Err:  event.Err,
+						})
+					case zk.EventNodeChildrenChanged:
+						reRegisterWatch = onEvent(coordinator.WatchEvent{
+							Type: coordinator.EventNodeChildrenChanged,
+							Path: event.Path,
+							Err:  event.Err,
+						})
+					case zk.EventSession, zk.EventNotWatching:
+						reRegisterWatch = false
+
+					default:
+						log.Printf("received not defined watch-event : %+v\n", event)
+					}
+				}
+				if reRegisterWatch {
+					_, _, eventCh, err = conn.GetW(path)
 				}
 			}
 		}()

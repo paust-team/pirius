@@ -12,6 +12,8 @@ type Coordinator interface {
 	OptimisticUpdate(path string, update func(current []byte) []byte) OptimisticUpdateOperation
 }
 
+type Recursable bool
+
 type CreateOperation interface {
 	WithLock(string) CreateOperation
 	AsEphemeral() CreateOperation
@@ -26,7 +28,7 @@ type SetOperation interface {
 
 type GetOperation interface {
 	WithLock(string) GetOperation
-	OnEvent(func(WatchEvent)) GetOperation
+	OnEvent(func(WatchEvent) Recursable) GetOperation
 	Run() ([]byte, error)
 }
 
@@ -38,7 +40,7 @@ type DeleteOperation interface {
 
 type ChildrenOperation interface {
 	WithLock(string) ChildrenOperation
-	OnEvent(func(WatchEvent)) ChildrenOperation
+	OnEvent(func(WatchEvent) Recursable) ChildrenOperation
 	Run() ([]string, error)
 }
 
