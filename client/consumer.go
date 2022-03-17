@@ -6,21 +6,21 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/common"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type Consumer struct {
 	*client
-	zkqClient *zookeeper.ZKQClient
-	config    *config.ConsumerConfig
-	topics    []*common.Topic
-	logger    *logger.QLogger
-	ctx       context.Context
-	cancel    context.CancelFunc
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
+	config        *config.ConsumerConfig
+	topics        []*common.Topic
+	logger        *logger.QLogger
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 func NewConsumer(config *config.ConsumerConfig, topics []*common.Topic) *Consumer {
@@ -31,13 +31,13 @@ func NewConsumerWithContext(ctx context.Context, config *config.ConsumerConfig, 
 	l := logger.NewQLogger("Consumer", config.LogLevel())
 	ctx, cancel := context.WithCancel(ctx)
 	consumer := &Consumer{
-		client:    newClient(config.ClientConfigBase),
-		zkqClient: zookeeper.NewZKQClient(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0),
-		config:    config,
-		topics:    topics,
-		logger:    l,
-		ctx:       ctx,
-		cancel:    cancel,
+		client:        newClient(config.ClientConfigBase),
+		coordiWrapper: coordinator_helper.NewCoordinatorWrapper(config.ServerAddresses(), uint(config.BootstrapTimeout()), 0, l),
+		config:        config,
+		topics:        topics,
+		logger:        l,
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 	return consumer
 }
@@ -50,7 +50,7 @@ func (c Consumer) Context() context.Context {
 }
 
 func (c *Consumer) Connect() error {
-	if err := c.zkqClient.Connect(); err != nil {
+	if err := c.coordiWrapper.Connect(); err != nil {
 		return err
 	}
 	connectionTargets := make(map[string]*connectionTarget)
@@ -63,7 +63,7 @@ func (c *Consumer) Connect() error {
 
 		for fragmentId, startOffset := range topicFragments.FragmentOffsets() {
 			// get brokers from fragment
-			addresses, err := c.zkqClient.GetBrokersOfTopic(topic, fragmentId)
+			addresses, err := c.coordiWrapper.GetBrokersOfTopic(topic, fragmentId)
 			if err != nil {
 				return pqerror.ZKOperateError{ErrStr: err.Error()}
 			}
@@ -148,7 +148,7 @@ func (c *Consumer) Subscribe(maxBatchSize uint32, flushInterval uint32) (<-chan 
 
 func (c *Consumer) Close() {
 	c.cancel()
-	c.zkqClient.Close()
+	c.coordiWrapper.Close()
 	c.close()
 }
 

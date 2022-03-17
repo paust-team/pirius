@@ -9,8 +9,8 @@ import (
 	"github.com/paust-team/shapleq/client"
 	config2 "github.com/paust-team/shapleq/client/config"
 	"github.com/paust-team/shapleq/common"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	logger "github.com/paust-team/shapleq/log"
-	"github.com/paust-team/shapleq/zookeeper"
 	"log"
 	"os"
 	"runtime"
@@ -332,12 +332,12 @@ func (s *ShapleQTestContext) Terminate() {
 		for _, ctx := range s.brokers {
 			ctx.stop()
 		}
-		zkClient := zookeeper.NewZKQClient(s.zkAddrs, s.zkTimeoutMS, s.zkFlushIntervalMS)
-		if err := zkClient.Connect(); err != nil {
+		coordiWrapper := coordinator_helper.NewCoordinatorWrapper(s.zkAddrs, s.zkTimeoutMS, s.zkFlushIntervalMS, nil)
+		if err := coordiWrapper.Connect(); err != nil {
 			s.t.Fatal(err)
 		}
-		defer zkClient.Close()
-		zkClient.RemoveAllPath()
+		defer coordiWrapper.Close()
+		coordiWrapper.RemoveAllPath()
 	}
 }
 

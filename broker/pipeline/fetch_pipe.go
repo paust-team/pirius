@@ -8,16 +8,14 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"sync"
 	"time"
 	"unsafe"
 )
 
 type FetchPipe struct {
-	session   *internals.Session
-	db        *storage.QRocksDB
-	zkqClient *zookeeper.ZKQClient
+	session *internals.Session
+	db      *storage.QRocksDB
 }
 
 func (f *FetchPipe) Build(in ...interface{}) error {
@@ -28,9 +26,6 @@ func (f *FetchPipe) Build(in ...interface{}) error {
 	casted = casted && ok
 
 	f.db, ok = in[1].(*storage.QRocksDB)
-	casted = casted && ok
-
-	f.zkqClient, ok = in[2].(*zookeeper.ZKQClient)
 	casted = casted && ok
 
 	if !casted {

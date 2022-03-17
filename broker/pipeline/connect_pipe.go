@@ -2,16 +2,16 @@ package pipeline
 
 import (
 	"github.com/paust-team/shapleq/broker/internals"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type ConnectPipe struct {
-	session    *internals.Session
-	zkqClient  *zookeeper.ZKQClient
-	brokerAddr string
+	session       *internals.Session
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
+	brokerAddr    string
 }
 
 func (c *ConnectPipe) Build(in ...interface{}) error {
@@ -19,7 +19,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 	session, ok := in[0].(*internals.Session)
 	casted = casted && ok
 
-	zkqClient, ok := in[1].(*zookeeper.ZKQClient)
+	coordiWrapper, ok := in[1].(*coordinator_helper.CoordinatorWrapper)
 	casted = casted && ok
 
 	brokerAddr, ok := in[2].(string)
@@ -31,7 +31,7 @@ func (c *ConnectPipe) Build(in ...interface{}) error {
 
 	c.session = session
 	c.brokerAddr = brokerAddr
-	c.zkqClient = zkqClient
+	c.coordiWrapper = coordiWrapper
 
 	return nil
 }
@@ -51,7 +51,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 					errCh <- pqerror.TopicNotSetError{}
 					return
 				}
-				if _, err := c.zkqClient.GetTopicFrame(topic.GetTopicName()); err != nil {
+				if _, err := c.coordiWrapper.GetTopicFrame(topic.GetTopicName()); err != nil {
 					errCh <- err
 					return
 				}
@@ -68,14 +68,14 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 
 				switch req.SessionType {
 				case shapleq_proto.SessionType_PUBLISHER:
-					_, err := c.zkqClient.AddNumPublishers(topic.TopicName, 1)
+					_, err := c.coordiWrapper.AddNumPublishers(topic.TopicName, 1)
 					if err != nil {
 						errCh <- err
 						return
 					}
 					// register topic broker address only if publisher appears
 					for _, fragmentOffset := range topic.Offsets {
-						err = c.zkqClient.AddBrokerForTopic(topic.TopicName, fragmentOffset.FragmentId, c.brokerAddr)
+						err = c.coordiWrapper.AddBrokerForTopic(topic.TopicName, fragmentOffset.FragmentId, c.brokerAddr)
 						if err != nil {
 							errCh <- err
 							return
@@ -83,7 +83,7 @@ func (c *ConnectPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-
 					}
 				case shapleq_proto.SessionType_SUBSCRIBER:
 					for _, fragmentOffset := range topic.Offsets {
-						_, err := c.zkqClient.AddNumSubscriber(topic.TopicName, fragmentOffset.FragmentId, 1)
+						_, err := c.coordiWrapper.AddNumSubscriber(topic.TopicName, fragmentOffset.FragmentId, 1)
 						if err != nil {
 							errCh <- err
 							return

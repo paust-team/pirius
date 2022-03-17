@@ -3,17 +3,17 @@ package pipeline
 import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 	"sync"
 )
 
 type PutPipe struct {
-	session   *internals.Session
-	db        *storage.QRocksDB
-	zkqClient *zookeeper.ZKQClient
+	session       *internals.Session
+	db            *storage.QRocksDB
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
 }
 
 func (p *PutPipe) Build(in ...interface{}) error {
@@ -26,7 +26,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 	db, ok := in[1].(*storage.QRocksDB)
 	casted = casted && ok
 
-	zkqClient, ok := in[2].(*zookeeper.ZKQClient)
+	coordiWrapper, ok := in[2].(*coordinator_helper.CoordinatorWrapper)
 	casted = casted && ok
 
 	if !casted {
@@ -35,7 +35,7 @@ func (p *PutPipe) Build(in ...interface{}) error {
 
 	p.session = session
 	p.db = db
-	p.zkqClient = zkqClient
+	p.coordiWrapper = coordiWrapper
 
 	return nil
 }
@@ -61,7 +61,7 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			})
 
 			req := in.(*shapleq_proto.PutRequest)
-			offsetToWrite, err := p.zkqClient.IncreaseLastOffset(req.TopicName, req.FragmentId)
+			offsetToWrite, err := p.coordiWrapper.IncreaseLastOffset(req.TopicName, req.FragmentId)
 			if err != nil {
 				errCh <- err
 				return

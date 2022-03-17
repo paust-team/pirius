@@ -3,10 +3,10 @@ package rpc
 import (
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/common"
+	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/zookeeper"
 )
 
 type FragmentRPCService interface {
@@ -16,19 +16,19 @@ type FragmentRPCService interface {
 }
 
 type fragmentRPCService struct {
-	DB        *storage.QRocksDB
-	zkqClient *zookeeper.ZKQClient
+	DB            *storage.QRocksDB
+	coordiWrapper *coordinator_helper.CoordinatorWrapper
 }
 
-func NewFragmentRPCService(db *storage.QRocksDB, zkClient *zookeeper.ZKQClient) *fragmentRPCService {
-	return &fragmentRPCService{db, zkClient}
+func NewFragmentRPCService(db *storage.QRocksDB, coordiWrapper *coordinator_helper.CoordinatorWrapper) *fragmentRPCService {
+	return &fragmentRPCService{db, coordiWrapper}
 }
 
 func (s *fragmentRPCService) createFragment(topicName string) *shapleqproto.CreateFragmentResponse {
 	fragmentFrame := common.NewFrameForFragmentFromValues(0, 0)
 	fragmentId := common.GenerateFragmentId()
 
-	err := s.zkqClient.AddTopicFragment(topicName, fragmentId, fragmentFrame)
+	err := s.coordiWrapper.AddTopicFragment(topicName, fragmentId, fragmentFrame)
 	if err != nil {
 		if _, ok := err.(*pqerror.ZKTargetAlreadyExistsError); ok {
 			return s.createFragment(topicName) // recursive create for duplicated fragment id
@@ -40,7 +40,7 @@ func (s *fragmentRPCService) createFragment(topicName string) *shapleqproto.Crea
 }
 
 func (s *fragmentRPCService) CreateFragment(request *shapleqproto.CreateFragmentRequest) *shapleqproto.CreateFragmentResponse {
-	fragments, err := s.zkqClient.GetTopicFragments(request.TopicName)
+	fragments, err := s.coordiWrapper.GetTopicFragments(request.TopicName)
 	if err != nil {
 		return message.NewCreateTopicFragmentResponseMsg(0, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -54,7 +54,7 @@ func (s *fragmentRPCService) CreateFragment(request *shapleqproto.CreateFragment
 
 func (s *fragmentRPCService) DeleteFragment(request *shapleqproto.DeleteFragmentRequest) *shapleqproto.DeleteFragmentResponse {
 
-	if err := s.zkqClient.RemoveTopicFragment(request.TopicName, request.FragmentId); err != nil {
+	if err := s.coordiWrapper.RemoveTopicFragment(request.TopicName, request.FragmentId); err != nil {
 		return message.NewDeleteTopicFragmentResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
@@ -62,12 +62,12 @@ func (s *fragmentRPCService) DeleteFragment(request *shapleqproto.DeleteFragment
 }
 
 func (s *fragmentRPCService) DescribeFragment(request *shapleqproto.DescribeFragmentRequest) *shapleqproto.DescribeFragmentResponse {
-	fragmentData, err := s.zkqClient.GetTopicFragmentFrame(request.TopicName, request.FragmentId)
+	fragmentData, err := s.coordiWrapper.GetTopicFragmentFrame(request.TopicName, request.FragmentId)
 	if err != nil {
 		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
-	brokerAddresses, err := s.zkqClient.GetBrokersOfTopic(request.TopicName, request.FragmentId)
+	brokerAddresses, err := s.coordiWrapper.GetBrokersOfTopic(request.TopicName, request.FragmentId)
 	if err != nil {
 		return message.NewDescribeTopicFragmentResponseMsg(0, 0, nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
