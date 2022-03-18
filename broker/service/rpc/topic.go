@@ -2,8 +2,8 @@ package rpc
 
 import (
 	"github.com/paust-team/shapleq/broker/storage"
-	"github.com/paust-team/shapleq/common"
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
+	"github.com/paust-team/shapleq/coordinator-helper/helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
@@ -28,7 +28,7 @@ func NewTopicRPCService(db *storage.QRocksDB, coordiWrapper *coordinator_helper.
 
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
-	topicFrame := common.NewFrameForTopicFromValues(request.TopicDescription, 0, 0, 0)
+	topicFrame := helper.NewFrameForTopicFromValues(request.TopicDescription, 0, 0, 0)
 	err := s.coordiWrapper.AddTopic(request.TopicName, topicFrame)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})

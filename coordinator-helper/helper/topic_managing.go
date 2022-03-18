@@ -1,13 +1,64 @@
 package helper
 
 import (
-	"github.com/paust-team/shapleq/common"
+	"encoding/binary"
 	"github.com/paust-team/shapleq/coordinator"
 	"github.com/paust-team/shapleq/coordinator-helper/constants"
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/pqerror"
 	"strconv"
+	"unsafe"
 )
+
+var uint32Len = int(unsafe.Sizeof(uint32(0)))
+var uint64Len = int(unsafe.Sizeof(uint64(0)))
+
+type FrameForTopic struct {
+	data []byte
+}
+
+func NewFrameForTopic(data []byte) *FrameForTopic {
+	return &FrameForTopic{data: data}
+}
+
+func NewFrameForTopicFromValues(description string, numFragments uint32, replicationFactor uint32, numPublishers uint64) *FrameForTopic {
+
+	data := make([]byte, uint64Len+uint32Len*2)
+	binary.BigEndian.PutUint64(data[0:], numPublishers)
+	binary.BigEndian.PutUint32(data[uint64Len:], numFragments)
+	binary.BigEndian.PutUint32(data[uint64Len+uint32Len:], replicationFactor)
+	data = append(data, description...)
+
+	return &FrameForTopic{data: data}
+}
+
+func (t FrameForTopic) Data() []byte {
+	return t.data
+}
+
+func (t FrameForTopic) Size() int {
+	return len(t.data)
+}
+
+func (t FrameForTopic) NumPublishers() uint64 {
+	return binary.BigEndian.Uint64(t.Data()[:uint64Len])
+}
+
+func (t *FrameForTopic) SetNumPublishers(num uint64) {
+	binary.BigEndian.PutUint64(t.data[0:], num)
+}
+
+func (t FrameForTopic) NumFragments() uint32 {
+	return binary.BigEndian.Uint32(t.Data()[uint64Len : uint64Len+uint32Len])
+}
+
+func (t FrameForTopic) ReplicationFactor() uint32 {
+	return binary.BigEndian.Uint32(t.Data()[uint64Len+uint32Len : uint64Len+uint32Len*2])
+}
+
+func (t FrameForTopic) Description() string {
+	return string(t.Data()[uint64Len+uint32Len*2:])
+}
 
 type TopicManagingHelper struct {
 	client coordinator.Coordinator
@@ -23,7 +74,7 @@ func (t *TopicManagingHelper) WithLogger(logger *logger.QLogger) *TopicManagingH
 	return t
 }
 
-func (t *TopicManagingHelper) AddTopic(topicName string, topicFrame *common.FrameForTopic) error {
+func (t *TopicManagingHelper) AddTopic(topicName string, topicFrame *FrameForTopic) error {
 	if err := t.client.
 		Create(constants.GetTopicPath(topicName), topicFrame.Data()).
 		WithLock(constants.TopicsLockPath).
@@ -50,7 +101,7 @@ func (t *TopicManagingHelper) AddTopic(topicName string, topicFrame *common.Fram
 func (t *TopicManagingHelper) AddNumPublishers(topicName string, delta int) (uint64, error) {
 	var numPublishers uint64
 	if err := t.client.OptimisticUpdate(constants.GetTopicPath(topicName), func(value []byte) []byte {
-		topicFrame := common.NewFrameForTopic(value)
+		topicFrame := NewFrameForTopic(value)
 		count := int(topicFrame.NumPublishers()) + delta
 		if count < 0 {
 			count = 0
@@ -65,11 +116,11 @@ func (t *TopicManagingHelper) AddNumPublishers(topicName string, delta int) (uin
 	return numPublishers, nil
 }
 
-func (t *TopicManagingHelper) GetTopicFrame(topicName string) (*common.FrameForTopic, error) {
+func (t *TopicManagingHelper) GetTopicFrame(topicName string) (*FrameForTopic, error) {
 	if result, err := t.client.
 		Get(constants.GetTopicPath(topicName)).
 		Run(); err == nil {
-		return common.NewFrameForTopic(result), nil
+		return NewFrameForTopic(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicNotExistError{Topic: topicName}
 	} else {

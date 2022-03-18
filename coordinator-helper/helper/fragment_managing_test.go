@@ -1,7 +1,6 @@
 package helper
 
 import (
-	"github.com/paust-team/shapleq/common"
 	"strconv"
 	"testing"
 	"time"
@@ -31,13 +30,13 @@ func TestZKClient_AddTopicFragment(t *testing.T) {
 	var expectedLastOffset uint64 = 1
 	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
+	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topicFragmentValue := common.NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
+	topicFragmentValue := NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
 	if err := testClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
@@ -64,13 +63,13 @@ func TestFragmentManagingHelper_RemoveTopicFragment(t *testing.T) {
 	var expectedLastOffset uint64 = 1
 	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
+	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topicFragmentValue := common.NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
+	topicFragmentValue := NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
 	if err := testClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
@@ -101,13 +100,13 @@ func TestFragmentManagingHelper_IncreaseLastOffset(t *testing.T) {
 	var expectedLastOffset uint64 = 2
 	var expectedFragmentId uint32 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicDescription, 1, 1, 1)
+	topicValue := NewFrameForTopicFromValues(expectedTopicDescription, 1, 1, 1)
 
 	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topicFragmentValue := common.NewFrameForFragmentFromValues(initialLastOffset, 1)
+	topicFragmentValue := NewFrameForFragmentFromValues(initialLastOffset, 1)
 	if err := testClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}

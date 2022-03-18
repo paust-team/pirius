@@ -1,7 +1,6 @@
 package helper
 
 import (
-	"github.com/paust-team/shapleq/common"
 	"testing"
 )
 
@@ -23,7 +22,7 @@ func TestTopicManagingHelper_AddTopic(t *testing.T) {
 	var expectedReplicationFactor uint32 = 1
 	var expectedNumPublishers uint64 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicDescription, expectedNumFragments,
+	topicValue := NewFrameForTopicFromValues(expectedTopicDescription, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 
 	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
@@ -64,7 +63,7 @@ func TestTopicManagingHelper_RemoveTopic(t *testing.T) {
 	var expectedReplicationFactor uint32 = 1
 	var expectedNumPublishers uint64 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments, expectedReplicationFactor,
+	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments, expectedReplicationFactor,
 		expectedNumPublishers)
 	if err := testClient.AddTopic(topic, topicValue); err != nil {
 		t.Fatal(err)

@@ -2,7 +2,6 @@ package helper
 
 import (
 	"errors"
-	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/network"
 	"github.com/paust-team/shapleq/pqerror"
 	"testing"
@@ -82,13 +81,13 @@ func TestBootstrappingHelper_AddBrokerForTopic(t *testing.T) {
 	var expectedLastOffset uint64 = 1
 	var expectedNumSubscribers uint64 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
+	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	topicFragmentValue := common.NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
+	topicFragmentValue := NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
 	if err := testClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +126,7 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 	var expectedNumPublishers uint64 = 1
 	var expectedFragmentId uint32 = 1
 
-	topicValue := common.NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
+	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 	err := testClient.AddTopic(topic, topicValue)
 	if err != nil {
@@ -149,7 +148,7 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 	}
 
 	brokerAddr := host.String() + ":1101"
-	topicFragmentValue := common.NewFrameForFragmentFromValues(0, 1)
+	topicFragmentValue := NewFrameForFragmentFromValues(0, 1)
 	if err := testClient.AddTopicFragment(topic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
