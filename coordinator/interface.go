@@ -3,6 +3,7 @@ package coordinator
 type Coordinator interface {
 	IsClosed() bool
 	Close()
+	Exists(path string) ExistsOperation
 	Create(path string, value []byte) CreateOperation
 	Set(path string, value []byte) SetOperation
 	Get(path string) GetOperation
@@ -13,6 +14,12 @@ type Coordinator interface {
 }
 
 type Recursable bool
+
+type ExistsOperation interface {
+	WithLock(string) ExistsOperation
+	OnEvent(func(WatchEvent) Recursable) ExistsOperation
+	Run() (bool, error)
+}
 
 type CreateOperation interface {
 	WithLock(string) CreateOperation

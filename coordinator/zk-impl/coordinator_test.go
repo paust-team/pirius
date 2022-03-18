@@ -49,6 +49,80 @@ func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))
 }
 
+func TestCoordinator_Exists(t *testing.T) {
+	testPath := testBasePath + "/test-exists"
+	testData := []byte{'a'}
+
+	if err := zkCoord.Create(testPath, testData).Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	exists, err := zkCoord.Exists(testPath).Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Error("node exists but return false")
+	}
+}
+
+func TestCoordinator_ExistsWatch_OnCreate(t *testing.T) {
+	testPath := testBasePath + "/test-exists-watch-create"
+	testData := []byte{'a'}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	exists, err := zkCoord.Exists(testPath).OnEvent(func(event coordinator.WatchEvent) coordinator.Recursable {
+		defer wg.Done()
+		if event.Type != coordinator.EventNodeCreated {
+			t.Error("received wrong event", event.Type)
+		}
+		return false
+	}).Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Error("node not exists but return true")
+	}
+
+	if err = zkCoord.Create(testPath, testData).Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	wg.Wait()
+}
+
+func TestCoordinator_ExistsWatch_OnDelete(t *testing.T) {
+	testPath := testBasePath + "/test-exists-watch-delete"
+	testData := []byte{'a'}
+
+	if err := zkCoord.Create(testPath, testData).Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	exists, err := zkCoord.Exists(testPath).OnEvent(func(event coordinator.WatchEvent) coordinator.Recursable {
+		defer wg.Done()
+		if event.Type != coordinator.EventNodeDeleted {
+			t.Error("received wrong event", event.Type)
+		}
+		return false
+	}).Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Error("node exists but return false")
+	}
+
+	if err = zkCoord.Delete([]string{testPath}).Run(); err != nil {
+		t.Error(err)
+	}
+
+	wg.Wait()
+}
+
 func TestCoordinator_Get(t *testing.T) {
 	testPath := testBasePath + "/test-get"
 	testData := []byte{'a'}

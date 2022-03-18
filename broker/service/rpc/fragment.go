@@ -4,6 +4,7 @@ import (
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/common"
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
+	"github.com/paust-team/shapleq/coordinator-helper/helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleqproto "github.com/paust-team/shapleq/proto/pb"
@@ -25,7 +26,7 @@ func NewFragmentRPCService(db *storage.QRocksDB, coordiWrapper *coordinator_help
 }
 
 func (s *fragmentRPCService) createFragment(topicName string) *shapleqproto.CreateFragmentResponse {
-	fragmentFrame := common.NewFrameForFragmentFromValues(0, 0)
+	fragmentFrame := helper.NewFrameForFragmentFromValues(0, 0)
 	fragmentId := common.GenerateFragmentId()
 
 	err := s.coordiWrapper.AddTopicFragment(topicName, fragmentId, fragmentFrame)

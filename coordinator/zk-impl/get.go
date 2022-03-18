@@ -48,7 +48,7 @@ func (o GetOperation) Run() ([]byte, error) {
 		var eventCh <-chan zk.Event
 		path := o.path
 		conn := o.conn
-		_, _, eventCh, err = conn.GetW(path)
+		value, _, eventCh, err = conn.GetW(path)
 		go func() {
 			var reRegisterWatch coordinator.Recursable = false
 			for {

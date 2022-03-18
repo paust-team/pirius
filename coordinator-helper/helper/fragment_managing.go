@@ -1,8 +1,8 @@
 package helper
 
 import (
+	"encoding/binary"
 	"fmt"
-	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/coordinator"
 	"github.com/paust-team/shapleq/coordinator-helper/constants"
 	logger "github.com/paust-team/shapleq/log"
@@ -11,6 +11,45 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+type FrameForFragment struct {
+	data []byte
+}
+
+func NewFrameForFragment(data []byte) *FrameForFragment {
+	return &FrameForFragment{data: data}
+}
+
+func NewFrameForFragmentFromValues(lastOffset uint64, numSubscribers uint64) *FrameForFragment {
+	data := make([]byte, uint64Len*2)
+	binary.BigEndian.PutUint64(data[0:], lastOffset)
+	binary.BigEndian.PutUint64(data[uint64Len:uint64Len*2], numSubscribers)
+	return &FrameForFragment{data: data}
+}
+
+func (f FrameForFragment) Data() []byte {
+	return f.data
+}
+
+func (f FrameForFragment) Size() int {
+	return len(f.data)
+}
+
+func (f FrameForFragment) LastOffset() uint64 {
+	return binary.BigEndian.Uint64(f.Data()[:uint64Len])
+}
+
+func (f *FrameForFragment) SetLastOffset(offset uint64) {
+	binary.BigEndian.PutUint64(f.data[0:uint64Len], offset)
+}
+
+func (f FrameForFragment) NumSubscribers() uint64 {
+	return binary.BigEndian.Uint64(f.Data()[uint64Len : uint64Len*2])
+}
+
+func (f *FrameForFragment) SetNumSubscribers(num uint64) {
+	binary.BigEndian.PutUint64(f.data[uint64Len:uint64Len*2], num)
+}
 
 type fragmentOffset struct {
 	id         uint32
@@ -80,7 +119,7 @@ func (f *FragmentManagingHelper) StartPeriodicFlushLastOffsets(interval uint) {
 								}
 								continue
 							}
-							fragmentFrame := common.NewFrameForFragment(value)
+							fragmentFrame := NewFrameForFragment(value)
 							fragmentFrame.SetLastOffset(offset)
 							if err := f.client.
 								Set(constants.GetTopicFragmentPath(topicName, fragmentId), fragmentFrame.Data()).
@@ -99,11 +138,11 @@ func (f *FragmentManagingHelper) StartPeriodicFlushLastOffsets(interval uint) {
 	}()
 }
 
-func (f *FragmentManagingHelper) GetTopicFragmentFrame(topicName string, fragmentId uint32) (*common.FrameForFragment, error) {
+func (f *FragmentManagingHelper) GetTopicFragmentFrame(topicName string, fragmentId uint32) (*FrameForFragment, error) {
 	if result, err := f.client.
 		Get(constants.GetTopicFragmentPath(topicName, fragmentId)).
 		Run(); err == nil {
-		return common.NewFrameForFragment(result), nil
+		return NewFrameForFragment(result), nil
 	} else if _, ok := err.(*pqerror.ZKNoNodeError); ok {
 		return nil, pqerror.TopicFragmentNotExistsError{Topic: topicName, FragmentId: fragmentId}
 	} else {
@@ -111,7 +150,7 @@ func (f *FragmentManagingHelper) GetTopicFragmentFrame(topicName string, fragmen
 	}
 }
 
-func (f *FragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentFrame *common.FrameForFragment) error {
+func (f *FragmentManagingHelper) AddTopicFragment(topicName string, fragmentId uint32, fragmentFrame *FrameForFragment) error {
 	if err := f.client.
 		Create(constants.GetTopicFragmentPath(topicName, fragmentId), fragmentFrame.Data()).
 		WithLock(constants.GetTopicFragmentLockPath(topicName)).
@@ -182,7 +221,7 @@ func (f *FragmentManagingHelper) IncreaseLastOffset(topicName string, fragmentId
 func (f *FragmentManagingHelper) AddNumSubscriber(topicName string, fragmentId uint32, delta int) (uint64, error) {
 	var numSubscribers uint64
 	if err := f.client.OptimisticUpdate(constants.GetTopicFragmentPath(topicName, fragmentId), func(value []byte) []byte {
-		fragmentFrame := common.NewFrameForFragment(value)
+		fragmentFrame := NewFrameForFragment(value)
 		count := int(fragmentFrame.NumSubscribers()) + delta
 		fragmentFrame.SetNumSubscribers(uint64(count))
 		numSubscribers = uint64(count)

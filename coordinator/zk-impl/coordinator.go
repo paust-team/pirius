@@ -28,6 +28,10 @@ func NewZKCoordinator(addresses []string, timeout uint, logger *logger.QLogger) 
 	return &Coordinator{zkConn: conn}, nil
 }
 
+func (c Coordinator) Exists(path string) coordinator.ExistsOperation {
+	return NewZKExistsOperation(c.zkConn, path)
+}
+
 func (c Coordinator) Create(path string, value []byte) coordinator.CreateOperation {
 	return NewZKCreateOperation(c.zkConn, path, value)
 }
