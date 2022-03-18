@@ -7,47 +7,47 @@ import (
 	"log"
 )
 
-type ChildrenOperation struct {
+type ExistsOperation struct {
 	conn           *zk.Conn
 	path, lockPath string
 	cb             func(event coordinator.WatchEvent) coordinator.Recursable
 }
 
-func NewZKChildrenOperation(conn *zk.Conn, path string) ChildrenOperation {
-	return ChildrenOperation{conn: conn, path: path}
+func NewZKExistsOperation(conn *zk.Conn, path string) ExistsOperation {
+	return ExistsOperation{conn: conn, path: path}
 }
 
-func (o ChildrenOperation) WithLock(lockPath string) coordinator.ChildrenOperation {
+func (o ExistsOperation) WithLock(lockPath string) coordinator.ExistsOperation {
 	o.lockPath = lockPath
 	return o
 }
 
-func (o ChildrenOperation) OnEvent(fn func(coordinator.WatchEvent) coordinator.Recursable) coordinator.ChildrenOperation {
+func (o ExistsOperation) OnEvent(fn func(coordinator.WatchEvent) coordinator.Recursable) coordinator.ExistsOperation {
 	o.cb = fn
 	return o
 }
 
-func (o ChildrenOperation) Run() ([]string, error) {
+func (o ExistsOperation) Run() (bool, error) {
 	if o.lockPath != "" {
 		lock := zk.NewLock(o.conn, o.lockPath, zk.WorldACL(zk.PermAll))
 		err := lock.Lock()
 		if err != nil {
 			err = pqerror.ZKLockFailError{LockPath: o.lockPath, ZKErrStr: err.Error()}
-			return nil, err
+			return false, err
 		}
 		defer lock.Unlock()
 	}
-	var value []string
+	var exists bool
 	var err error
 
 	onEvent := o.cb
 	if onEvent == nil {
-		value, _, err = o.conn.Children(o.path)
+		exists, _, err = o.conn.Exists(o.path)
 	} else {
 		var eventCh <-chan zk.Event
 		path := o.path
 		conn := o.conn
-		value, _, eventCh, err = conn.ChildrenW(path)
+		exists, _, eventCh, err = conn.ExistsW(path)
 		go func() {
 			var reRegisterWatch coordinator.Recursable = false
 			for {
@@ -86,15 +86,15 @@ func (o ChildrenOperation) Run() ([]string, error) {
 					}
 				}
 				if reRegisterWatch {
-					_, _, eventCh, err = conn.ChildrenW(path)
+					_, _, eventCh, err = conn.ExistsW(path)
 				}
 			}
 		}()
 	}
 
 	if err != nil {
-		return nil, pqerror.ZKRequestError{ZKErrStr: err.Error()}
+		return false, pqerror.ZKRequestError{ZKErrStr: err.Error()}
 	}
 
-	return value, nil
+	return exists, nil
 }
