@@ -3,7 +3,7 @@ module github.com/paust-team/shapleq
 go 1.17
 
 require (
-	github.com/golang/protobuf v1.4.0
+	github.com/golang/protobuf v1.5.0
 	github.com/google/uuid v1.3.0
 	github.com/linxGnu/grocksdb v1.6.45
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/text v0.3.3 // indirect
-	google.golang.org/protobuf v1.21.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
