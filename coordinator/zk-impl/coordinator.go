@@ -68,5 +68,7 @@ func (c Coordinator) IsClosed() bool {
 }
 
 func (c Coordinator) Close() {
-	c.zkConn.Close()
+	if !c.IsClosed() {
+		c.zkConn.Close()
+	}
 }
