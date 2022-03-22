@@ -48,7 +48,9 @@ func (q *CoordinatorWrapper) Connect() error {
 }
 
 func (q CoordinatorWrapper) Close() {
-	q.zkCoordinator.Close()
+	if q.zkCoordinator != nil {
+		q.zkCoordinator.Close()
+	}
 }
 
 func (q CoordinatorWrapper) CreatePathsIfNotExist() error {
