@@ -95,6 +95,7 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 	iterateInterval := time.Millisecond * 10
 	timer := time.NewTimer(iterateInterval)
 	defer timer.Stop()
+	defer it.Close()
 
 	for {
 		select {
