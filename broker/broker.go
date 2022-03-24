@@ -144,10 +144,10 @@ func (b *Broker) Start() {
 
 func (b *Broker) Stop() {
 	b.closed = true
-	b.listener.Close()
-	b.db.Close()
-	b.tearDownZookeeper()
 	b.cancelBrokerCtx()
+	b.listener.Close()
+	b.tearDownZookeeper()
+	b.db.Close()
 	b.logger.Info("broker stopped")
 	b.logger.Close()
 }
