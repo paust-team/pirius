@@ -74,7 +74,7 @@ func (t *TopicManagingHelper) WithLogger(logger *logger.QLogger) *TopicManagingH
 	return t
 }
 
-func (t *TopicManagingHelper) AddTopic(topicName string, topicFrame *FrameForTopic) error {
+func (t *TopicManagingHelper) AddTopicFrame(topicName string, topicFrame *FrameForTopic) error {
 	if err := t.client.
 		Create(constants.GetTopicPath(topicName), topicFrame.Data()).
 		WithLock(constants.TopicsLockPath).
@@ -128,7 +128,7 @@ func (t *TopicManagingHelper) GetTopicFrame(topicName string) (*FrameForTopic, e
 	}
 }
 
-func (t *TopicManagingHelper) GetTopics() ([]string, error) {
+func (t *TopicManagingHelper) GetTopicFrames() ([]string, error) {
 	if topics, err := t.client.
 		Children(constants.TopicsPath).
 		Run(); err != nil {
@@ -140,7 +140,7 @@ func (t *TopicManagingHelper) GetTopics() ([]string, error) {
 	}
 }
 
-func (t *TopicManagingHelper) RemoveTopic(topicName string) error {
+func (t *TopicManagingHelper) RemoveTopicFrame(topicName string) error {
 	var fragmentPaths []string
 	if fragments, err := t.GetTopicFragments(topicName); err == nil {
 		if fragments != nil {
@@ -188,7 +188,7 @@ func (t *TopicManagingHelper) GetTopicFragments(topicName string) ([]string, err
 }
 
 func (t *TopicManagingHelper) RemoveTopicPaths() {
-	if topics, err := t.GetTopics(); err == nil {
+	if topics, err := t.GetTopicFrames(); err == nil {
 		if topics != nil {
 			var deletePaths []string
 			for _, topic := range topics {
