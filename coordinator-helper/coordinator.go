@@ -32,7 +32,7 @@ type CoordinatorWrapper struct {
 	*helper.BootstrappingHelper
 	*helper.TopicManagingHelper
 	*helper.FragmentManagingHelper
-	quorums           []string
+	quorum            []string
 	timeout           uint
 	flushInterval     uint
 	logger            *logger.QLogger
@@ -41,9 +41,9 @@ type CoordinatorWrapper struct {
 	offsetFlusher     chan fragmentOffset
 }
 
-func NewCoordinatorWrapper(quorums []string, timeout uint, flushInterval uint, qLogger *logger.QLogger) *CoordinatorWrapper {
+func NewCoordinatorWrapper(quorum []string, timeout uint, flushInterval uint, qLogger *logger.QLogger) *CoordinatorWrapper {
 	return &CoordinatorWrapper{
-		quorums:       quorums,
+		quorum:        quorum,
 		timeout:       timeout,
 		logger:        qLogger,
 		flushInterval: flushInterval,
@@ -51,9 +51,9 @@ func NewCoordinatorWrapper(quorums []string, timeout uint, flushInterval uint, q
 }
 
 func (q *CoordinatorWrapper) Connect() error {
-	zkCoordinator, err := zk_impl.NewZKCoordinator(q.quorums, q.timeout, q.logger)
+	zkCoordinator, err := zk_impl.NewZKCoordinator(q.quorum, q.timeout, q.logger)
 	if err != nil {
-		err = pqerror.ZKConnectionError{ZKAddrs: q.quorums}
+		err = pqerror.ZKConnectionError{ZKAddrs: q.quorum}
 		return err
 	}
 
