@@ -83,12 +83,12 @@ func TestBootstrappingHelper_AddBrokerForTopic(t *testing.T) {
 
 	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
-	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
+	if err := testClient.AddTopicFrame(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
 	topicFragmentValue := NewFrameForFragmentFromValues(expectedLastOffset, expectedNumSubscribers)
-	if err := testClient.AddTopicFragment(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
+	if err := testClient.AddTopicFragmentFrame(expectedTopic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -128,12 +128,12 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 
 	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
-	err := testClient.AddTopic(topic, topicValue)
+	err := testClient.AddTopicFrame(topic, topicValue)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := testClient.GetTopics()
+	topics, err := testClient.GetTopicFrames()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestZKClient_RemoveTopicFragmentBroker(t *testing.T) {
 
 	brokerAddr := host.String() + ":1101"
 	topicFragmentValue := NewFrameForFragmentFromValues(0, 1)
-	if err := testClient.AddTopicFragment(topic, expectedFragmentId, topicFragmentValue); err != nil {
+	if err := testClient.AddTopicFragmentFrame(topic, expectedFragmentId, topicFragmentValue); err != nil {
 		t.Fatal(err)
 	}
 

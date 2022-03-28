@@ -25,7 +25,7 @@ func TestTopicManagingHelper_AddTopic(t *testing.T) {
 	topicValue := NewFrameForTopicFromValues(expectedTopicDescription, expectedNumFragments,
 		expectedReplicationFactor, expectedNumPublishers)
 
-	if err := testClient.AddTopic(expectedTopic, topicValue); err != nil {
+	if err := testClient.AddTopicFrame(expectedTopic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -65,15 +65,15 @@ func TestTopicManagingHelper_RemoveTopic(t *testing.T) {
 
 	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments, expectedReplicationFactor,
 		expectedNumPublishers)
-	if err := testClient.AddTopic(topic, topicValue); err != nil {
+	if err := testClient.AddTopicFrame(topic, topicValue); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := testClient.RemoveTopic(topic); err != nil {
+	if err := testClient.RemoveTopicFrame(topic); err != nil {
 		t.Fatal(err)
 	}
 
-	topics, err := testClient.GetTopics()
+	topics, err := testClient.GetTopicFrames()
 	if err != nil {
 		t.Fatal(err)
 	}
