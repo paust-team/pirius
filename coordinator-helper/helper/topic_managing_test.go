@@ -1,16 +1,22 @@
 package helper
 
 import (
+	"errors"
+	"github.com/paust-team/shapleq/pqerror"
 	"testing"
 )
 
 type topicManagingTestClient struct {
 	*TopicManagingHelper
+	*FragmentManagingHelper
+	*BootstrappingHelper
 }
 
 func newTopicManagingTestClient() *topicManagingTestClient {
 	return &topicManagingTestClient{
-		TopicManagingHelper: NewTopicManagerHelper(client.Coordinator),
+		TopicManagingHelper:    NewTopicManagerHelper(client.Coordinator),
+		FragmentManagingHelper: NewFragmentManagingHelper(client.Coordinator),
+		BootstrappingHelper:    NewBootstrappingHelper(client.Coordinator),
 	}
 }
 
@@ -62,11 +68,24 @@ func TestTopicManagingHelper_RemoveTopic(t *testing.T) {
 	var expectedNumFragments uint32 = 1
 	var expectedReplicationFactor uint32 = 1
 	var expectedNumPublishers uint64 = 1
+	var expectedFragmentId uint32 = 1
 
 	topicValue := NewFrameForTopicFromValues(expectedTopicMeta, expectedNumFragments, expectedReplicationFactor,
 		expectedNumPublishers)
 	if err := testClient.AddTopicFrame(topic, topicValue); err != nil {
 		t.Fatal(err)
+	}
+
+	topicFragmentValue := NewFrameForFragmentFromValues(1, 1)
+	if err := testClient.AddTopicFragmentFrame(topic, expectedFragmentId, topicFragmentValue); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := testClient.AddBrokerForTopic(topic, expectedFragmentId, "127.0.0.1"); err != nil {
+		var e pqerror.ZKTargetAlreadyExistsError
+		if !errors.As(err, &e) {
+			t.Fatal(err)
+		}
 	}
 
 	if err := testClient.RemoveTopicFrame(topic); err != nil {

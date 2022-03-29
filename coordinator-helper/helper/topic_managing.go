@@ -149,7 +149,8 @@ func (t *TopicManagingHelper) RemoveTopicFrame(topicName string) error {
 				if err != nil {
 					continue
 				}
-				fragmentPaths = append(fragmentPaths, constants.GetTopicFragmentPath(topicName, uint32(fragmentId)))
+				fragmentPaths = append(fragmentPaths, constants.GetTopicFragmentBrokerLockPath(topicName, uint32(fragmentId)),
+					constants.GetTopicFragmentBrokerBasePath(topicName, uint32(fragmentId)), constants.GetTopicFragmentPath(topicName, uint32(fragmentId)))
 			}
 		}
 	}
