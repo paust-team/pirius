@@ -198,7 +198,7 @@ func (b *Broker) setUpZookeeper() error {
 
 func (b *Broker) tearDownZookeeper() {
 	_ = b.coordiWrapper.RemoveBroker(b.config.Hostname())
-	topics, _ := b.coordiWrapper.GetTopics()
+	topics, _ := b.coordiWrapper.GetTopicFrames()
 	for _, topic := range topics {
 		fragments, _ := b.coordiWrapper.GetTopicFragments(topic)
 		for _, fragment := range fragments {
