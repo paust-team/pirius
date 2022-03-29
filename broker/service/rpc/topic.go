@@ -29,7 +29,7 @@ func NewTopicRPCService(db *storage.QRocksDB, coordiWrapper *coordinator_helper.
 func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *shapleqproto.CreateTopicResponse {
 
 	topicFrame := helper.NewFrameForTopicFromValues(request.TopicDescription, 0, 0, 0)
-	err := s.coordiWrapper.AddTopic(request.TopicName, topicFrame)
+	err := s.coordiWrapper.AddTopicFrame(request.TopicName, topicFrame)
 	if err != nil {
 		return message.NewCreateTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
@@ -39,7 +39,7 @@ func (s topicRPCService) CreateTopic(request *shapleqproto.CreateTopicRequest) *
 
 func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *shapleqproto.DeleteTopicResponse {
 
-	if err := s.coordiWrapper.RemoveTopic(request.TopicName); err != nil {
+	if err := s.coordiWrapper.RemoveTopicFrame(request.TopicName); err != nil {
 		return message.NewDeleteTopicResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
@@ -48,7 +48,7 @@ func (s topicRPCService) DeleteTopic(request *shapleqproto.DeleteTopicRequest) *
 
 func (s topicRPCService) ListTopic(_ *shapleqproto.ListTopicRequest) *shapleqproto.ListTopicResponse {
 
-	topics, err := s.coordiWrapper.GetTopics()
+	topics, err := s.coordiWrapper.GetTopicFrames()
 	if err != nil {
 		return message.NewListTopicResponseMsg(nil, &pqerror.ZKOperateError{ErrStr: err.Error()})
 	}

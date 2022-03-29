@@ -29,7 +29,7 @@ func (s *fragmentRPCService) createFragment(topicName string) *shapleqproto.Crea
 	fragmentFrame := helper.NewFrameForFragmentFromValues(0, 0)
 	fragmentId := common.GenerateFragmentId()
 
-	err := s.coordiWrapper.AddTopicFragment(topicName, fragmentId, fragmentFrame)
+	err := s.coordiWrapper.AddTopicFragmentFrame(topicName, fragmentId, fragmentFrame)
 	if err != nil {
 		if _, ok := err.(*pqerror.ZKTargetAlreadyExistsError); ok {
 			return s.createFragment(topicName) // recursive create for duplicated fragment id
@@ -55,7 +55,7 @@ func (s *fragmentRPCService) CreateFragment(request *shapleqproto.CreateFragment
 
 func (s *fragmentRPCService) DeleteFragment(request *shapleqproto.DeleteFragmentRequest) *shapleqproto.DeleteFragmentResponse {
 
-	if err := s.coordiWrapper.RemoveTopicFragment(request.TopicName, request.FragmentId); err != nil {
+	if err := s.coordiWrapper.RemoveTopicFragmentFrame(request.TopicName, request.FragmentId); err != nil {
 		return message.NewDeleteTopicFragmentResponseMsg(&pqerror.ZKOperateError{ErrStr: err.Error()})
 	}
 
