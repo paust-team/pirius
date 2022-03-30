@@ -41,6 +41,7 @@ func Main() {
 		NewStartCmd(),
 		NewStatusCmd(),
 		NewStopCmd(),
+		NewTopicCmd(),
 	)
 
 	if err := paustQCmd.Execute(); err != nil {
