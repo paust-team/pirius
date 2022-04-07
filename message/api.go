@@ -152,8 +152,10 @@ func NewConnectRequestMsg(sessionType shapleqproto.SessionType, topics []*common
 		}
 
 		topicsProto = append(topicsProto, &shapleqproto.Topic{
-			TopicName: topic.TopicName(),
-			Offsets:   offsets,
+			TopicName:     topic.TopicName(),
+			Offsets:       offsets,
+			MaxBatchSize:  topic.MaxBatchSize(),
+			FlushInterval: topic.FlushInterval(),
 		})
 	}
 	return &shapleqproto.ConnectRequest{Magic: MAGIC_NUM, SessionType: sessionType, Topics: topicsProto}
@@ -171,7 +173,7 @@ func NewPutResponseMsg(topicName string, fragmentId uint32, offset uint64) *shap
 	return &shapleqproto.PutResponse{Magic: MAGIC_NUM, TopicName: topicName, FragmentId: fragmentId, LastOffset: offset}
 }
 
-func NewFetchRequestMsg(topics []*common.Topic, maxBatchSize uint32, flushInterval uint32) *shapleqproto.FetchRequest {
+func NewFetchRequestMsg(topics []*common.Topic) *shapleqproto.FetchRequest {
 	var topicsProto []*shapleqproto.Topic
 	for _, topic := range topics {
 		var offsets []*shapleqproto.Topic_FragmentOffset
@@ -183,11 +185,13 @@ func NewFetchRequestMsg(topics []*common.Topic, maxBatchSize uint32, flushInterv
 		}
 
 		topicsProto = append(topicsProto, &shapleqproto.Topic{
-			TopicName: topic.TopicName(),
-			Offsets:   offsets,
+			TopicName:     topic.TopicName(),
+			Offsets:       offsets,
+			MaxBatchSize:  topic.MaxBatchSize(),
+			FlushInterval: topic.FlushInterval(),
 		})
 	}
-	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, Topics: topicsProto, MaxBatchSize: maxBatchSize, FlushInterval: flushInterval}
+	return &shapleqproto.FetchRequest{Magic: MAGIC_NUM, Topics: topicsProto}
 }
 
 func NewFetchResponseMsg(data []byte, offset uint64, seqNum uint64, nodeId string, topicName string, fragmentId uint32) *shapleqproto.FetchResponse {

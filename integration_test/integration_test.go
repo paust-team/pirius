@@ -185,9 +185,9 @@ func (c *consumerTestContext) stop() {
 	c.instance.Close()
 }
 
-func (c *consumerTestContext) onSubscribe(maxBatchSize, flushInterval uint32, fn func(*client.SubscribeResult) bool) *consumerTestContext {
+func (c *consumerTestContext) onSubscribe(fn func(*client.SubscribeResult) bool) *consumerTestContext {
 
-	receiveCh, subErrCh, err := c.instance.Subscribe(maxBatchSize, flushInterval)
+	receiveCh, subErrCh, err := c.instance.Subscribe()
 	if err != nil {
 		if c.onErrorFn != nil {
 			c.onErrorFn(err)
@@ -313,7 +313,8 @@ func (s *ShapleQTestContext) SetupTopics() *ShapleQTestContext {
 				}
 				fragmentOffsets[fragment.Id] = 1 // set start offset with 1
 			}
-			topics = append(topics, common.NewTopicFromFragmentOffsets(topic, fragmentOffsets))
+			topics = append(topics, common.NewTopicFromFragmentOffsets(topic, fragmentOffsets,
+				s.params.consumerBatchSize, s.params.consumerFlushInterval))
 		}
 
 		s.params.topics = topics

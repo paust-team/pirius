@@ -53,7 +53,7 @@ func TestPubSub(t *testing.T) {
 		onError(func(err error) {
 			t.Error(err)
 		}).
-		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+		onSubscribe(func(received *client.SubscribeResult) bool {
 			receivedRecords = append(receivedRecords, received.Items[0].Data)
 			fmt.Printf("received fetch result. fragmentId = %d, seq = %d, node id = %s\n", received.Items[0].FragmentId, received.Items[0].SeqNum, received.Items[0].NodeId)
 			if len(receivedRecords) == len(expectedRecords) {
@@ -126,7 +126,7 @@ func TestMultiClient(t *testing.T) {
 					t.Error(err)
 					wg.Done()
 				}).
-				onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+				onSubscribe(func(received *client.SubscribeResult) bool {
 					receivedRecords[index] = append(receivedRecords[index], received.Items[0].Data)
 					if len(receivedRecords[index]) == len(expectedRecords) {
 						fmt.Printf("consumer(%s) is finished\n", nodeId)
@@ -174,7 +174,10 @@ func TestBatchedFetch(t *testing.T) {
 		onError(func(err error) {
 			t.Error(err)
 		}).
-		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+		onSubscribe(func(received *client.SubscribeResult) bool {
+			if len(received.Items) < 2 {
+				t.Error("received result are not batched")
+			}
 			for _, data := range received.Items {
 				receivedRecords = append(receivedRecords, data.Data)
 			}
@@ -219,7 +222,7 @@ func TestMultiFragmentsTotalConsume(t *testing.T) {
 		onError(func(err error) {
 			t.Error(err)
 		}).
-		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+		onSubscribe(func(received *client.SubscribeResult) bool {
 			receivedRecords = append(receivedRecords, received.Items[0].Data)
 			if len(receivedRecords) == len(expectedRecords) {
 				fmt.Println("consumer is finished")
@@ -260,9 +263,9 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 		startOffset := offset
 		nodeId := fmt.Sprintf("consumer%024d", fid)
 		receivedRecordsForFragments := records{}
-		topic := common.NewTopicFromFragmentOffsets(testParams.topics[0].TopicName(), common.FragmentOffsetMap{fid: startOffset})
+		topic := common.NewTopicFromFragmentOffsets(testParams.topics[0].TopicName(), common.FragmentOffsetMap{fid: startOffset}, testParams.consumerBatchSize, testParams.consumerFlushInterval)
 		testContext.AddConsumerContext(nodeId, []*common.Topic{topic}).
-			onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+			onSubscribe(func(received *client.SubscribeResult) bool {
 				receivedRecordsForFragments = append(receivedRecordsForFragments, received.Items[0].Data)
 				return false
 			}).
@@ -331,7 +334,7 @@ func TestMultiTopic(t *testing.T) {
 		onError(func(err error) {
 			t.Error(err)
 		}).
-		onSubscribe(testParams.consumerBatchSize, testParams.consumerFlushInterval, func(received *client.SubscribeResult) bool {
+		onSubscribe(func(received *client.SubscribeResult) bool {
 			for _, data := range received.Items {
 				receivedRecords = append(receivedRecords, data.Data)
 			}
