@@ -3,6 +3,7 @@ module github.com/paust-team/shapleq
 go 1.17
 
 require (
+	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.5.0
 	github.com/google/uuid v1.3.0
 	github.com/linxGnu/grocksdb v1.6.45

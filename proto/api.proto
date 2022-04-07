@@ -200,9 +200,7 @@ message PutResponse {
 
 message FetchRequest {
     int32 magic = 1;
-    uint32 max_batch_size = 2;
-    uint32 flush_interval = 3;
-    repeated Topic topics = 4;
+    repeated Topic topics = 2;
 }
 
 message FetchResponse {

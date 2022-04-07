@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,13 +18,11 @@ var (
 	DefaultBrokerPort         uint = 1101
 )
 
-type BackPressure int
+const MaxFragmentCount = 1 << 8
 
-const (
-	AtMostOnce BackPressure = iota
-	AtLeastOnce
-	ExactlyONce
-)
+func GenerateFragmentId() uint32 {
+	return uint32(rand.Intn(MaxFragmentCount)) + 1
+}
 
 func GenerateNodeId() string {
 	id, _ := uuid.NewUUID()
