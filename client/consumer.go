@@ -55,15 +55,14 @@ func (c *Consumer) Connect() error {
 	}
 	connectionTargets := make(map[string]*connectionTarget)
 
-	for _, topicFragments := range c.topics {
-		topic := topicFragments.TopicName()
-		if len(topicFragments.FragmentIds()) == 0 {
-			return pqerror.TopicFragmentNotExistsError{Topic: topic}
+	for _, topic := range c.topics {
+		if len(topic.FragmentIds()) == 0 {
+			return pqerror.TopicFragmentNotExistsError{Topic: topic.TopicName()}
 		}
 
-		for fragmentId, startOffset := range topicFragments.FragmentOffsets() {
+		for fragmentId, startOffset := range topic.FragmentOffsets() {
 			// get brokers from fragment
-			addresses, err := c.coordiWrapper.GetBrokersOfTopic(topic, fragmentId)
+			addresses, err := c.coordiWrapper.GetBrokersOfTopic(topic.TopicName(), fragmentId)
 			if err != nil {
 				return pqerror.ZKOperateError{ErrStr: err.Error()}
 			}
@@ -77,12 +76,16 @@ func (c *Consumer) Connect() error {
 			// update connection target map
 			for _, address := range addresses {
 				if connectionTargets[address] == nil { // create single connection for each address
-					topicFragment := common.NewTopicFromFragmentOffsets(topic, common.FragmentOffsetMap{fragmentId: startOffset})
+					topicFragment := common.NewTopicFromFragmentOffsets(
+						topic.TopicName(), common.FragmentOffsetMap{fragmentId: startOffset},
+						topic.MaxBatchSize(), topic.FlushInterval())
 					connectionTargets[address] = &connectionTarget{address: address, topics: []*common.Topic{topicFragment}}
-				} else if topicFragments := connectionTargets[address].findTopicFragments(topic); topicFragments != nil { // append related fragment id for topic in connection
+				} else if topicFragments := connectionTargets[address].findTopicFragments(topic.TopicName()); topicFragments != nil { // append related fragment id for topic in connection
 					topicFragments.AddFragmentOffset(fragmentId, startOffset)
 				} else { // if topic in connection-target doesn't exist, append new topicFragments to topics
-					topicFragment := common.NewTopicFromFragmentOffsets(topic, common.FragmentOffsetMap{fragmentId: startOffset})
+					topicFragment := common.NewTopicFromFragmentOffsets(
+						topic.TopicName(), common.FragmentOffsetMap{fragmentId: startOffset},
+						topic.MaxBatchSize(), topic.FlushInterval())
 					connectionTargets[address].topics = append(connectionTargets[address].topics, topicFragment)
 				}
 			}
@@ -97,7 +100,7 @@ func (c *Consumer) Connect() error {
 	return c.connect(shapleqproto.SessionType_SUBSCRIBER, targets)
 }
 
-func (c *Consumer) Subscribe(maxBatchSize uint32, flushInterval uint32) (<-chan *SubscribeResult, <-chan error, error) {
+func (c *Consumer) Subscribe() (<-chan *SubscribeResult, <-chan error, error) {
 
 	recvCh, recvErrCh, err := c.continuousReceive(c.ctx)
 	if err != nil {
@@ -134,7 +137,7 @@ func (c *Consumer) Subscribe(maxBatchSize uint32, flushInterval uint32) (<-chan 
 
 	// send fetch request to every streams
 	for _, conn := range c.connections {
-		reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(conn.topics, maxBatchSize, flushInterval))
+		reqMsg, err := message.NewQMessageFromMsg(message.STREAM, message.NewFetchRequestMsg(conn.topics))
 		if err != nil {
 			return nil, nil, err
 		}

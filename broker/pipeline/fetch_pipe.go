@@ -61,8 +61,6 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 			})
 
 			req := in.(*shapleq_proto.FetchRequest)
-			f.session.SetMaxBatchSize(req.GetMaxBatchSize())
-			f.session.SetFlushInterval(req.GetFlushInterval())
 
 			for _, topic := range req.Topics {
 				for _, offset := range topic.Offsets {
