@@ -35,7 +35,7 @@ func NewPublishCmd() *cobra.Command {
 			defer producer.Close()
 			nodeId := common.GenerateNodeId()
 
-			if cmd.PersistentFlags().Changed("file-path") {
+			if cmd.Flags().Changed("file-path") {
 				f, err := os.Open(filePath)
 				if err != nil {
 					log.Fatal(err)
