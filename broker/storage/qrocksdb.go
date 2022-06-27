@@ -34,12 +34,14 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	columnFamilyNames := []string{"default", "topic", "record"}
 
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
-	bbto.SetBlockCache(grocksdb.NewLRUCache(1 << 30))
+	blockCache := grocksdb.NewLRUCache(1 << 30)
+	bbto.SetBlockCache(blockCache)
 	defaultOpts := grocksdb.NewDefaultOptions()
 	defaultOpts.SetBlockBasedTableFactory(bbto)
 	defaultOpts.SetCreateIfMissing(true)
 	defaultOpts.SetCreateIfMissingColumnFamilies(true)
 	defaultOpts.SetCompression(grocksdb.SnappyCompression)
+	defaultOpts.SetMaxOpenFiles(16)
 	opts := grocksdb.NewDefaultOptions()
 	db, columnFamilyHandles, err := grocksdb.OpenDbColumnFamilies(defaultOpts, dbPath, columnFamilyNames, []*grocksdb.Options{opts, opts, opts})
 	if err != nil {

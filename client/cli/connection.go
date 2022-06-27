@@ -23,7 +23,7 @@ func NewHeartbeatCmd() *cobra.Command {
 		Short: "Send heartbeat to broker",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminConfig.Load(configPath)
+			adminConfig.Load(adminConfigPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -41,17 +41,18 @@ func NewHeartbeatCmd() *cobra.Command {
 		},
 	}
 
-	heartbeatCmd.Flags().StringVarP(&echoMsg, "echo-msg", "m", "echotest", "message to ping-pong")
-	heartbeatCmd.Flags().Uint64VarP(&brokerId, "broker-id", "u", 0, "broker id to send ping")
-	heartbeatCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
-	heartbeatCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
-	heartbeatCmd.Flags().UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
-	heartbeatCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
-	heartbeatCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	flags := heartbeatCmd.Flags()
+	flags.StringVarP(&echoMsg, "echo-msg", "m", "echotest", "message to ping-pong")
+	flags.Uint64VarP(&brokerId, "broker-id", "u", 0, "broker id to send ping")
+	flags.StringVarP(&adminConfigPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
+	flags.StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
+	flags.UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
+	flags.IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
+	flags.Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 
-	adminConfig.BindPFlags(heartbeatCmd.Flags())
-	adminConfig.BindPFlag("bootstrap.servers", heartbeatCmd.Flags().Lookup("bootstrap-servers"))
-	adminConfig.BindPFlag("bootstrap.timeout", heartbeatCmd.Flags().Lookup("bootstrap-timeout"))
+	adminConfig.BindPFlags(flags)
+	adminConfig.BindPFlag("bootstrap.servers", flags.Lookup("bootstrap-servers"))
+	adminConfig.BindPFlag("bootstrap.timeout", flags.Lookup("bootstrap-timeout"))
 
 	return heartbeatCmd
 }

@@ -72,7 +72,9 @@ func (a *Admin) Close() {
 	a.Lock()
 	a.connected = false
 	a.Unlock()
-	a.socket.Close()
+	if a.socket != nil {
+		a.socket.Close()
+	}
 }
 
 func (a *Admin) callAndUnpackTo(requestMsg proto.Message, responseMsg proto.Message) error {
