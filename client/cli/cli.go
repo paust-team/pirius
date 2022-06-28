@@ -6,7 +6,11 @@ import (
 	"os"
 )
 
-var configPath string
+var (
+	adminConfigPath    string
+	consumerConfigPath string
+	producerConfigPath string
+)
 
 var (
 	topicName        string

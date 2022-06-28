@@ -16,15 +16,15 @@ func NewTopicFragmentCmd() *cobra.Command {
 		Short: "topic fragment commands",
 	}
 
-	topicFragmentCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
-	topicFragmentCmd.Flags().StringVar(&bootstrapServers, "broker-address", "", "broker address to connect (ex. localhost:1101)")
-	topicFragmentCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
-	topicFragmentCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	topicFragmentCmd.PersistentFlags().StringVarP(&adminConfigPath, "config-path", "i", common.DefaultAdminConfigPath, "admin client config path")
+	topicFragmentCmd.PersistentFlags().StringVar(&bootstrapServers, "broker-address", "", "broker address to connect (ex. localhost:1101)")
+	topicFragmentCmd.PersistentFlags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
+	topicFragmentCmd.PersistentFlags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 
 	adminConfig := config.NewAdminConfig()
 
-	adminConfig.BindPFlags(topicFragmentCmd.Flags())
-	adminConfig.BindPFlag("bootstrap.servers", topicFragmentCmd.Flags().Lookup("broker-address"))
+	adminConfig.BindPFlags(topicFragmentCmd.PersistentFlags())
+	adminConfig.BindPFlag("bootstrap.servers", topicFragmentCmd.PersistentFlags().Lookup("broker-address"))
 
 	topicFragmentCmd.AddCommand(
 		NewCreateTopicFragmentCmd(adminConfig),
@@ -42,7 +42,7 @@ func NewCreateTopicFragmentCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Create topic fragment",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminConfig.Load(configPath)
+			adminConfig.Load(adminConfigPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -73,7 +73,7 @@ func NewDeleteTopicFragmentCmd(adminConfig *config.AdminConfig) *cobra.Command {
 		Short: "Delete topic fragment",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminConfig.Load(configPath)
+			adminConfig.Load(adminConfigPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 
@@ -107,7 +107,7 @@ func NewDescribeTopicFragmentCmd(adminConfig *config.AdminConfig) *cobra.Command
 		Short: "Describe topic fragment",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			adminConfig.Load(configPath)
+			adminConfig.Load(adminConfigPath)
 			adminClient := client.NewAdmin(adminConfig)
 			defer adminClient.Close()
 

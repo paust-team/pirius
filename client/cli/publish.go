@@ -25,7 +25,7 @@ func NewPublishCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			sigCh := make(chan os.Signal, 1)
 
-			producerConfig.Load(configPath)
+			producerConfig.Load(producerConfigPath)
 			producer := client.NewProducer(producerConfig, []string{topicName})
 
 			if err := producer.Connect(); err != nil {
@@ -79,21 +79,22 @@ func NewPublishCmd() *cobra.Command {
 		},
 	}
 
-	publishCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to publish")
-	publishCmd.Flags().Uint32VarP(&fragmentId, "fragment", "r", 0, "fragment id to publish")
-	publishCmd.Flags().StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
-	publishCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultProducerConfigPath, "producer client config path")
-	publishCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
-	publishCmd.Flags().UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
-	publishCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
-	publishCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	flags := publishCmd.Flags()
+	flags.StringVarP(&topicName, "topic", "n", "", "topic name to publish")
+	flags.Uint32VarP(&fragmentId, "fragment", "r", 0, "fragment id to publish")
+	flags.StringVarP(&filePath, "file-path", "f", "", "path of file to publish")
+	flags.StringVarP(&producerConfigPath, "config-path", "i", common.DefaultProducerConfigPath, "producer client config path")
+	flags.StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
+	flags.UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
+	flags.IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
+	flags.Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 
 	publishCmd.MarkFlagRequired("topic")
 	publishCmd.MarkFlagRequired("fragment")
 
-	producerConfig.BindPFlags(publishCmd.Flags())
-	producerConfig.BindPFlag("bootstrap.servers", publishCmd.Flags().Lookup("bootstrap-servers"))
-	producerConfig.BindPFlag("bootstrap.timeout", publishCmd.Flags().Lookup("bootstrap-timeout"))
+	producerConfig.BindPFlags(flags)
+	producerConfig.BindPFlag("bootstrap.servers", flags.Lookup("bootstrap-servers"))
+	producerConfig.BindPFlag("bootstrap.timeout", flags.Lookup("bootstrap-timeout"))
 
 	return publishCmd
 }

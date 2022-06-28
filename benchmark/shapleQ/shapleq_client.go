@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/client/config"
+	"github.com/paust-team/shapleq/common"
 	logger "github.com/paust-team/shapleq/log"
 	"log"
 	"os"
@@ -64,7 +65,9 @@ func (s *BenchShapleQClient) DeleteTopic(topic string) {
 
 func (s *BenchShapleQClient) RunProducer(id string, topic string, filePath string, numData int) (startTimestamp, endTimestamp int64) {
 
-	producer := client.NewProducer(&config.ProducerConfig{s.config}, topic)
+	producer := client.NewProducer(&config.ProducerConfig{s.config}, []string{
+		topic,
+	})
 
 	if err := producer.Connect(); err != nil {
 		log.Fatalln(err)
@@ -131,14 +134,16 @@ func (s *BenchShapleQClient) RunProducer(id string, topic string, filePath strin
 
 func (s *BenchShapleQClient) RunConsumer(id string, topic string, numData int) (startTimestamp, endTimestamp int64) {
 
-	consumer := client.NewConsumer(&config.ConsumerConfig{ClientConfigBase: s.config}, topic)
+	consumer := client.NewConsumer(&config.ConsumerConfig{ClientConfigBase: s.config}, []*common.Topic{
+		common.NewTopic(topic, []uint32{0}, 1, 1),
+	})
 
 	if err := consumer.Connect(); err != nil {
 		log.Fatalln(err)
 	}
 	defer consumer.Close()
 
-	subscribeCh, errCh, err := consumer.Subscribe(0, 1, 0)
+	subscribeCh, errCh, err := consumer.Subscribe()
 	if err != nil {
 		log.Fatalln(err)
 	}

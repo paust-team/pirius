@@ -28,8 +28,8 @@ func NewSubscribeCmd() *cobra.Command {
 			defer close(sigCh)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			consumerConfig.Load(configPath)
-			topicFragments := common.NewTopicFromFragmentOffsets(topicName, common.FragmentOffsetMap{fragmentId: startOffset})
+			consumerConfig.Load(consumerConfigPath)
+			topicFragments := common.NewTopicFromFragmentOffsets(topicName, common.FragmentOffsetMap{fragmentId: startOffset}, 1, 0)
 			consumer := client.NewConsumer(consumerConfig, []*common.Topic{topicFragments})
 			if err := consumer.Connect(); err != nil {
 				log.Fatal(err)
@@ -38,7 +38,7 @@ func NewSubscribeCmd() *cobra.Command {
 			defer consumer.Close()
 			defer fmt.Println("done subscribe")
 
-			subscribeCh, errCh, err := consumer.Subscribe(1, 0)
+			subscribeCh, errCh, err := consumer.Subscribe()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -57,19 +57,21 @@ func NewSubscribeCmd() *cobra.Command {
 		},
 	}
 
-	subscribeCmd.Flags().StringVarP(&topicName, "topic", "n", "", "topic name to subscribe from")
-	subscribeCmd.Flags().Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
-	subscribeCmd.Flags().StringVarP(&configPath, "config-path", "i", common.DefaultConsumerConfigPath, "consumer client config path")
-	subscribeCmd.Flags().StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
-	subscribeCmd.Flags().UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
-	subscribeCmd.Flags().IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
-	subscribeCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	flags := subscribeCmd.Flags()
+	flags.StringVarP(&topicName, "topic", "n", "", "topic name to subscribe from")
+	flags.Uint64VarP(&startOffset, "offset", "o", 0, "start offset")
+	flags.StringVarP(&consumerConfigPath, "config-path", "i", common.DefaultConsumerConfigPath, "consumer client config path")
+	flags.StringVar(&bootstrapServers, "bootstrap-servers", "", "bootstrap server addresses to connect (ex. localhost:2181)")
+	flags.UintVar(&bootstrapTimeout, "bootstrap-timeout", 0, "timeout for bootstrapping")
+	flags.IntVar(&timeout, "broker-timeout", 0, "connection timeout (milliseconds)")
+	flags.Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
+	flags.Uint32VarP(&fragmentId, "fragment", "f", 0, "fragment id")
 
 	subscribeCmd.MarkFlagRequired("topic")
 
-	consumerConfig.BindPFlags(subscribeCmd.Flags())
-	consumerConfig.BindPFlag("bootstrap.servers", subscribeCmd.Flags().Lookup("bootstrap-servers"))
-	consumerConfig.BindPFlag("bootstrap.timeout", subscribeCmd.Flags().Lookup("bootstrap-timeout"))
+	consumerConfig.BindPFlags(flags)
+	consumerConfig.BindPFlag("bootstrap.servers", flags.Lookup("bootstrap-servers"))
+	consumerConfig.BindPFlag("bootstrap.timeout", flags.Lookup("bootstrap-timeout"))
 
 	return subscribeCmd
 }
