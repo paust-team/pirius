@@ -8,6 +8,7 @@ import (
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -83,18 +84,18 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 
 func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOffset uint64, outStream chan interface{}, inStreamClosed chan struct{}) {
 
-	first := true
-	prevKey := storage.NewRecordKeyFromData(topicName, fragmentId, startOffset)
 	it := f.db.Scan(storage.RecordCF)
 
 	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
 	copy(prefix, topicName+"@")
 	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
-	iterateInterval := time.Millisecond * 10
-	timer := time.NewTimer(iterateInterval)
+	waitInterval := time.Millisecond * 10
+	timer := time.NewTimer(waitInterval)
 	defer timer.Stop()
 	defer it.Close()
 
+	currentOffset := startOffset
+	prevKey := storage.NewRecordKeyFromData(topicName, fragmentId, currentOffset)
 	for {
 		select {
 		case <-inStreamClosed:
@@ -104,37 +105,25 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 				return
 			}
 
-			it.Seek(prevKey.Data())
-			if !first && it.Valid() {
-				it.Next()
-			}
-			for ; it.Valid() && bytes.HasPrefix(it.Key().Data(), prefix); it.Next() {
-
+			for it.Seek(prevKey.Data()); it.Valid() && bytes.HasPrefix(it.Key().Data(), prefix); it.Next() {
 				key := storage.NewRecordKey(it.Key())
-				keyOffset := key.Offset()
-				if first {
-					if keyOffset != startOffset {
-						break
-					}
-				} else {
-					if keyOffset != prevKey.Offset() && keyOffset-prevKey.Offset() != 1 {
-						break
-					}
+				if key.Offset() != currentOffset {
+					break
 				}
 
 				value := storage.NewRecordValue(it.Value())
-				value.SeqNum()
-				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), keyOffset, value.SeqNum(), value.NodeId(), topicName, fragmentId)
+				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), currentOffset, value.SeqNum(), value.NodeId(), topicName, fragmentId)
 
 				select {
 				case <-inStreamClosed:
 					return
 				case outStream <- fetchRes:
-					prevKey.SetData(key.Data())
-					first = false
+					currentOffset++
+					prevKey.SetOffset(currentOffset)
 				}
+				runtime.Gosched()
 			}
 		}
-		timer.Reset(iterateInterval)
+		timer.Reset(waitInterval)
 	}
 }
