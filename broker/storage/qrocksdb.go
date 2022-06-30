@@ -145,7 +145,7 @@ func (k RecordKey) Offset() uint64 {
 }
 
 func (k *RecordKey) SetOffset(offset uint64) {
-	binary.BigEndian.PutUint64(k.data[k.Size()-uint64Len:], offset)
+	binary.BigEndian.PutUint64(k.Data()[k.Size()-uint64Len:], offset)
 }
 
 type RecordValue struct {
