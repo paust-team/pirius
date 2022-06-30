@@ -1,6 +1,7 @@
 package coordinator_helper
 
 import (
+	"context"
 	"fmt"
 	"github.com/paust-team/shapleq/coordinator-helper/constants"
 	"github.com/paust-team/shapleq/coordinator-helper/helper"
@@ -39,14 +40,21 @@ type CoordinatorWrapper struct {
 	zkCoordinator     *zk_impl.Coordinator
 	fragmentOffsetMap sync.Map
 	offsetFlusher     chan fragmentOffset
+	ctx               context.Context
+	cancelFunc        context.CancelFunc
+	wg                sync.WaitGroup
 }
 
 func NewCoordinatorWrapper(quorum []string, timeout uint, flushInterval uint, qLogger *logger.QLogger) *CoordinatorWrapper {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &CoordinatorWrapper{
 		quorum:        quorum,
 		timeout:       timeout,
 		logger:        qLogger,
 		flushInterval: flushInterval,
+		wg:            sync.WaitGroup{},
+		ctx:           ctx,
+		cancelFunc:    cancel,
 	}
 }
 
@@ -70,6 +78,8 @@ func (q *CoordinatorWrapper) Connect() error {
 }
 
 func (q *CoordinatorWrapper) Close() {
+	q.cancelFunc()
+	q.wg.Wait()
 	q.zkCoordinator.Close()
 }
 
@@ -87,11 +97,13 @@ func (q *CoordinatorWrapper) CreatePathsIfNotExist() error {
 }
 
 func (q *CoordinatorWrapper) startPeriodicFlushLastOffsets(interval uint) {
+	q.wg.Add(1)
 	go func() {
 		q.offsetFlusher = make(chan fragmentOffset, 100)
 		defer func() {
 			close(q.offsetFlusher)
 			q.offsetFlusher = nil
+			q.wg.Done()
 		}()
 
 		offsetMap := make(map[string]map[uint32]uint64)
@@ -107,9 +119,6 @@ func (q *CoordinatorWrapper) startPeriodicFlushLastOffsets(interval uint) {
 				}
 				offsetMap[fragment.topicName][fragment.id] = fragment.LastOffset()
 			case <-timer.C:
-				if q.zkCoordinator.IsClosed() {
-					return
-				}
 				for topicName, fragments := range offsetMap {
 					q.zkCoordinator.Lock(constants.GetTopicFragmentLockPath(topicName), func() {
 						for fragmentId, offset := range fragments {
@@ -132,6 +141,12 @@ func (q *CoordinatorWrapper) startPeriodicFlushLastOffsets(interval uint) {
 					}).Run()
 				}
 				offsetMap = make(map[string]map[uint32]uint64)
+
+				select {
+				case <-q.ctx.Done():
+					return
+				default:
+				}
 			}
 			timer.Reset(flushInterval)
 		}
