@@ -9,7 +9,7 @@ import (
 	"github.com/paust-team/shapleq/broker/storage"
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"runtime"
 	"sync"
 )

@@ -3,7 +3,7 @@ package rpc
 import (
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"time"
 )
 

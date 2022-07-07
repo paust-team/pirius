@@ -1,8 +1,8 @@
-FROM golang:1.17-alpine AS builder
+FROM golang:1.18-alpine3.16 AS builder
 
 RUN apk update && apk add build-base git \
-gcc file cmake autoconf automake libtool curl make linux-headers zlib-dev \
-g++ unzip dep snappy-dev snappy
+  gcc file cmake autoconf automake libtool curl make linux-headers zlib-dev \
+  g++ unzip dep snappy-dev snappy bash coreutils
 
 ENV USER=shapleuser
 ENV UID=11010
@@ -23,21 +23,28 @@ WORKDIR ${SHPALEQ_DIR}
 RUN uname -a
 
 COPY . .
-RUN make build
+RUN go mod download &&\
+    git submodule update --init --recursive &&\
+    bash `go env GOPATH`/pkg/mod/github.com/'linx!gnu'/grocksdb@v1.7.3/build.sh /shapleq/_thirdparty/rocksdb/install &&\
+    make clean install DEPLOY_TARGET=release &&\
+    cp -rf ~/.shapleq /shapleq/.shapleq
 
-FROM alpine:latest
-RUN apk add --no-cache libstdc++ snappy
+FROM alpine:3.16
+RUN apk add --no-cache libstdc++ bash &&\
+    mkdir /shapleq
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
-COPY --from=builder /go/src/github.com/paust-team/shapleq/_thirdparty/rocksdb/build/librocksdb.* /usr/local/lib/
-COPY --from=builder /go/src/github.com/paust-team/shapleq/broker/cmd/shapleq/shapleq /go/bin/shapleq
-COPY --from=builder /go/src/github.com/paust-team/shapleq/start-shapleq.sh /go/bin/start-shapleq.sh
+COPY --from=builder /etc/group /etc/group
+COPY --from=builder /usr/local/bin/shapleq /shapleq/bin/shapleq
+COPY --from=builder /usr/local/bin/shapleq-client /shapleq/bin/shapleq-client
+COPY --from=builder /shapleq/start-shapleq.sh /shapleq/start-shapleq.sh
+COPY --from=builder /shapleq/.shapleq/config /shapleq/config
 
-WORKDIR /go/bin
-RUN chown -R shapleuser /go
+WORKDIR /shapleq
+RUN chown -R shapleuser /shapleq
 USER shapleuser:shapleuser
 EXPOSE 1101
 ENV ZK_ADDR=127.0.0.1
 ENV ZK_PORT=2181
-ENTRYPOINT ["sh", "-c", "/go/bin/start-shapleq.sh $ZK_ADDR $ZK_PORT /go/src/github.com/paust-team/shapleq/config.yml"]
+ENTRYPOINT ["bash", "-c", "./start-shapleq.sh $ZK_ADDR $ZK_PORT /shapleq/config/broker/config.yml"]

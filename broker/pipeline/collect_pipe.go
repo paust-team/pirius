@@ -4,7 +4,7 @@ import (
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"sync"
 	"time"
 )

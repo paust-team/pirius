@@ -1,6 +1,3 @@
 [submodule "_thirdparty/rocksdb"]
 	path = _thirdparty/rocksdb
 	url = https://github.com/facebook/rocksdb.git
-[submodule "_thirdparty/protobuf"]
-	path = _thirdparty/protobuf
-	url = https://github.com/protocolbuffers/protobuf.git

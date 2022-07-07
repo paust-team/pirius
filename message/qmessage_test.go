@@ -2,7 +2,7 @@ package message
 
 import (
 	"bytes"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 	"testing"
 )
 
@@ -12,7 +12,7 @@ func TestQMessage(t *testing.T) {
 	testNodeId := "test"
 	var testSeqNum uint64 = 0
 
-	msg, err := NewQMessageFromMsg(STREAM, NewPutRequestMsg(testByte, testSeqNum, testNodeId))
+	msg, err := NewQMessageFromMsg(STREAM, NewPutRequestMsg(testByte, testSeqNum, testNodeId, "test", 0))
 	if err != nil {
 		t.Error(err)
 	}
