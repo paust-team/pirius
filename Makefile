@@ -100,7 +100,7 @@ ifdef linux-os-host
 endif
 ifdef mac-os-host
 	CGO_ENABLED=1 CGO_CFLAGS="-I$(ROCKSDB_INCLUDE_DIR)" \
-	CGO_LDFLAGS="-L$(ROCKSDB_BUILD_DIR) -lrocksdb" \
+	CGO_LDFLAGS="-L$(ROCKSDB_LIB_DIR)" \
 	go build -tags $(DEPLOY_TARGET) -o $(BROKER_BIN) ./$(BROKER_BIN_DIR)/main.go
 endif
 	touch $(BROKER_BIN)
@@ -138,6 +138,7 @@ clean:
 
 clean-rocksdb:
 	rm -rf $(ROCKSDB_BUILD_DIR)
+	rm -rf $(ROCKSDB_INSTALL_DIR)
 
 clean-proto:
 	rm -rf $(PROTO_TARGETS)
