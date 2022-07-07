@@ -10,7 +10,7 @@ import (
 	logger "github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 type Consumer struct {

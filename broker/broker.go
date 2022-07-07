@@ -11,7 +11,7 @@ import (
 	"github.com/paust-team/shapleq/log"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"golang.org/x/sys/unix"
 	"net"
 	"os"

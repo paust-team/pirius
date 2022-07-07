@@ -7,7 +7,7 @@ import (
 	"github.com/paust-team/shapleq/coordinator-helper/helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleqproto "github.com/paust-team/shapleq/proto/pb"
+	shapleqproto "github.com/paust-team/shapleq/proto"
 )
 
 type FragmentRPCService interface {

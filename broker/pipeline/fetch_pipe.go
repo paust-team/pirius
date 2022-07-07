@@ -7,7 +7,7 @@ import (
 	"github.com/paust-team/shapleq/broker/storage"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"runtime"
 	"sync"
 	"time"

@@ -6,7 +6,7 @@ import (
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
-	shapleq_proto "github.com/paust-team/shapleq/proto/pb"
+	shapleq_proto "github.com/paust-team/shapleq/proto"
 	"sync"
 )
 
