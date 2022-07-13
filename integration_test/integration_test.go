@@ -135,10 +135,11 @@ func (p *producerTestContext) asyncPublish(records [][]byte) *producerTestContex
 	go func(recordsToPublish [][]byte) {
 		for index, record := range recordsToPublish {
 			p.publishCh <- &client.PublishData{
-				Topic:  p.topic,
-				Data:   record,
-				NodeId: p.nodeId,
-				SeqNum: uint64(index),
+				Topic:           p.topic,
+				Data:            record,
+				NodeId:          p.nodeId,
+				SeqNum:          uint64(index),
+				RetentionPeriod: common.MinRetentionPeriod,
 			}
 		}
 	}(records)

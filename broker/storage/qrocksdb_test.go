@@ -30,13 +30,35 @@ func TestRecordKey(t *testing.T) {
 	}
 }
 
+func TestRetentionPeriodKey(t *testing.T) {
+
+	expectedTopic := "test_topic"
+	var expectedOffset uint64 = 1
+	var expectedFragmentId uint32 = 2
+	expectedExpirationDate := GetNowTimestamp() + 10
+
+	key := NewRetentionPeriodKeyFromData(NewRecordKeyFromData(expectedTopic, expectedFragmentId, expectedOffset), expectedExpirationDate)
+
+	if key.ExpirationDate() != expectedExpirationDate {
+		t.Error("ExpirationDate not matched")
+	}
+	if key.RecordKey().Topic() != expectedTopic {
+		t.Error("Topic not matched")
+	}
+	if key.RecordKey().Offset() != expectedOffset {
+		t.Error("Offset not matched")
+	}
+	if key.RecordKey().FragmentId() != expectedFragmentId {
+		t.Error("FragmentId not matched")
+	}
+}
+
 func TestQRocksDBRecord(t *testing.T) {
 
 	db, err := NewQRocksDB("qstore", ".")
 
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	defer db.Destroy()
@@ -47,16 +69,15 @@ func TestQRocksDBRecord(t *testing.T) {
 	var fragmentId uint32 = 1
 	nodeId := "f47ac10b58cc037285670e02b2c3d479"
 	var seqNum uint64 = 10
-	if db.PutRecord(topic, fragmentId, 0, nodeId, seqNum, expected) != nil {
-		t.Error(err)
-		return
+	expirationDate := GetNowTimestamp() + 10
+	if db.PutRecord(topic, fragmentId, 0, nodeId, seqNum, expected, expirationDate) != nil {
+		t.Fatal(err)
 	}
 
 	record, err := db.GetRecord(topic, fragmentId, 0)
 
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	value := NewRecordValue(record)
@@ -75,8 +96,7 @@ func TestIterateRecord(t *testing.T) {
 	db, err := NewQRocksDB("qstore", ".")
 
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	defer db.Destroy()
@@ -85,13 +105,12 @@ func TestIterateRecord(t *testing.T) {
 	topic := "test_topic2"
 	nodeId := "f47ac10b58cc037285670e02b2c3d479"
 	var fragmentId uint32 = 1
-
+	expirationDate := GetNowTimestamp() + 10
 	prevNumOffset := 100000
 	numOffset := 1000
 	for i := 0; i < prevNumOffset; i++ {
-		if db.PutRecord(topic, fragmentId, uint64(i), nodeId, 0, []byte(fmt.Sprintf("data%d", i))) != nil {
-			t.Error(err)
-			return
+		if db.PutRecord(topic, fragmentId, uint64(i), nodeId, 0, []byte(fmt.Sprintf("data%d", i)), expirationDate) != nil {
+			t.Fatal(err)
 		}
 	}
 
@@ -101,7 +120,7 @@ func TestIterateRecord(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := prevNumOffset; i < prevNumOffset+numOffset; i++ {
-			if db.PutRecord(topic, fragmentId, uint64(i), nodeId, 0, []byte(fmt.Sprintf("data%d", i))) != nil {
+			if db.PutRecord(topic, fragmentId, uint64(i), nodeId, 0, []byte(fmt.Sprintf("data%d", i)), expirationDate) != nil {
 				t.Error(err)
 				return
 			}
@@ -145,5 +164,60 @@ func TestIterateRecord(t *testing.T) {
 
 	if len(receivedData) != numOffset {
 		t.Errorf("received record length = %d, actual = %d", len(receivedData), numOffset)
+	}
+}
+
+func TestDeleteExpiredRecords(t *testing.T) {
+	db, err := NewQRocksDB("qstore", ".")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Destroy()
+	defer db.Close()
+
+	expected := []byte{1, 2, 3, 4, 5}
+	topic := "test_topic"
+	var fragmentId uint32 = 1
+	nodeId := "f47ac10b58cc037285670e02b2c3d479"
+	var seqNum uint64 = 10
+	shortExpirationDate := GetNowTimestamp() + 1
+	longExpirationDate := GetNowTimestamp() + 10
+	var offsetShouldBeRemained uint64 = 0
+	var offsetShouldBeDeleted uint64 = 1
+
+	if db.PutRecord(topic, fragmentId, offsetShouldBeRemained, nodeId, seqNum, expected, longExpirationDate) != nil {
+		t.Fatal(err)
+	}
+
+	if db.PutRecord(topic, fragmentId, offsetShouldBeDeleted, nodeId, seqNum, expected, shortExpirationDate) != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	deletedCount, err := db.DeleteExpiredRecords()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if deletedCount != 1 {
+		t.Errorf("Deleted count should be %d but got %d", 1, deletedCount)
+	}
+
+	record, err := db.GetRecord(topic, fragmentId, offsetShouldBeRemained)
+	if err != nil {
+		t.Error(err)
+	}
+	if record.Size() == 0 {
+		t.Errorf("record(%d) should be exists", offsetShouldBeRemained)
+	}
+	record, err = db.GetRecord(topic, fragmentId, offsetShouldBeDeleted)
+	if err != nil {
+		t.Error(err)
+	}
+	if record.Size() != 0 {
+		t.Errorf("record(%d) should not be exists", offsetShouldBeDeleted)
 	}
 }

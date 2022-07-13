@@ -1,12 +1,15 @@
 package pipeline
 
 import (
+	"fmt"
 	"github.com/paust-team/shapleq/broker/internals"
 	"github.com/paust-team/shapleq/broker/storage"
+	"github.com/paust-team/shapleq/common"
 	coordinator_helper "github.com/paust-team/shapleq/coordinator-helper"
 	"github.com/paust-team/shapleq/message"
 	"github.com/paust-team/shapleq/pqerror"
 	shapleq_proto "github.com/paust-team/shapleq/proto"
+	"strconv"
 	"sync"
 )
 
@@ -64,13 +67,24 @@ func (p *PutPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-chan
 			offsetToWrite, err := p.coordiWrapper.IncreaseLastOffset(req.TopicName, req.FragmentId)
 			if err != nil {
 				errCh <- err
-				return
+				continue
 			}
 
 			if len(req.NodeId) != 32 {
-				errCh <- pqerror.InvalidNodeIdError{Id: req.NodeId}
+				errCh <- pqerror.ValidationError{Value: req.NodeId, HintMsg: "It should be 32-length string"}
+				continue
 			}
-			err = p.db.PutRecord(req.TopicName, req.FragmentId, offsetToWrite, req.NodeId, req.SeqNum, req.Data)
+
+			if req.RetentionPeriod < common.MinRetentionPeriod || req.RetentionPeriod > common.MaxRetentionPeriod {
+				errCh <- pqerror.ValidationError{
+					Value:   strconv.Itoa(int(req.RetentionPeriod)),
+					HintMsg: fmt.Sprintf("It should not be less than %d and should not be greater than %d", common.MinRetentionPeriod, common.MaxRetentionPeriod),
+				}
+				continue
+			}
+
+			expirationDate := storage.GetNowTimestamp() + uint64(req.RetentionPeriod*60*60*24)
+			err = p.db.PutRecord(req.TopicName, req.FragmentId, offsetToWrite, req.NodeId, req.SeqNum, req.Data, expirationDate)
 			if err != nil {
 				errCh <- err
 				return

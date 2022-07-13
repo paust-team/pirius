@@ -165,8 +165,8 @@ func NewConnectResponseMsg() *shapleqproto.ConnectResponse {
 	return &shapleqproto.ConnectResponse{Magic: MAGIC_NUM}
 }
 
-func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string, topicName string, fragmentId uint32) *shapleqproto.PutRequest {
-	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId, TopicName: topicName, FragmentId: fragmentId}
+func NewPutRequestMsg(data []byte, seqNum uint64, nodeId string, retentionPeriod uint32, topicName string, fragmentId uint32) *shapleqproto.PutRequest {
+	return &shapleqproto.PutRequest{Magic: MAGIC_NUM, Data: data, SeqNum: seqNum, NodeId: nodeId, TopicName: topicName, FragmentId: fragmentId, RetentionPeriod: retentionPeriod}
 }
 
 func NewPutResponseMsg(topicName string, fragmentId uint32, offset uint64) *shapleqproto.PutResponse {

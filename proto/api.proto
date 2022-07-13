@@ -1,6 +1,6 @@
 syntax = "proto3";
 package shapleq.proto;
-option go_package = ".";
+option go_package = "./;pb";
 import "data.proto";
 
 // Config
@@ -189,6 +189,7 @@ message PutRequest {
     string node_id = 4;
     string topic_name = 5;
     uint32 fragment_id = 6;
+    uint32 retention_period = 7; // day
 }
 
 message PutResponse {

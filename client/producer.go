@@ -135,10 +135,11 @@ func (p *Producer) Connect() error {
 }
 
 type PublishData struct {
-	Topic  string
-	Data   []byte
-	SeqNum uint64
-	NodeId string
+	Topic           string
+	Data            []byte
+	SeqNum          uint64
+	NodeId          string
+	RetentionPeriod uint32 // day
 }
 
 func (p *Producer) getNextPublishTarget(topic string) *topicFragmentPair {
@@ -154,7 +155,8 @@ func (p *Producer) Publish(data *PublishData) (*PublishResult, error) {
 	}
 
 	pair := p.getNextPublishTarget(data.Topic)
-	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.topic, pair.fragmentId))
+	msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(
+		data.Data, data.SeqNum, data.NodeId, data.RetentionPeriod, pair.topic, pair.fragmentId))
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +190,8 @@ func (p *Producer) AsyncPublish(source <-chan *PublishData) (<-chan *PublishResu
 				case data, ok := <-from:
 					if ok {
 						pair := p.getNextPublishTarget(data.Topic)
-						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(data.Data, data.SeqNum, data.NodeId, pair.topic, pair.fragmentId))
+						msg, err := message.NewQMessageFromMsg(message.STREAM, message.NewPutRequestMsg(
+							data.Data, data.SeqNum, data.NodeId, data.RetentionPeriod, pair.topic, pair.fragmentId))
 						if err != nil {
 							errCh <- err
 						} else {

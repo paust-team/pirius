@@ -20,6 +20,9 @@ var (
 
 const MaxFragmentCount = 1 << 8
 
+const MinRetentionPeriod = 1
+const MaxRetentionPeriod = 30
+
 func GenerateFragmentId() uint32 {
 	return uint32(rand.Intn(MaxFragmentCount)) + 1
 }

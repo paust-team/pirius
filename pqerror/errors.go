@@ -447,20 +447,20 @@ func (e TopicFragmentOffsetNotSetError) Code() PQCode {
 func (e TopicFragmentOffsetNotSetError) IsSessionCloseable() {}
 func (e TopicFragmentOffsetNotSetError) IsClientVisible()    {}
 
-type InvalidNodeIdError struct {
-	Id string
+type ValidationError struct {
+	Value   string
+	HintMsg string
 }
 
-func (e InvalidNodeIdError) Error() string {
-	return fmt.Sprintf("invalid node id: %s. It should be 32-length string\n", e.Id)
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("Invalid value: %s. %s\n", e.Value, e.HintMsg)
 }
 
-func (e InvalidNodeIdError) Code() PQCode {
-	return ErrInvalidNodeId
+func (e ValidationError) Code() PQCode {
+	return ErrValidation
 }
 
-func (e InvalidNodeIdError) IsSessionCloseable() {}
-func (e InvalidNodeIdError) IsClientVisible()    {}
+func (e ValidationError) IsClientVisible() {}
 
 // DBError
 type QRocksOperateError struct {
