@@ -25,7 +25,7 @@ func (r *RetentionScheduler) SetLogLevel(logLevel logger.LogLevel) {
 	r.logger.SetLogLevel(logLevel)
 }
 
-func (r RetentionScheduler) Run(ctx context.Context) {
+func (r *RetentionScheduler) Run(ctx context.Context) {
 	go func() {
 		timer := time.NewTimer(r.checkInterval)
 		defer timer.Stop()

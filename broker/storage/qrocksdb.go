@@ -66,17 +66,17 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
-func (db QRocksDB) Flush() error {
+func (db *QRocksDB) Flush() error {
 	return db.db.Flush(&grocksdb.FlushOptions{})
 }
 
-func (db QRocksDB) GetRecord(topic string, fragmentId uint32, offset uint64) (*grocksdb.Slice, error) {
+func (db *QRocksDB) GetRecord(topic string, fragmentId uint32, offset uint64) (*grocksdb.Slice, error) {
 	key := NewRecordKeyFromData(topic, fragmentId, offset)
 	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
 // PutRecord expirationDate is timestamp(second) type
-func (db QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, nodeId string, seqNum uint64, data []byte, expirationDate uint64) error {
+func (db *QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, nodeId string, seqNum uint64, data []byte, expirationDate uint64) error {
 	if len(nodeId) != 32 {
 		return errors.New("invalid length for node id")
 	}
@@ -101,7 +101,7 @@ func (db QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, nod
 }
 
 // DeleteExpiredRecords Record only can be deleted on expired
-func (db QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error) {
+func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error) {
 	it := db.Scan(RecordExpCF)
 	defer it.Close()
 	now := GetNowTimestamp()
@@ -137,10 +137,10 @@ func (db *QRocksDB) Destroy() error {
 	return grocksdb.DestroyDb(db.dbPath, grocksdb.NewDefaultOptions())
 }
 
-func (db QRocksDB) ColumnFamilyHandles() grocksdb.ColumnFamilyHandles {
+func (db *QRocksDB) ColumnFamilyHandles() grocksdb.ColumnFamilyHandles {
 	return db.columnFamilyHandles
 }
 
-func (db QRocksDB) Scan(cfIndex CFIndex) *grocksdb.Iterator {
+func (db *QRocksDB) Scan(cfIndex CFIndex) *grocksdb.Iterator {
 	return db.db.NewIteratorCF(db.ro, db.ColumnFamilyHandles()[cfIndex])
 }
