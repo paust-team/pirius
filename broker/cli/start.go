@@ -21,6 +21,8 @@ var (
 	port       uint
 	zkQuorum   string
 	zkTimeout  uint
+	timeout    uint
+	hostname   string
 )
 
 func NewStartCmd() *cobra.Command {
@@ -104,6 +106,8 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().UintVar(&port, "port", 0, "broker port")
 	startCmd.Flags().StringVar(&zkQuorum, "zk-quorum", "", "zookeeper quorum")
 	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
+	startCmd.Flags().UintVar(&timeout, "timeout", 10000, "shapleq client timeout")
+	startCmd.Flags().StringVar(&hostname, "hostname", "localhost", "shapleq broker hostname for registered bootstrapping")
 	startCmd.Flags().BoolP("clear", "c", false, "DANGER: use this option only if you intend to reset data directory after broker is terminated")
 
 	brokerConfig.BindPFlags(startCmd.Flags())
