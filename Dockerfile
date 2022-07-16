@@ -40,8 +40,7 @@ COPY --from=builder /shapleq/start-shapleq.sh /shapleq/start-shapleq.sh
 COPY --from=builder /shapleq/.shapleq/config /shapleq/config
 
 WORKDIR /shapleq
-RUN chown -R shapleuser /shapleq &&\
-    ls -al /shapleq/config/broker
+RUN chown -R shapleuser:shapleuser /shapleq && chmod -R 777 /shapleq
 USER shapleuser:shapleuser
 EXPOSE 1101
 ENV ZK_QUORUM="127.0.0.1:2181" HOME=/shapleq
