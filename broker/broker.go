@@ -93,6 +93,10 @@ func (b *Broker) Start() {
 	sessionErrCh = pqerror.MergeErrors(sessionErrCh, b.streamService.HandleEventStreams(brokerCtx, stEventStreamCh))
 	txErrCh := b.txService.HandleEventStreams(brokerCtx, txEventStreamCh)
 
+	//start retention scheduler
+	retentionScheduler := internals.NewRetentionScheduler(b.db, b.config.RetentionCheckInterval())
+	retentionScheduler.Run(brokerCtx)
+
 	b.logger.Infof("start broker with port: %d", b.config.Port())
 
 	for {
@@ -175,6 +179,7 @@ func (b *Broker) connectToRocksDB() error {
 		return err
 	}
 	b.db = db
+
 	return nil
 }
 

@@ -65,7 +65,7 @@ func NewPublishCmd() *cobra.Command {
 					seq += 1
 				}
 			} else if len(args) > 0 {
-				fragment, err := producer.Publish(&client.PublishData{Topic: topicName, Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0})
+				fragment, err := producer.Publish(&client.PublishData{Topic: topicName, Data: []byte(args[0]), NodeId: nodeId, SeqNum: 0, RetentionPeriod: common.MinRetentionPeriod})
 				if err != nil {
 					log.Fatal(err)
 				}

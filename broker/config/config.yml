@@ -4,6 +4,7 @@ log-dir: ~/.shapleq/log # log directory
 data-dir: ~/.shapleq/data # data directory
 log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
 timeout: 10000
+retention-check-interval: 10000 # millisecond
 zookeeper:
   quorum: localhost:2181
   timeout: 5000

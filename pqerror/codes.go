@@ -14,7 +14,7 @@ const (
 	ErrMarshalFailed             = 0x0104
 	ErrUnmarshalFailed           = 0x0105
 	ErrTopicNotSet               = 0x0106
-	ErrInvalidNodeId             = 0x0107
+	ErrValidation                = 0x0107
 	ErrTopicFragmentOffsetNotSet = 0x0108
 
 	// 02 - zookeeper related error

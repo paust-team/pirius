@@ -10,14 +10,15 @@ import (
 )
 
 var (
-	defaultLogDir               = fmt.Sprintf("%s/log", common.DefaultHomeDir)
-	defaultDataDir              = fmt.Sprintf("%s/data", common.DefaultHomeDir)
-	defaultLogLevel             = logger.Info
-	defaultZKPort               = 2181
-	defaultTimeout              = 10000
-	defaultZKHost               = "localhost"
-	defaultZKTimeout       uint = 3000
-	defaultZKFlushInterval      = 2000
+	defaultLogDir                      = fmt.Sprintf("%s/log", common.DefaultHomeDir)
+	defaultDataDir                     = fmt.Sprintf("%s/data", common.DefaultHomeDir)
+	defaultLogLevel                    = logger.Info
+	defaultZKPort                      = 2181
+	defaultTimeout                     = 10000
+	defaultZKHost                      = "localhost"
+	defaultZKTimeout              uint = 3000
+	defaultZKFlushInterval             = 2000
+	defaultRetentionCheckInterval uint = 10000
 )
 
 type BrokerConfig struct {
@@ -45,6 +46,7 @@ func NewBrokerConfig() *BrokerConfig {
 		"timeout":        defaultZKTimeout,
 		"flush-interval": defaultZKFlushInterval,
 	})
+	v.SetDefault("retention-check-interval", defaultRetentionCheckInterval)
 
 	return &BrokerConfig{v}
 }
@@ -129,4 +131,12 @@ func (b BrokerConfig) ZKFlushInterval() uint {
 
 func (b *BrokerConfig) SetZKFlushInterval(interval uint) {
 	b.Set("zookeeper.flush-interval", interval)
+}
+
+func (b BrokerConfig) RetentionCheckInterval() uint {
+	return b.GetUint("retention-check-interval")
+}
+
+func (b *BrokerConfig) SetRetentionCheckInterval(interval uint) {
+	b.Set("retention-check-interval", interval)
 }
