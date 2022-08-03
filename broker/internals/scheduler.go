@@ -38,7 +38,9 @@ func (r *RetentionScheduler) Run(ctx context.Context) {
 				return
 			case <-timer.C:
 				deletedCount, err := r.db.DeleteExpiredRecords()
-				r.logger.Infof("%d records are deleted.", deletedCount)
+				if deletedCount > 0 {
+					r.logger.Infof("%d records are deleted.", deletedCount)
+				}
 
 				if err != nil {
 					r.logger.Error(err)
