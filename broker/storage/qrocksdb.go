@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"errors"
 	"github.com/linxGnu/grocksdb"
 	"path/filepath"
@@ -123,7 +124,13 @@ func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error)
 			deletedCount++
 		}
 	}
-	deletionErr = db.db.DeleteRangeCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey, endRetentionKey)
+
+	if bytes.Compare(startRetentionKey, endRetentionKey) == 0 {
+		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey)
+	} else {
+		deletionErr = db.db.DeleteRangeCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey, endRetentionKey)
+		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], endRetentionKey)
+	}
 	return
 }
 
