@@ -2,11 +2,17 @@ package integration_test
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/paust-team/shapleq/client"
 	"github.com/paust-team/shapleq/common"
 	"github.com/paust-team/shapleq/pqerror"
+	"os"
+	"os/signal"
+	"runtime"
 	"sync"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestConnect(t *testing.T) {
@@ -298,52 +304,102 @@ func TestMultiFragmentsOptionalConsume(t *testing.T) {
 	}
 }
 
-func TestMultiTopic(t *testing.T) {
+func TestLoad(t *testing.T) {
 
 	testContext := DefaultShapleQTestContext(t).
-		RunBrokers().
 		SetupTopics()
 	defer testContext.Terminate()
-
 	// test body
 	testParams := testContext.TestParams()
-	var expectedRecords [][]byte
-	receivedRecords := make([][]byte, 0)
 
-	// setup clients from topic
-	for i, topic := range testParams.topicNames {
-		// setup a producer per topic
-		records := testParams.testRecords[i]
-		expectedRecords = append(expectedRecords, records...)
-		testContext.AddProducerContext(common.GenerateNodeId(), topic).
-			onError(func(err error) {
-				t.Error(err)
-			}).
-			asyncPublish(records)
+	topic := testParams.topicNames[0]
+	p := testContext.AddProducerContext(common.GenerateNodeId(), topic)
+	fragmentCh, pubErrCh, err := p.instance.AsyncPublish(p.publishCh)
+	if err != nil {
+		if p.onErrorFn != nil {
+			p.onErrorFn(err)
+		}
+		t.Fatal(err)
 	}
 
-	// setup consumer
-	testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
-		onComplete(func() {
-			for _, record := range receivedRecords {
-				if !contains(expectedRecords, record) {
-					t.Errorf("Record(%s) is not exists", record)
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for {
+			select {
+			case err, ok := <-pubErrCh:
+				if !ok {
+					return
 				}
+				if err != nil {
+					if p.onErrorFn != nil {
+						p.onErrorFn(err)
+					}
+					return
+				}
+			case _, ok := <-fragmentCh:
+				if !ok {
+					return
+				}
+				//fmt.Printf("publish succeed. fragmentId=%d offset=%d\n", fragment.FragmentId, fragment.LastOffset)
 			}
+			runtime.Gosched()
+		}
+	}()
+	sentCount := 0
+	receivedCount := 0
+	// setup consumer
+	c := testContext.AddConsumerContext(common.GenerateNodeId(), testParams.topics).
+		onComplete(func() {
+			if receivedCount != sentCount {
+				t.Errorf("sent (%d) but received (%d)", sentCount, receivedCount)
+			}
+			fmt.Println("consumer is finished")
 		}).
 		onError(func(err error) {
 			t.Error(err)
 		}).
 		onSubscribe(func(received *client.SubscribeResult) bool {
-			for _, data := range received.Items {
-				receivedRecords = append(receivedRecords, data.Data)
+			receivedCount += len(received.Items)
+			if receivedCount%1000 == 0 {
+				fmt.Printf("received : %d\n", receivedCount)
 			}
-			if len(receivedRecords) == len(expectedRecords) {
-				fmt.Println("consumer is finished")
+			if receivedCount == sentCount {
 				return true
 			} else {
 				return false
 			}
-		}).
-		waitFinished()
+		})
+
+	sigCh := make(chan os.Signal, 1)
+	defer close(sigCh)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+SendInfinite:
+	for {
+		select {
+		case sig := <-sigCh:
+			fmt.Println("received signal:", sig)
+			break SendInfinite
+		default:
+			sentCount++
+			if sentCount%100000 == 0 {
+				fmt.Printf("sent : %d\n", sentCount)
+				time.Sleep(3 * time.Second)
+			}
+			hashed, err := uuid.NewUUID()
+			if err == nil {
+				p.publishCh <- &client.PublishData{
+					Topic:  p.topic,
+					Data:   []byte(hashed.String()),
+					NodeId: p.nodeId,
+					SeqNum: uint64(sentCount),
+				}
+			}
+		}
+		time.Sleep(10 * time.Microsecond)
+	}
+	p.waitFinished()
+	waitTimeout(&c.wg, 5*time.Second)
+	c.abort()
 }

@@ -47,8 +47,9 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	dbPath := filepath.Join(dir, name)
 
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
-	blockCache := grocksdb.NewLRUCache(1 << 30)
+	blockCache := grocksdb.NewLRUCache(1 << 18)
 	bbto.SetBlockCache(blockCache)
+
 	defaultOpts := grocksdb.NewDefaultOptions()
 	defaultOpts.SetBlockBasedTableFactory(bbto)
 	defaultOpts.SetCreateIfMissing(true)
