@@ -21,6 +21,8 @@ import (
 
 var defaultLogLevel = logger.Info
 
+const targetAddress = "localhost"
+
 type brokerTestContext struct {
 	config   *config.BrokerConfig
 	instance *broker.Broker
@@ -70,7 +72,7 @@ type producerTestContext struct {
 func newProducerTestContext(nodeId string, topic string) *producerTestContext {
 	producerConfig := config2.NewProducerConfig()
 	producerConfig.SetLogLevel(defaultLogLevel)
-	producerConfig.SetServerAddresses([]string{"127.0.0.1:2181"})
+	producerConfig.SetServerAddresses([]string{targetAddress + ":2181"})
 	producer := client.NewProducer(producerConfig, []string{topic})
 
 	return &producerTestContext{
@@ -167,7 +169,7 @@ type consumerTestContext struct {
 func newConsumerTestContext(nodeId string, topics []*common.Topic) *consumerTestContext {
 	consumerConfig := config2.NewConsumerConfig()
 	consumerConfig.SetLogLevel(defaultLogLevel)
-	consumerConfig.SetServerAddresses([]string{"127.0.0.1:2181"})
+	consumerConfig.SetServerAddresses([]string{targetAddress + ":2181"})
 	consumer := client.NewConsumer(consumerConfig, topics)
 	return &consumerTestContext{
 		config:   consumerConfig,
@@ -183,6 +185,13 @@ func (c *consumerTestContext) start() error {
 
 func (c *consumerTestContext) stop() {
 	c.instance.Close()
+}
+
+func (c *consumerTestContext) abort() {
+	if c.onCompleteFn != nil {
+		c.onCompleteFn()
+	}
+	c.wg.Done()
 }
 
 func (c *consumerTestContext) onSubscribe(fn func(*client.SubscribeResult) bool) *consumerTestContext {
@@ -257,7 +266,7 @@ func DefaultShapleQTestContext(t *testing.T) *ShapleQTestContext {
 	return &ShapleQTestContext{
 		logLevel:          defaultLogLevel,
 		brokerPorts:       []uint{1101},
-		zkAddrs:           []string{"127.0.0.1:2181"},
+		zkAddrs:           []string{targetAddress + ":2181"},
 		zkTimeoutMS:       3000,
 		zkFlushIntervalMS: 2000,
 		brokerTimeout:     3000,
@@ -345,7 +354,7 @@ func (s *ShapleQTestContext) Terminate() {
 func (s *ShapleQTestContext) CreateAdminClient() *client.Admin {
 	adminConfig := config2.NewAdminConfig()
 	adminConfig.SetLogLevel(defaultLogLevel)
-	adminConfig.SetServerAddresses([]string{fmt.Sprintf("127.0.0.1:%d", s.brokerPorts[0])})
+	adminConfig.SetServerAddresses([]string{fmt.Sprintf(targetAddress+":%d", s.brokerPorts[0])})
 	return client.NewAdmin(adminConfig)
 }
 
@@ -356,6 +365,7 @@ func (s *ShapleQTestContext) AddProducerContext(nodeId string, topic string) *pr
 	} else {
 		s.producers = append(s.producers, ctx)
 	}
+	s.running = true
 	return ctx
 }
 
@@ -366,6 +376,7 @@ func (s *ShapleQTestContext) AddConsumerContext(nodeId string, topics []*common.
 	} else {
 		s.consumers = append(s.consumers, ctx)
 	}
+	s.running = true
 	return ctx
 }
 
@@ -528,4 +539,28 @@ var predefinedTestParams = map[string]*TestParams{
 		topicNames:        []string{"rpc-topic4"},
 		topicDescriptions: []string{"test-description4"},
 	},
+	"TestLoad": {
+		topicNames:            []string{"topic-load3"},
+		brokerCount:           0,
+		consumerCount:         1,
+		producerCount:         1,
+		fragmentCountPerTopic: 1,
+		testRecords:           []records{},
+		consumerBatchSize:     2,
+		consumerFlushInterval: 60,
+	},
+}
+
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
 }
