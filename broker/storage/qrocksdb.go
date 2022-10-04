@@ -34,8 +34,9 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	columnFamilyNames := []string{"default", "topic", "record"}
 
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
-	blockCache := grocksdb.NewLRUCache(1 << 30)
+	blockCache := grocksdb.NewLRUCache(1 << 18)
 	bbto.SetBlockCache(blockCache)
+
 	defaultOpts := grocksdb.NewDefaultOptions()
 	defaultOpts.SetBlockBasedTableFactory(bbto)
 	defaultOpts.SetCreateIfMissing(true)

@@ -84,18 +84,22 @@ func (f *FetchPipe) Ready(inStream <-chan interface{}) (<-chan interface{}, <-ch
 
 func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOffset uint64, outStream chan interface{}, inStreamClosed chan struct{}) {
 
-	it := f.db.Scan(storage.RecordCF)
-
 	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
 	copy(prefix, topicName+"@")
 	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
 	waitInterval := time.Millisecond * 10
 	timer := time.NewTimer(waitInterval)
 	defer timer.Stop()
-	defer it.Close()
 
 	currentOffset := startOffset
 	prevKey := storage.NewRecordKeyFromData(topicName, fragmentId, currentOffset)
+
+	iterateCount := 0
+	rescanCheckPoint := 0
+	rescanThreshold := 1000
+	it := f.db.Scan(storage.RecordCF)
+	defer it.Close()
+
 	for {
 		select {
 		case <-inStreamClosed:
@@ -107,13 +111,15 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 
 			for it.Seek(prevKey.Data()); it.Valid() && bytes.HasPrefix(it.Key().Data(), prefix); it.Next() {
 				key := storage.NewRecordKey(it.Key())
-				if key.Offset() != currentOffset {
+				offset := key.Offset()
+				key.Free()
+				if offset != currentOffset {
 					break
 				}
 
 				value := storage.NewRecordValue(it.Value())
 				fetchRes := message.NewFetchResponseMsg(value.PublishedData(), currentOffset, value.SeqNum(), value.NodeId(), topicName, fragmentId)
-
+				value.Free()
 				select {
 				case <-inStreamClosed:
 					return
@@ -121,7 +127,14 @@ func (f *FetchPipe) iterateRecords(topicName string, fragmentId uint32, startOff
 					currentOffset++
 					prevKey.SetOffset(currentOffset)
 				}
+				iterateCount++
 				runtime.Gosched()
+			}
+
+			if iterateCount-rescanCheckPoint > rescanThreshold {
+				rescanCheckPoint = iterateCount
+				it.Close()
+				it = f.db.Scan(storage.RecordCF)
 			}
 		}
 		timer.Reset(waitInterval)
