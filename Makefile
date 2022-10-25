@@ -59,11 +59,14 @@ endif
 $(PROTOC_GEN_GO):
 	go install github.com/golang/protobuf/protoc-gen-go
 
+$(PROTOC_GEN_GRPC):
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
 PROTO_DIR := ./proto
-PROTO_TARGETS := $(PROTO_DIR)/api.pb.go $(PROTO_DIR)/data.pb.go
+PROTO_TARGETS := $(PROTO_DIR)/agent.pb.go
 .SUFFIXES: .proto .pb.go
-%.pb.go: %.proto $(PROTOC_GEN_GO) $(PROTOC)
-	$(PROTOC) --proto_path=$(PROTO_DIR) --go_out=$(PROTO_DIR) $<
+%.pb.go: %.proto $(PROTOC_GEN_GO) $(PROTOC_GEN_GRPC) $(PROTOC)
+	$(PROTOC) --proto_path=$(PROTO_DIR) --go_out=$(PROTO_DIR) --go-grpc_out=$(PROTO_DIR) $<
 
 .PHONY: compile-protobuf prepare
 compile-protobuf: $(PROTO_TARGETS) $(PROTOC_GEN_GO) $(PROTOC)
