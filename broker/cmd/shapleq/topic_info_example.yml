@@ -1,8 +1,0 @@
-topics:
-  - topic: "vit-base-tp_IN"
-    fragments:
-      - 1
-      - 2
-  - topic: "vit-base-tp_OUT"
-    fragments:
-      - 1
