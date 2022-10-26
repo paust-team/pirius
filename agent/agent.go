@@ -32,7 +32,6 @@ func NewShapleQAgent(config *config.AgentConfig) *ShapleQAgent {
 }
 
 func (s *ShapleQAgent) Start() error {
-
 	if s.config.RetentionPeriod() < utils.MinRetentionPeriod ||
 		s.config.RetentionPeriod() > utils.MaxRetentionPeriod {
 		logger.Error("Invalid retention period", zap.Uint32("retention", s.config.RetentionPeriod()))

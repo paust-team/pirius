@@ -1,5 +1,4 @@
 //go:build !release
-// +build !release
 
 package logger
 
@@ -9,7 +8,7 @@ var log *zap.Logger
 
 func init() {
 	var err error
-	log, err = zap.NewDevelopment()
+	log, err = zap.NewDevelopment(zap.AddStacktrace(zap.ErrorLevel))
 	if err != nil {
 		panic(err)
 	}

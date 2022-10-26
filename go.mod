@@ -9,6 +9,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	go.uber.org/zap v1.23.0
 	google.golang.org/grpc v1.32.0
+	github.com/go-zookeeper/zk v1.0.3
 )
 
 require (
