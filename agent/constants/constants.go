@@ -1,12 +1,10 @@
-package utils
+package constants
 
 import (
 	"fmt"
-	"os"
 )
 
 var (
-	DefaultHomeDir                 = os.ExpandEnv("$HOME/.shapleq")
 	DefaultLogDir                  = fmt.Sprintf("%s/log", DefaultHomeDir)
 	DefaultDataDir                 = fmt.Sprintf("%s/data", DefaultHomeDir)
 	DefaultBrokerConfigPath        = fmt.Sprintf("%s/config/broker/config.yml", DefaultHomeDir)
@@ -16,6 +14,7 @@ var (
 	DefaultAgentPort          uint = 11010
 )
 
+const AgentMetaFileName = "agent.gob"
 const MaxFragmentCount = 1 << 8
 
 const MinRetentionPeriod = 1
