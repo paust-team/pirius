@@ -3,6 +3,7 @@ package pubsub
 import (
 	"context"
 	"github.com/paust-team/shapleq/agent/logger"
+	"github.com/paust-team/shapleq/bootstrapping"
 	"github.com/paust-team/shapleq/proto/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -14,10 +15,15 @@ type SubscriptionResult struct {
 	Data       []byte
 }
 
-type Subscriber struct{}
+type Subscriber struct {
+	SubscriberID string
+	Bootstrapper *bootstrapping.BootstrapService
+}
 
 func (s Subscriber) RegisterSubscription(ctx context.Context, topicName string, batchSize, flushInterval uint32) (outStream chan []SubscriptionResult, errCh chan error, err error) {
 	// TODO:: find target agent and fragment info from topic-fragment discovery
+	//topicSubscriptionFrame, err := s.Bootstrapper.GetTopicSubscriptions(topicName)
+
 	targetAddr := "127.0.0.1:10010"
 	var startOffset uint64 = 1
 	var fragmentId uint32 = 1

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/agent/logger"
 	"github.com/paust-team/shapleq/agent/storage"
+	"github.com/paust-team/shapleq/bootstrapping"
 	"github.com/paust-team/shapleq/proto/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -23,8 +24,10 @@ type TopicData struct {
 
 type Publisher struct {
 	pb.PubSubServer
-	DB     *storage.QRocksDB
-	server *grpc.Server
+	PublisherID  string
+	DB           *storage.QRocksDB
+	Bootstrapper *bootstrapping.BootstrapService
+	server       *grpc.Server
 }
 
 func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, port uint) error {

@@ -2,28 +2,75 @@ package agent
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/paust-team/shapleq/agent/config"
+	"github.com/paust-team/shapleq/agent/constants"
+	"github.com/paust-team/shapleq/agent/helper"
 	"github.com/paust-team/shapleq/agent/logger"
 	"github.com/paust-team/shapleq/agent/pubsub"
 	"github.com/paust-team/shapleq/agent/storage"
-	"github.com/paust-team/shapleq/agent/utils"
+	"github.com/paust-team/shapleq/bootstrapping"
 	"go.uber.org/zap"
 	"io"
 	"os"
 )
 
+type agentMeta struct {
+	PublisherID          string
+	SubscriberID         string
+	lastPubedFragOffsets map[uint]uint64
+}
+
+func saveAgentMeta(path string, meta agentMeta) error {
+	var f *os.File
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		f, err = os.Create(path)
+		if err != nil {
+			return err
+		}
+	} else {
+		f, err = os.Open(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	defer f.Close()
+
+	// serialize the data
+	dataEncoder := gob.NewEncoder(f)
+	return dataEncoder.Encode(meta)
+}
+
+func loadAgentMeta(path string) (meta agentMeta, err error) {
+	if f, err := os.Open(path); err == nil {
+		dataDecoder := gob.NewDecoder(f)
+		err = dataDecoder.Decode(&meta)
+	} else if os.IsNotExist(err) {
+		meta = agentMeta{
+			PublisherID:          helper.GenerateNodeId(),
+			SubscriberID:         helper.GenerateNodeId(),
+			lastPubedFragOffsets: make(map[uint]uint64),
+		}
+		err = saveAgentMeta(path, meta)
+	}
+	return
+}
+
 type ShapleQAgent struct {
 	shouldQuit chan struct{}
 	db         *storage.QRocksDB
-	config     *config.AgentConfig
+	config     config.AgentConfig
 	running    bool
-	subscriber *pubsub.Subscriber
-	publisher  *pubsub.Publisher
+	subscriber pubsub.Subscriber
+	publisher  pubsub.Publisher
+	meta       agentMeta
 }
 
-func NewShapleQAgent(config *config.AgentConfig) *ShapleQAgent {
+func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
 	return &ShapleQAgent{
 		shouldQuit: make(chan struct{}),
 		config:     config,
@@ -32,10 +79,10 @@ func NewShapleQAgent(config *config.AgentConfig) *ShapleQAgent {
 }
 
 func (s *ShapleQAgent) Start() error {
-	if s.config.RetentionPeriod() < utils.MinRetentionPeriod ||
-		s.config.RetentionPeriod() > utils.MaxRetentionPeriod {
+	if s.config.RetentionPeriod() < constants.MinRetentionPeriod ||
+		s.config.RetentionPeriod() > constants.MaxRetentionPeriod {
 		logger.Error("Invalid retention period", zap.Uint32("retention", s.config.RetentionPeriod()))
-		return errors.New(fmt.Sprintf("Retention period should not be less than %d and should not be greater than %d", utils.MinRetentionPeriod, utils.MaxRetentionPeriod))
+		return errors.New(fmt.Sprintf("Retention period should not be less than %d and should not be greater than %d", constants.MinRetentionPeriod, constants.MaxRetentionPeriod))
 	}
 
 	if err := os.MkdirAll(s.config.DataDir(), os.ModePerm); err != nil {
@@ -44,6 +91,12 @@ func (s *ShapleQAgent) Start() error {
 	if err := os.MkdirAll(s.config.LogDir(), os.ModePerm); err != nil {
 		return err
 	}
+	meta, err := loadAgentMeta(s.config.DataDir() + "/" + constants.AgentMetaFileName)
+	if err != nil {
+		logger.Error(err.Error())
+		return err
+	}
+	s.meta = meta
 
 	db, err := storage.NewQRocksDB(s.config.DBName(), s.config.DataDir())
 	if err != nil {
@@ -51,10 +104,9 @@ func (s *ShapleQAgent) Start() error {
 		return err
 	}
 	s.db = db
-	s.subscriber = &pubsub.Subscriber{}
-	s.publisher = &pubsub.Publisher{
-		DB: db,
-	}
+	bootstrapper := bootstrapping.NewBootStrapService(helper.BuildCoordClient(s.config))
+	s.subscriber = pubsub.Subscriber{Bootstrapper: bootstrapper}
+	s.publisher = pubsub.Publisher{DB: db, Bootstrapper: bootstrapper}
 	s.running = true
 	logger.Info("agent started with ", zap.Uint("port", s.config.Port()))
 

@@ -1,30 +1,21 @@
-package utils
+package helper
 
 import (
 	"errors"
 	"github.com/google/uuid"
+	"github.com/paust-team/shapleq/agent/constants"
 	"math/rand"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
 func GenerateFragmentId() uint32 {
-	return uint32(rand.Intn(MaxFragmentCount)) + 1
+	return uint32(rand.Intn(constants.MaxFragmentCount)) + 1
 }
 
 func GenerateNodeId() string {
 	id, _ := uuid.NewUUID()
 	return strings.Replace(id.String(), "-", "", -1)
-}
-
-func ReplaceTildeToHomePath(dir string) string {
-	if strings.HasPrefix(dir, "~/") {
-		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, dir[2:])
-	}
-	return dir
 }
 
 func GetOutboundIP() (net.IP, error) {

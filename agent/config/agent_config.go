@@ -2,10 +2,12 @@ package config
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/agent/utils"
+	"github.com/paust-team/shapleq/agent/constants"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -25,20 +27,15 @@ type AgentConfig struct {
 	*viper.Viper
 }
 
-func NewAgentConfig() *AgentConfig {
+func NewAgentConfig() AgentConfig {
 
 	v := viper.New()
 
-	host, err := utils.GetOutboundIP()
-	if err != nil {
-		panic(err)
-	}
-
 	v.SetDefault("bind", defaultBindAddr)
-	v.SetDefault("host", host.String())
-	v.SetDefault("port", utils.DefaultAgentPort)
-	v.SetDefault("log-dir", utils.DefaultLogDir)
-	v.SetDefault("data-dir", utils.DefaultDataDir)
+	v.SetDefault("host", defaultBindAddr)
+	v.SetDefault("port", constants.DefaultAgentPort)
+	v.SetDefault("log-dir", constants.DefaultLogDir)
+	v.SetDefault("data-dir", constants.DefaultDataDir)
 	v.SetDefault("timeout", defaultTimeout)
 	v.SetDefault("log-level", defaultLogLevel)
 	v.SetDefault("retention", defaultRetentionPeriod)
@@ -49,10 +46,10 @@ func NewAgentConfig() *AgentConfig {
 		"flush-interval": defaultZKFlushInterval,
 	})
 
-	return &AgentConfig{v}
+	return AgentConfig{v}
 }
 
-func (b *AgentConfig) Load(configPath string) *AgentConfig {
+func (b AgentConfig) Load(configPath string) AgentConfig {
 	b.SetConfigFile(configPath)
 	err := b.ReadInConfig()
 	if err != nil {
@@ -94,7 +91,7 @@ func (b *AgentConfig) SetPort(port uint) {
 }
 
 func (b AgentConfig) LogDir() string {
-	return utils.ReplaceTildeToHomePath(b.GetString("log-dir"))
+	return replaceTildeToHomePath(b.GetString("log-dir"))
 }
 
 func (b *AgentConfig) SetLogDir(logDir string) {
@@ -102,7 +99,7 @@ func (b *AgentConfig) SetLogDir(logDir string) {
 }
 
 func (b AgentConfig) DataDir() string {
-	return utils.ReplaceTildeToHomePath(b.GetString("data-dir"))
+	return replaceTildeToHomePath(b.GetString("data-dir"))
 }
 
 func (b *AgentConfig) SetDataDir(dataDir string) {
@@ -164,4 +161,12 @@ func (b AgentConfig) RetentionCheckInterval() uint {
 
 func (b *AgentConfig) SetRetentionCheckInterval(interval uint) {
 	b.Set("retention-check-interval", interval)
+}
+
+func replaceTildeToHomePath(dir string) string {
+	if strings.HasPrefix(dir, "~/") {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, dir[2:])
+	}
+	return dir
 }
