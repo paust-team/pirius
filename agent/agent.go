@@ -92,7 +92,7 @@ func (s *ShapleQAgent) StartPublish(topicName string, sendChan chan pubsub.Topic
 		return err
 	}
 
-	errCh, err := s.publisher.InitTopicStream(ctx, topicName, retentionPeriod, sendChan)
+	errCh, err := s.publisher.PreparePublication(ctx, topicName, retentionPeriod, sendChan)
 	if err != nil {
 		cancel()
 		return err
@@ -125,7 +125,7 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	recvCh, errCh, err := s.subscriber.RegisterSubscription(ctx, topicName, batchSize, flushInterval)
+	recvCh, errCh, err := s.subscriber.PrepareSubscription(ctx, topicName, batchSize, flushInterval)
 	if err != nil {
 		cancel()
 		return nil, err

@@ -26,7 +26,7 @@ type Subscriber struct {
 	LastFragmentOffsets storage.TopicFragmentOffsets // last subscribed offsets
 }
 
-func (s *Subscriber) RegisterSubscription(ctx context.Context, topicName string, batchSize, flushInterval uint32) (chan []SubscriptionResult, chan error, error) {
+func (s *Subscriber) PrepareSubscription(ctx context.Context, topicName string, batchSize, flushInterval uint32) (chan []SubscriptionResult, chan error, error) {
 
 	endpointMap, err := s.findSubscriptionEndpoints(topicName)
 	if err != nil {

@@ -31,52 +31,12 @@ type Publisher struct {
 	NextFragmentOffsets storage.TopicFragmentOffsets // offsets to write
 }
 
-func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, port uint) error {
-	if p.server == nil {
-		var opts []grpc.ServerOption
-		grpcServer := grpc.NewServer(opts...)
-		pb.RegisterPubSubServer(grpcServer, p)
-
-		lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindAddress, port))
-		if err != nil {
-			return err
-		}
-
-		p.server = grpcServer
-
-		go func() {
-			if err = grpcServer.Serve(lis); err != nil {
-				logger.Error(err.Error())
-			} else {
-				logger.Info("grpc server stopped")
-			}
-		}()
-
-		go func() {
-			select {
-			case <-ctx.Done():
-				p.server.Stop()
-			}
-		}()
-	}
-
-	return nil
-}
-
-func (p *Publisher) InitTopicStream(ctx context.Context, topicName string, retentionPeriodSec uint64,
+func (p *Publisher) PreparePublication(ctx context.Context, topicName string, retentionPeriodSec uint64,
 	inStream chan TopicData) (chan error, error) {
 
-	// find fragment info from topic-fragment discovery
-	var fragmentIds []uint
-	topicFragmentFrame, err := p.Bootstrapper.GetTopicFragments(topicName)
+	fragmentIds, err := p.findPublicationFragments(topicName)
 	if err != nil {
 		return nil, err
-	}
-	fragMappings := topicFragmentFrame.FragMappingInfo()
-	for fragId, fragInfo := range fragMappings {
-		if fragInfo.Active && fragInfo.PublisherId == p.PublisherID {
-			fragmentIds = append(fragmentIds, fragId)
-		}
 	}
 
 	// load topic policy and set fragments selecting rule
@@ -124,12 +84,59 @@ func (p *Publisher) InitTopicStream(ctx context.Context, topicName string, reten
 	return errCh, nil
 }
 
+func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, port uint) error {
+	if p.server == nil {
+		var opts []grpc.ServerOption
+		grpcServer := grpc.NewServer(opts...)
+		pb.RegisterPubSubServer(grpcServer, p)
+
+		lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindAddress, port))
+		if err != nil {
+			return err
+		}
+
+		p.server = grpcServer
+
+		go func() {
+			if err = grpcServer.Serve(lis); err != nil {
+				logger.Error(err.Error())
+			} else {
+				logger.Info("grpc server stopped")
+			}
+		}()
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				p.server.Stop()
+			}
+		}()
+	}
+
+	return nil
+}
+
+// find fragment info through topic-fragment discovery
+func (p *Publisher) findPublicationFragments(topicName string) (fragmentIds []uint, err error) {
+	topicFragmentFrame, err := p.Bootstrapper.GetTopicFragments(topicName)
+	if err != nil {
+		return nil, err
+	}
+	fragMappings := topicFragmentFrame.FragMappingInfo()
+	for fragId, fragInfo := range fragMappings {
+		if fragInfo.Active && fragInfo.PublisherId == p.PublisherID {
+			fragmentIds = append(fragmentIds, fragId)
+		}
+	}
+	return
+}
+
 func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint, offset uint64, retentionPeriodSec uint64) error {
 	expirationDate := storage.GetNowTimestamp() + retentionPeriodSec
 	return p.DB.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
 }
 
-// RPC implementation
+// gRPC implementation
 
 func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_SubscribeServer) error {
 	sendBuf := make(chan *pb.SubscriptionResult_Fetched)
