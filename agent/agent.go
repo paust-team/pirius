@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/paust-team/shapleq/agent/config"
-	"github.com/paust-team/shapleq/agent/constants"
-	"github.com/paust-team/shapleq/agent/helper"
-	"github.com/paust-team/shapleq/agent/logger"
 	"github.com/paust-team/shapleq/agent/pubsub"
 	"github.com/paust-team/shapleq/agent/storage"
 	"github.com/paust-team/shapleq/bootstrapping"
+	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/shapleq/helper"
+	"github.com/paust-team/shapleq/logger"
 	"go.uber.org/zap"
 	"io"
 	"os"
@@ -40,7 +40,6 @@ func saveAgentMeta(path string, meta agentMeta) error {
 
 	defer f.Close()
 
-	// serialize the data
 	dataEncoder := gob.NewEncoder(f)
 	return dataEncoder.Encode(meta)
 }
@@ -108,7 +107,10 @@ func (s *ShapleQAgent) Start() error {
 	s.subscriber = pubsub.Subscriber{Bootstrapper: bootstrapper}
 	s.publisher = pubsub.Publisher{DB: db, Bootstrapper: bootstrapper}
 	s.running = true
-	logger.Info("agent started with ", zap.Uint("port", s.config.Port()))
+	logger.Info("agent started with ",
+		zap.String("publisher-id", meta.PublisherID),
+		zap.String("subscriber-id", meta.SubscriberID),
+		zap.Uint("port", s.config.Port()))
 
 	return nil
 }
@@ -161,7 +163,7 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	recvChan, errCh, err := s.subscriber.RegisterSubscription(ctx, topicName, batchSize, flushInterval)
+	recvCh, errCh, err := s.subscriber.RegisterSubscription(ctx, topicName, batchSize, flushInterval)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -189,5 +191,5 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 		}
 	}()
 
-	return recvChan, nil
+	return recvCh, nil
 }

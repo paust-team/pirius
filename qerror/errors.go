@@ -2,40 +2,11 @@ package qerror
 
 import (
 	"fmt"
-	"sync"
 )
 
 type PQError interface {
 	Code() QErrCode
 	Error() string
-}
-
-type IsSessionCloseable interface {
-	IsSessionCloseable()
-}
-
-func MergeErrors(errChannels ...<-chan error) <-chan error {
-	var wg sync.WaitGroup
-
-	out := make(chan error, len(errChannels))
-	output := func(c <-chan error) {
-		defer wg.Done()
-		for n := range c {
-			out <- n
-		}
-	}
-
-	wg.Add(len(errChannels))
-	for _, c := range errChannels {
-		go output(c)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-
-	return out
 }
 
 // bootstrapping
@@ -51,7 +22,17 @@ func (e TopicNotExistError) Code() QErrCode {
 	return ErrTopicNotExists
 }
 
-func (e TopicNotExistError) IsSessionCloseable() {}
+type TargetNotExistError struct {
+	Target string
+}
+
+func (e TargetNotExistError) Error() string {
+	return fmt.Sprintf("target(%s) does not exist", e.Topic)
+}
+
+func (e TargetNotExistError) Code() QErrCode {
+	return ErrTargetNotExists
+}
 
 // coordinating
 type CoordConnectionError struct {
@@ -78,8 +59,6 @@ func (e CoordRequestError) Code() QErrCode {
 	return ErrCoordRequest
 }
 
-func (e CoordRequestError) IsSessionCloseable() {}
-
 type CoordTargetAlreadyExistsError struct {
 	Target string
 }
@@ -91,8 +70,6 @@ func (e CoordTargetAlreadyExistsError) Error() string {
 func (e CoordTargetAlreadyExistsError) Code() QErrCode {
 	return ErrCoordTargetAlreadyExists
 }
-
-//func (e CoordTargetAlreadyExistsError) IsSessionCloseable() {}
 
 type CoordLockFailError struct {
 	LockPath string
@@ -107,8 +84,6 @@ func (e CoordLockFailError) Code() QErrCode {
 	return ErrCoordLockFail
 }
 
-func (e CoordLockFailError) IsSessionCloseable() {}
-
 type CoordEncodeFailError struct{}
 
 func (e CoordEncodeFailError) Error() string {
@@ -118,8 +93,6 @@ func (e CoordEncodeFailError) Error() string {
 func (e CoordEncodeFailError) Code() QErrCode {
 	return ErrCoordEncodeFail
 }
-
-func (e CoordEncodeFailError) IsSessionCloseable() {}
 
 type CoordDecodeFailError struct{}
 
@@ -131,8 +104,6 @@ func (e CoordDecodeFailError) Code() QErrCode {
 	return ErrCoordDecodeFail
 }
 
-func (e CoordDecodeFailError) IsSessionCloseable() {}
-
 type CoordNothingToRemoveError struct{}
 
 func (e CoordNothingToRemoveError) Error() string {
@@ -142,8 +113,6 @@ func (e CoordNothingToRemoveError) Error() string {
 func (e CoordNothingToRemoveError) Code() QErrCode {
 	return ErrCoordNothingToRemove
 }
-
-func (e CoordNothingToRemoveError) IsSessionCloseable() {}
 
 type CoordOperateError struct {
 	ErrStr string

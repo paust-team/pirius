@@ -3,10 +3,11 @@ package helper
 import (
 	"errors"
 	"github.com/google/uuid"
-	"github.com/paust-team/shapleq/agent/constants"
+	"github.com/paust-team/shapleq/constants"
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 )
 
 func GenerateFragmentId() uint32 {
@@ -74,4 +75,23 @@ func IsPublicIP(IP net.IP) bool {
 		}
 	}
 	return false
+}
+
+func MergeChannels[T any](chs ...chan T) chan T {
+	out := make(chan T)
+	var wg sync.WaitGroup
+	wg.Add(len(chs))
+	for _, ch := range chs {
+		go func(c <-chan T) {
+			for v := range c {
+				out <- v
+			}
+			wg.Done()
+		}(ch)
+	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	return out
 }

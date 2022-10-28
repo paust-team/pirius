@@ -1,6 +1,8 @@
 package inmemory
 
-import "github.com/paust-team/shapleq/agent/logger"
+import (
+	"github.com/paust-team/shapleq/logger"
+)
 
 type LockOperation struct {
 	do func()

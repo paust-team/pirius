@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/paust-team/shapleq/agent/config"
-	"github.com/paust-team/shapleq/agent/constants"
+	"github.com/paust-team/shapleq/constants"
 	"github.com/spf13/cobra"
 )
 

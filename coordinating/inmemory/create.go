@@ -1,8 +1,8 @@
 package inmemory
 
 import (
-	"github.com/paust-team/shapleq/agent/logger"
 	"github.com/paust-team/shapleq/coordinating"
+	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/qerror"
 	"sync"
 )

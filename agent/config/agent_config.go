@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/agent/constants"
+	"github.com/paust-team/shapleq/constants"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
