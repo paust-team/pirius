@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/paust-team/shapleq/agent/config"
@@ -17,48 +16,6 @@ import (
 	"os"
 )
 
-type agentMeta struct {
-	PublisherID          string
-	SubscriberID         string
-	lastPubedFragOffsets map[uint]uint64
-}
-
-func saveAgentMeta(path string, meta agentMeta) error {
-	var f *os.File
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		f, err = os.Create(path)
-		if err != nil {
-			return err
-		}
-	} else {
-		f, err = os.Open(path)
-		if err != nil {
-			return err
-		}
-	}
-
-	defer f.Close()
-
-	dataEncoder := gob.NewEncoder(f)
-	return dataEncoder.Encode(meta)
-}
-
-func loadAgentMeta(path string) (meta agentMeta, err error) {
-	if f, err := os.Open(path); err == nil {
-		dataDecoder := gob.NewDecoder(f)
-		err = dataDecoder.Decode(&meta)
-	} else if os.IsNotExist(err) {
-		meta = agentMeta{
-			PublisherID:          helper.GenerateNodeId(),
-			SubscriberID:         helper.GenerateNodeId(),
-			lastPubedFragOffsets: make(map[uint]uint64),
-		}
-		err = saveAgentMeta(path, meta)
-	}
-	return
-}
-
 type ShapleQAgent struct {
 	shouldQuit chan struct{}
 	db         *storage.QRocksDB
@@ -66,7 +23,7 @@ type ShapleQAgent struct {
 	running    bool
 	subscriber pubsub.Subscriber
 	publisher  pubsub.Publisher
-	meta       agentMeta
+	meta       *storage.AgentMeta
 }
 
 func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
@@ -90,12 +47,12 @@ func (s *ShapleQAgent) Start() error {
 	if err := os.MkdirAll(s.config.LogDir(), os.ModePerm); err != nil {
 		return err
 	}
-	meta, err := loadAgentMeta(s.config.DataDir() + "/" + constants.AgentMetaFileName)
+	meta, err := storage.LoadAgentMeta(s.config.DataDir() + "/" + constants.AgentMetaFileName)
 	if err != nil {
 		logger.Error(err.Error())
 		return err
 	}
-	s.meta = meta
+	s.meta = &meta
 
 	db, err := storage.NewQRocksDB(s.config.DBName(), s.config.DataDir())
 	if err != nil {
@@ -104,8 +61,8 @@ func (s *ShapleQAgent) Start() error {
 	}
 	s.db = db
 	bootstrapper := bootstrapping.NewBootStrapService(helper.BuildCoordClient(s.config))
-	s.subscriber = pubsub.Subscriber{Bootstrapper: bootstrapper}
-	s.publisher = pubsub.Publisher{DB: db, Bootstrapper: bootstrapper}
+	s.subscriber = pubsub.Subscriber{Bootstrapper: bootstrapper, LastFragmentOffsets: s.meta.SubscribedOffsets}
+	s.publisher = pubsub.Publisher{DB: db, Bootstrapper: bootstrapper, NextFragmentOffsets: s.meta.PublishedOffsets}
 	s.running = true
 	logger.Info("agent started with ",
 		zap.String("publisher-id", meta.PublisherID),
@@ -119,6 +76,7 @@ func (s *ShapleQAgent) Stop() {
 	close(s.shouldQuit)
 	s.db.Close()
 	s.running = false
+	storage.SaveAgentMeta(s.config.DataDir()+"/"+constants.AgentMetaFileName, *s.meta)
 	logger.Info("agent finished")
 }
 

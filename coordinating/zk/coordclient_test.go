@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// TODO:: refactor with BDD test using ginkgo
+
 var zkCoord *CoordClient
 var testBasePath = "/coordinator-test"
 var testLockPath = "/coordinator-test-lock"

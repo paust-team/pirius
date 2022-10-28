@@ -9,6 +9,8 @@ import (
 var inMemCoord *CoordClient
 var testBasePath = "/coordinator-test"
 
+// TODO:: refactor with BDD test using ginkgo
+
 func testMainWrapper(m *testing.M) int {
 	coordi := NewInMemCoordClient()
 
