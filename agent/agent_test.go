@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// TODO:: refactor with BDD test using ginkgo
+
 func TestShapleQAgent_PubSub(t *testing.T) {
 	testTopicName := "test-topic"
 	var testStartSeqNum uint64 = 1000

@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/paust-team/shapleq/agent/logger"
 	"github.com/paust-team/shapleq/agent/storage"
 	"github.com/paust-team/shapleq/bootstrapping"
+	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/proto/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -24,10 +24,11 @@ type TopicData struct {
 
 type Publisher struct {
 	pb.PubSubServer
-	PublisherID  string
-	DB           *storage.QRocksDB
-	Bootstrapper *bootstrapping.BootstrapService
-	server       *grpc.Server
+	PublisherID         string
+	DB                  *storage.QRocksDB
+	Bootstrapper        *bootstrapping.BootstrapService
+	server              *grpc.Server
+	NextFragmentOffsets storage.TopicFragmentOffsets // offsets to write
 }
 
 func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, port uint) error {
@@ -62,20 +63,42 @@ func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, por
 	return nil
 }
 
-func (p *Publisher) InitTopicStream(ctx context.Context, topicName string, retentionPeriodSec uint64, inStream chan TopicData) (chan error, error) {
-	// TODO:: find fragment info from topic-fragment discovery
-	var fragmentId uint32 = 1
+func (p *Publisher) InitTopicStream(ctx context.Context, topicName string, retentionPeriodSec uint64,
+	inStream chan TopicData) (chan error, error) {
 
-	// TODO:: load last offset from zk
-	var offsetToWrite uint64 = 1
-	//offsetToWrite, err := p.coordiWrapper.IncreaseLastOffset(req.TopicName, req.FragmentId)
-	//if err != nil {
-	//	errCh <- err
-	//	continue
-	//}
+	// find fragment info from topic-fragment discovery
+	var fragmentIds []uint
+	topicFragmentFrame, err := p.Bootstrapper.GetTopicFragments(topicName)
+	if err != nil {
+		return nil, err
+	}
+	fragMappings := topicFragmentFrame.FragMappingInfo()
+	for fragId, fragInfo := range fragMappings {
+		if fragInfo.Active && fragInfo.PublisherId == p.PublisherID {
+			fragmentIds = append(fragmentIds, fragId)
+		}
+	}
+
+	// load topic policy and set fragments selecting rule
+	topicInfo, err := p.Bootstrapper.GetTopic(topicName)
+	if err != nil {
+		return nil, err
+	}
+	getFragmentsToWrite := TopicWritingRule(topicInfo.Options(), fragmentIds)
+
+	// load next offsets
+	value, _ := p.NextFragmentOffsets.LoadOrStore(topicName, make(map[uint]uint64))
+	nextOffsets := value.(map[uint]uint64)
+	for _, fragmentId := range fragmentIds {
+		if _, ok := nextOffsets[fragmentId]; ok {
+			nextOffsets[fragmentId] = 1
+		}
+	}
+
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -86,21 +109,97 @@ func (p *Publisher) InitTopicStream(ctx context.Context, topicName string, reten
 					logger.Info("stop publish from send buffer closed")
 					return
 				}
-				err := p.onReceiveData(data, topicName, fragmentId, offsetToWrite, retentionPeriodSec)
-				if err != nil {
-					errCh <- err
-					return
+				for _, fragmentId := range getFragmentsToWrite() {
+					err := p.onReceiveData(data, topicName, fragmentId, nextOffsets[fragmentId], retentionPeriodSec)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					nextOffsets[fragmentId]++
+					p.NextFragmentOffsets.Store(topicName, nextOffsets)
 				}
-				offsetToWrite++
 			}
 		}
 	}()
 	return errCh, nil
 }
 
-func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint32, offset uint64, retentionPeriodSec uint64) error {
+func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint, offset uint64, retentionPeriodSec uint64) error {
 	expirationDate := storage.GetNowTimestamp() + retentionPeriodSec
-	return p.DB.PutRecord(topicName, fragmentId, offset, data.SeqNum, data.Data, expirationDate)
+	return p.DB.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
+}
+
+// RPC implementation
+
+func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_SubscribeServer) error {
+	sendBuf := make(chan *pb.SubscriptionResult_Fetched)
+	defer close(sendBuf)
+
+	dontWait := false
+	var batched []*pb.SubscriptionResult_Fetched
+	maxBatchSize := int(subscription.MaxBatchSize)
+
+	flushIntervalMs := time.Millisecond * time.Duration(subscription.FlushInterval)
+	timer := time.NewTimer(flushIntervalMs)
+	defer timer.Stop()
+
+	flush := func() error {
+		if err := stream.Send(&pb.SubscriptionResult{Magic: 1, Results: batched}); err != nil {
+			logger.Error(err.Error())
+			return err
+		}
+
+		logger.Debug("sent",
+			zap.Int("num data", len(batched)),
+			zap.Uint64("last seqNum", batched[len(batched)-1].SeqNum))
+
+		timer.Reset(flushIntervalMs)
+		batched = nil
+		dontWait = false
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	for _, offsetInfo := range subscription.Offsets {
+		var startOffset uint64
+		// when start offset is not set, set current offset(to write) as last offset
+		if offsetInfo.StartOffset == nil {
+			value, _ := p.NextFragmentOffsets.Load(subscription.TopicName)
+			nextOffsets := value.(map[uint]uint64)
+			startOffset = nextOffsets[uint(offsetInfo.FragmentId)]
+		} else {
+			startOffset = *offsetInfo.StartOffset
+		}
+		go p.onFetchData(ctx, subscription.TopicName, offsetInfo.FragmentId, startOffset, sendBuf)
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			logger.Debug("stream closed from client")
+			return nil
+
+		case fetched := <-sendBuf:
+			batched = append(batched, fetched)
+			if len(batched) >= maxBatchSize || (len(batched) > 0 && dontWait) {
+				if err := flush(); err != nil {
+					return err
+				}
+			}
+		case <-timer.C:
+			if len(batched) > 0 {
+				if err := flush(); err != nil {
+					timer.Reset(flushIntervalMs)
+				}
+			} else {
+				// if flush time is over and no data collected,
+				// then don't wait until flush interval
+				dontWait = true
+			}
+		}
+	}
 }
 
 func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentId uint32, startOffset uint64, outStream chan *pb.SubscriptionResult_Fetched) {
@@ -160,69 +259,5 @@ func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentI
 			}
 		}
 		timer.Reset(waitInterval)
-	}
-}
-
-// RPC implementation
-
-func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_SubscribeServer) error {
-	sendBuf := make(chan *pb.SubscriptionResult_Fetched)
-	defer close(sendBuf)
-
-	dontWait := false
-	var batched []*pb.SubscriptionResult_Fetched
-	maxBatchSize := int(subscription.MaxBatchSize)
-
-	flushIntervalMs := time.Millisecond * time.Duration(subscription.FlushInterval)
-	timer := time.NewTimer(flushIntervalMs)
-	defer timer.Stop()
-
-	flush := func() error {
-		if err := stream.Send(&pb.SubscriptionResult{Magic: 1, Results: batched}); err != nil {
-			logger.Error(err.Error())
-			return err
-		}
-
-		logger.Debug("sent",
-			zap.Int("num data", len(batched)),
-			zap.Uint64("last seqNum", batched[len(batched)-1].SeqNum))
-
-		timer.Reset(flushIntervalMs)
-		batched = nil
-		dontWait = false
-		return nil
-	}
-
-	ctx, cancel := context.WithCancel(stream.Context())
-	defer cancel()
-
-	for _, offsetInfo := range subscription.Offsets {
-		go p.onFetchData(ctx, subscription.TopicName, offsetInfo.FragmentId, offsetInfo.StartOffset, sendBuf)
-	}
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			logger.Debug("stream closed from client")
-			return nil
-
-		case fetched := <-sendBuf:
-			batched = append(batched, fetched)
-			if len(batched) >= maxBatchSize || (len(batched) > 0 && dontWait) {
-				if err := flush(); err != nil {
-					return err
-				}
-			}
-		case <-timer.C:
-			if len(batched) > 0 {
-				if err := flush(); err != nil {
-					timer.Reset(flushIntervalMs)
-				}
-			} else {
-				// if flush time is over and no data collected,
-				// then don't wait until flush interval
-				dontWait = true
-			}
-		}
 	}
 }

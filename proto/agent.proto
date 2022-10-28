@@ -9,7 +9,7 @@ service PubSub {
 message Subscription {
   message FragmentOffset {
     uint32 fragment_id = 1;
-    uint64 start_offset = 2;
+    optional uint64 start_offset = 2;
   }
   int32 magic = 1;
   string topic_name = 2;

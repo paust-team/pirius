@@ -27,7 +27,7 @@ type TargetNotExistError struct {
 }
 
 func (e TargetNotExistError) Error() string {
-	return fmt.Sprintf("target(%s) does not exist", e.Topic)
+	return fmt.Sprintf("target(%s) does not exist", e.Target)
 }
 
 func (e TargetNotExistError) Code() QErrCode {

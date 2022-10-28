@@ -40,5 +40,6 @@ const (
 	ErrConfigValueNotSet = 0x0500
 
 	// 10 - bootstrapping error
-	ErrTopicNotExists = 0x1000
+	ErrTopicNotExists  = 0x1000
+	ErrTargetNotExists = 0x1001
 )
