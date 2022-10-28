@@ -98,6 +98,10 @@ func (s *ShapleQAgent) StartPublish(topicName string, sendChan chan pubsub.Topic
 		return err
 	}
 
+	//start retention scheduler
+	retentionScheduler := storage.NewRetentionScheduler(s.db, s.config.RetentionCheckInterval())
+	retentionScheduler.Run(ctx)
+
 	go func() {
 		defer cancel()
 		for {
