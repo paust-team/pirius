@@ -8,6 +8,12 @@ import (
 	"github.com/paust-team/shapleq/coordinating/inmemory"
 )
 
+var inMemClient *inmemory.CoordClient
+
 func BuildCoordClient(config.AgentConfig) coordinating.CoordClient {
-	return inmemory.NewInMemCoordClient()
+	if inMemClient != nil {
+		return inMemClient
+	}
+	inMemClient = inmemory.NewInMemCoordClient()
+	return inMemClient
 }

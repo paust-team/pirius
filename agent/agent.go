@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"os"
+	"sync"
 )
 
 type ShapleQAgent struct {
@@ -24,6 +25,7 @@ type ShapleQAgent struct {
 	subscriber pubsub.Subscriber
 	publisher  pubsub.Publisher
 	meta       *storage.AgentMeta
+	wg         sync.WaitGroup
 }
 
 func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
@@ -31,6 +33,7 @@ func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
 		shouldQuit: make(chan struct{}),
 		config:     config,
 		running:    false,
+		wg:         sync.WaitGroup{},
 	}
 }
 
@@ -61,8 +64,17 @@ func (s *ShapleQAgent) Start() error {
 	}
 	s.db = db
 	bootstrapper := bootstrapping.NewBootStrapService(helper.BuildCoordClient(s.config))
-	s.subscriber = pubsub.Subscriber{Bootstrapper: bootstrapper, LastFragmentOffsets: s.meta.SubscribedOffsets}
-	s.publisher = pubsub.Publisher{DB: db, Bootstrapper: bootstrapper, NextFragmentOffsets: s.meta.PublishedOffsets}
+	s.subscriber = pubsub.Subscriber{
+		Bootstrapper:        bootstrapper,
+		LastFragmentOffsets: s.meta.SubscribedOffsets,
+		SubscriberID:        meta.SubscriberID,
+	}
+	s.publisher = pubsub.Publisher{
+		DB:                  db,
+		Bootstrapper:        bootstrapper,
+		NextFragmentOffsets: s.meta.PublishedOffsets,
+		PublisherID:         meta.PublisherID,
+	}
 	s.running = true
 	logger.Info("agent started with ",
 		zap.String("publisher-id", meta.PublisherID),
@@ -74,8 +86,10 @@ func (s *ShapleQAgent) Start() error {
 
 func (s *ShapleQAgent) Stop() {
 	close(s.shouldQuit)
-	s.db.Close()
 	s.running = false
+	// gracefully stop
+	s.wg.Wait()
+	s.db.Close()
 	storage.SaveAgentMeta(s.config.DataDir()+"/"+constants.AgentMetaFileName, *s.meta)
 	logger.Info("agent finished")
 }
@@ -101,13 +115,16 @@ func (s *ShapleQAgent) StartPublish(topicName string, sendChan chan pubsub.Topic
 	//start retention scheduler
 	retentionScheduler := storage.NewRetentionScheduler(s.db, s.config.RetentionCheckInterval())
 	retentionScheduler.Run(ctx)
-
+	s.wg.Add(1)
 	go func() {
 		defer cancel()
+		defer s.wg.Done()
 		for {
 			select {
 			case err = <-errCh:
-				logger.Error(err.Error())
+				if err != nil {
+					logger.Error(err.Error())
+				}
 				return
 			case <-s.shouldQuit:
 				logger.Info("stop publish from agent stopped")
@@ -130,21 +147,20 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 		cancel()
 		return nil, err
 	}
-
+	s.wg.Add(1)
 	go func() {
 		defer cancel()
+		defer s.wg.Done()
 		for {
 			select {
-			case err, ok := <-errCh:
-				if !ok {
-					return
-				}
+			case err = <-errCh:
 				if err == io.EOF {
 					// TODO :: this is abnormal case. should be restarted?
 					logger.Info("stop subscribe from io.EOF")
 					return
+				} else if err != nil {
+					logger.Error(err.Error())
 				}
-				logger.Error(err.Error())
 				return
 			case <-s.shouldQuit:
 				logger.Info("stop subscribe from agent stopped")
@@ -154,4 +170,21 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 	}()
 
 	return recvCh, nil
+}
+
+func (s *ShapleQAgent) GetPublisherID() string {
+	return s.meta.PublisherID
+}
+
+func (s *ShapleQAgent) GetSubscriberID() string {
+	return s.meta.SubscriberID
+}
+
+func (s *ShapleQAgent) CleanAllData() {
+	logger.Warn("this func made for test purpose only")
+	if s.running {
+		_ = s.db.Destroy()
+		os.RemoveAll(s.config.LogDir())
+		os.RemoveAll(s.config.DataDir())
+	}
 }

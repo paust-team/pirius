@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/shapleq/bootstrapping"
 	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/proto/pb"
+	"github.com/paust-team/shapleq/qerror"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"net"
@@ -50,7 +51,7 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 	value, _ := p.NextFragmentOffsets.LoadOrStore(topicName, make(map[uint]uint64))
 	nextOffsets := value.(map[uint]uint64)
 	for _, fragmentId := range fragmentIds {
-		if _, ok := nextOffsets[fragmentId]; ok {
+		if _, ok := nextOffsets[fragmentId]; !ok {
 			nextOffsets[fragmentId] = 1
 		}
 	}
@@ -91,6 +92,7 @@ func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, por
 		pb.RegisterPubSubServer(grpcServer, p)
 
 		lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindAddress, port))
+		logger.Debug("grpc server listening", zap.String("bind", bindAddress), zap.Uint("port", port))
 		if err != nil {
 			return err
 		}
@@ -128,11 +130,15 @@ func (p *Publisher) findPublicationFragments(topicName string) (fragmentIds []ui
 			fragmentIds = append(fragmentIds, fragId)
 		}
 	}
+	if len(fragmentIds) == 0 {
+		return nil, qerror.TargetNotExistError{Target: fmt.Sprintf("fragments of topic(%s)", topicName)}
+	}
 	return
 }
 
 func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint, offset uint64, retentionPeriodSec uint64) error {
 	expirationDate := storage.GetNowTimestamp() + retentionPeriodSec
+	logger.Debug("write to", zap.String("topic", topicName), zap.Uint("fragmentId", fragmentId), zap.Uint64("offset", offset))
 	return p.DB.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
 }
 

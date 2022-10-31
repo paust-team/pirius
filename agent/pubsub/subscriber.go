@@ -135,6 +135,7 @@ func (s *Subscriber) findSubscriptionEndpoints(topicName string) (endpoints Subs
 		return
 	}
 	fragMappings := topicFragmentFrame.FragMappingInfo()
+	endpoints = make(SubscriptionAddrs)
 	for _, fragmentId := range fragmentsIds {
 		if fragInfo, ok := fragMappings[fragmentId]; ok && fragInfo.Active {
 			if _, ok := endpoints[fragInfo.Address]; ok {

@@ -7,11 +7,10 @@ import (
 
 func TopicWritingRule(option topic.Option, fragments []uint) func() []uint {
 	if option&topic.UniquePerFragment != 0 {
-		// round-robin write for fragments if topic write policy has UniquePerFragment
 		offset := 0
-		return func() []uint {
+		return func() []uint { // round-robin write for fragments if topic write policy has UniquePerFragment
 			selected := fragments[offset]
-			offset++
+			offset = (offset + 1) % len(fragments)
 			return []uint{selected}
 		}
 	} else {

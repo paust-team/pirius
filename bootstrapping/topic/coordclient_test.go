@@ -49,6 +49,15 @@ var _ = Describe("CoordClient", func() {
 					Expect(topicFrame.Description()).To(Equal(testDescription))
 					Expect(topicFrame.Options()).To(Equal(testOptions))
 				})
+
+				It("should have topic fragments", func() {
+					_, err = topicClient.GetTopicFragments(testTopic)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				It("should have subscriptions", func() {
+					_, err = topicClient.GetTopicSubscriptions(testTopic)
+					Expect(err).NotTo(HaveOccurred())
+				})
 			})
 
 			When("the topic not exists", func() {
@@ -57,7 +66,7 @@ var _ = Describe("CoordClient", func() {
 					_, err = topicClient.GetTopic(nonExistTopic)
 				})
 				It("error occurred", func() {
-					Expect(err).To(MatchError(qerror.TopicNotExistError{Topic: nonExistTopic}))
+					Expect(err).To(BeAssignableToTypeOf(qerror.TopicNotExistError{}))
 				})
 			})
 		})
@@ -117,7 +126,7 @@ var _ = Describe("CoordClient", func() {
 					_, err = topicClient.GetTopic(testTopic)
 				})
 				It("error occurred", func() {
-					Expect(err).To(MatchError(qerror.TopicNotExistError{Topic: testTopic}))
+					Expect(err).To(BeAssignableToTypeOf(qerror.TopicNotExistError{}))
 				})
 			})
 		})
@@ -162,7 +171,7 @@ var _ = Describe("CoordClient", func() {
 					_, err = topicClient.GetTopicFragments(nonExistTopic)
 				})
 				It("error occurred", func() {
-					Expect(err).To(MatchError(qerror.TopicNotExistError{Topic: nonExistTopic}))
+					Expect(err).To(BeAssignableToTypeOf(qerror.TopicNotExistError{}))
 				})
 			})
 		})
@@ -239,7 +248,7 @@ var _ = Describe("CoordClient", func() {
 					_, err = topicClient.GetTopicSubscriptions(nonExistTopic)
 				})
 				It("error occurred", func() {
-					Expect(err).To(MatchError(qerror.TopicNotExistError{Topic: nonExistTopic}))
+					Expect(err).To(BeAssignableToTypeOf(qerror.TopicNotExistError{}))
 				})
 			})
 		})
