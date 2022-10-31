@@ -4,66 +4,69 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/paust-team/shapleq/agent/storage"
+	"github.com/paust-team/shapleq/test"
 	"os"
 )
 
 var _ = Describe("Meta", func() {
-	testpath := os.ExpandEnv("test_ag_meta.gob")
-	var agentMeta *storage.AgentMeta
 
 	Describe("Updating a AgentMeta", func() {
-		var loaded storage.AgentMeta
-		var err error
+		tp := test.NewTestParams()
+		var agentMeta *storage.AgentMeta
 
 		BeforeEach(func() {
-			meta, err := storage.LoadAgentMeta(testpath)
+			tp.Set("testPath", os.ExpandEnv("test_ag_meta.gob"))
+
+			meta, err := storage.LoadAgentMeta(tp.GetString("testPath"))
 			Expect(err).NotTo(HaveOccurred())
 			agentMeta = &meta
 		})
 		AfterEach(func() {
-			os.Remove(testpath)
+			os.Remove(tp.GetString("testPath"))
+			tp.Clear()
 		})
 
 		When("updating the `IDs`", func() {
-			newPubId := "updated-pub-id"
-			newSubId := "updated-sub-id"
 			BeforeEach(func() {
-				agentMeta.PublisherID = newPubId
-				agentMeta.SubscriberID = newSubId
-				err = storage.SaveAgentMeta(testpath, *agentMeta)
-				Expect(err).NotTo(HaveOccurred())
+				tp.Set("newPubId", "updated-pub-id")
+				tp.Set("newSubId", "updated-sub-id")
 
-				loaded, err = storage.LoadAgentMeta(testpath)
+				agentMeta.PublisherID = tp.GetString("newPubId")
+				agentMeta.SubscriberID = tp.GetString("newSubId")
+				err := storage.SaveAgentMeta(tp.GetString("testPath"), *agentMeta)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should be equal", func() {
-				Expect(loaded.PublisherID).To(Equal(newPubId))
-				Expect(loaded.SubscriberID).To(Equal(newSubId))
+				loaded, err := storage.LoadAgentMeta(tp.GetString("testPath"))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(loaded.PublisherID).To(Equal(tp.GetString("newPubId")))
+				Expect(loaded.SubscriberID).To(Equal(tp.GetString("newSubId")))
 			})
 		})
 
 		When("updating the `Offsets`", func() {
-			testTopic := "test-topic"
-			newSubOffsets := map[uint]uint64{100: 10}
-			newPubOffsets := map[uint]uint64{200: 20}
-
 			BeforeEach(func() {
-				agentMeta.SubscribedOffsets.Store(testTopic, newSubOffsets)
-				agentMeta.PublishedOffsets.Store(testTopic, newPubOffsets)
-				err = storage.SaveAgentMeta(testpath, *agentMeta)
-				Expect(err).NotTo(HaveOccurred())
+				tp.Set("expTopic", "testTopic")
+				tp.Set("expSubOffsets", map[uint]uint64{100: 10})
+				tp.Set("expPubOffsets", map[uint]uint64{200: 20})
 
-				loaded, err = storage.LoadAgentMeta(testpath)
+				agentMeta.SubscribedOffsets.Store(tp.GetString("expTopic"), tp.Get("expSubOffsets").(map[uint]uint64))
+				agentMeta.PublishedOffsets.Store(tp.GetString("expTopic"), tp.Get("expPubOffsets").(map[uint]uint64))
+				err := storage.SaveAgentMeta(tp.GetString("testPath"), *agentMeta)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should be equal", func() {
-				pubOffsets, ok := loaded.PublishedOffsets.Load(testTopic)
-				Expect(ok).To(Equal(true))
-				Expect(pubOffsets).To(Equal(newPubOffsets))
+				loaded, err := storage.LoadAgentMeta(tp.GetString("testPath"))
+				Expect(err).NotTo(HaveOccurred())
 
-				subOffsets, ok := loaded.SubscribedOffsets.Load(testTopic)
+				pubOffsets, ok := loaded.PublishedOffsets.Load(tp.GetString("expTopic"))
 				Expect(ok).To(Equal(true))
-				Expect(subOffsets).To(Equal(newSubOffsets))
+				Expect(pubOffsets).To(Equal(tp.Get("expPubOffsets").(map[uint]uint64)))
+
+				subOffsets, ok := loaded.SubscribedOffsets.Load(tp.GetString("expTopic"))
+				Expect(ok).To(Equal(true))
+				Expect(subOffsets).To(Equal(tp.Get("expSubOffsets").(map[uint]uint64)))
 			})
 		})
 	})
