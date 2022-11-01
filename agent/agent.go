@@ -9,6 +9,7 @@ import (
 	"github.com/paust-team/shapleq/agent/storage"
 	"github.com/paust-team/shapleq/bootstrapping"
 	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/shapleq/coordinating"
 	"github.com/paust-team/shapleq/helper"
 	"github.com/paust-team/shapleq/logger"
 	"go.uber.org/zap"
@@ -18,14 +19,15 @@ import (
 )
 
 type Instance struct {
-	shouldQuit chan struct{}
-	db         *storage.QRocksDB
-	config     config.AgentConfig
-	running    bool
-	subscriber pubsub.Subscriber
-	publisher  pubsub.Publisher
-	meta       *storage.AgentMeta
-	wg         sync.WaitGroup
+	shouldQuit  chan struct{}
+	db          *storage.QRocksDB
+	config      config.AgentConfig
+	running     bool
+	subscriber  pubsub.Subscriber
+	publisher   pubsub.Publisher
+	meta        *storage.AgentMeta
+	wg          sync.WaitGroup
+	coordClient coordinating.CoordClient
 }
 
 func NewInstance(config config.AgentConfig) *Instance {
@@ -63,7 +65,13 @@ func (s *Instance) Start() error {
 		return err
 	}
 	s.db = db
-	bootstrapper := bootstrapping.NewBootStrapService(helper.BuildCoordClient(s.config))
+	s.coordClient = helper.BuildCoordClient(s.config.ZKQuorum(), s.config.ZKTimeout())
+	if err := s.coordClient.Connect(); err != nil {
+		logger.Error(err.Error())
+		return err
+	}
+
+	bootstrapper := bootstrapping.NewBootStrapService(s.coordClient)
 	s.subscriber = pubsub.Subscriber{
 		Bootstrapper:        bootstrapper,
 		LastFragmentOffsets: s.meta.SubscribedOffsets,
@@ -90,6 +98,7 @@ func (s *Instance) Stop() {
 	// gracefully stop
 	s.wg.Wait()
 	s.db.Close()
+	s.coordClient.Close()
 	storage.SaveAgentMeta(s.config.DataDir()+"/"+constants.AgentMetaFileName, *s.meta)
 	logger.Info("agent finished")
 }
