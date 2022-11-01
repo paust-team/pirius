@@ -20,8 +20,8 @@ var _ = Describe("Agent", func() {
 			tp := test.NewTestParams()
 			var coordClient coordinating.CoordClient
 			var topicClient topic.CoordClientTopicWrapper
-			var publisher *agent.ShapleQAgent
-			var subscriber *agent.ShapleQAgent
+			var publisher *agent.Instance
+			var subscriber *agent.Instance
 
 			BeforeAll(func() {
 				coordClient = helper.BuildCoordClient(config.NewAgentConfig())
@@ -46,7 +46,7 @@ var _ = Describe("Agent", func() {
 				pubConfig.SetPort(11010)
 				pubConfig.SetDBName("test-pub-store")
 				pubConfig.SetBindAddress("0.0.0.0")
-				publisher = agent.NewShapleQAgent(pubConfig)
+				publisher = agent.NewInstance(pubConfig)
 				err = publisher.Start()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -54,7 +54,7 @@ var _ = Describe("Agent", func() {
 				subConfig := config.NewAgentConfig()
 				subConfig.SetPort(11011)
 				subConfig.SetDBName("test-sub-store")
-				subscriber = agent.NewShapleQAgent(subConfig)
+				subscriber = agent.NewInstance(subConfig)
 
 				err = subscriber.Start()
 				Expect(err).NotTo(HaveOccurred())

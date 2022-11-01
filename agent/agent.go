@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-type ShapleQAgent struct {
+type Instance struct {
 	shouldQuit chan struct{}
 	db         *storage.QRocksDB
 	config     config.AgentConfig
@@ -28,8 +28,8 @@ type ShapleQAgent struct {
 	wg         sync.WaitGroup
 }
 
-func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
-	return &ShapleQAgent{
+func NewInstance(config config.AgentConfig) *Instance {
+	return &Instance{
 		shouldQuit: make(chan struct{}),
 		config:     config,
 		running:    false,
@@ -37,7 +37,7 @@ func NewShapleQAgent(config config.AgentConfig) *ShapleQAgent {
 	}
 }
 
-func (s *ShapleQAgent) Start() error {
+func (s *Instance) Start() error {
 	if s.config.RetentionPeriod() < constants.MinRetentionPeriod ||
 		s.config.RetentionPeriod() > constants.MaxRetentionPeriod {
 		logger.Error("Invalid retention period", zap.Uint32("retention", s.config.RetentionPeriod()))
@@ -84,7 +84,7 @@ func (s *ShapleQAgent) Start() error {
 	return nil
 }
 
-func (s *ShapleQAgent) Stop() {
+func (s *Instance) Stop() {
 	close(s.shouldQuit)
 	s.running = false
 	// gracefully stop
@@ -94,7 +94,7 @@ func (s *ShapleQAgent) Stop() {
 	logger.Info("agent finished")
 }
 
-func (s *ShapleQAgent) StartPublish(topicName string, sendChan chan pubsub.TopicData) error {
+func (s *Instance) StartPublish(topicName string, sendChan chan pubsub.TopicData) error {
 	if !s.running {
 		return errors.New("not running state")
 	}
@@ -136,7 +136,7 @@ func (s *ShapleQAgent) StartPublish(topicName string, sendChan chan pubsub.Topic
 	return nil
 }
 
-func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval uint32) (chan []pubsub.SubscriptionResult, error) {
+func (s *Instance) StartSubscribe(topicName string, batchSize, flushInterval uint32) (chan []pubsub.SubscriptionResult, error) {
 	if !s.running {
 		return nil, errors.New("not running state")
 	}
@@ -172,15 +172,15 @@ func (s *ShapleQAgent) StartSubscribe(topicName string, batchSize, flushInterval
 	return recvCh, nil
 }
 
-func (s *ShapleQAgent) GetPublisherID() string {
+func (s *Instance) GetPublisherID() string {
 	return s.meta.PublisherID
 }
 
-func (s *ShapleQAgent) GetSubscriberID() string {
+func (s *Instance) GetSubscriberID() string {
 	return s.meta.SubscriberID
 }
 
-func (s *ShapleQAgent) CleanAllData() {
+func (s *Instance) CleanAllData() {
 	logger.Warn("this func made for test purpose only")
 	if s.running {
 		_ = s.db.Destroy()

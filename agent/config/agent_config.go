@@ -45,6 +45,7 @@ func NewAgentConfig() AgentConfig {
 		"timeout":        defaultZKTimeout,
 		"flush-interval": defaultZKFlushInterval,
 	})
+	v.SetDefault("retention-check-interval", defaultRetentionCheckInterval)
 
 	return AgentConfig{v}
 }
@@ -62,7 +63,7 @@ func (b AgentConfig) Timeout() int {
 	return b.GetInt("timeout")
 }
 
-func (b *AgentConfig) SetTimeout(timeout int) {
+func (b AgentConfig) SetTimeout(timeout int) {
 	b.Set("timeout", timeout)
 }
 
@@ -70,7 +71,7 @@ func (b AgentConfig) BindAddress() string {
 	return b.GetString("bind")
 }
 
-func (b *AgentConfig) SetBindAddress(name string) {
+func (b AgentConfig) SetBindAddress(name string) {
 	b.Set("bind", name)
 }
 
@@ -78,7 +79,7 @@ func (b AgentConfig) Host() string {
 	return b.GetString("host")
 }
 
-func (b *AgentConfig) SetHost(name string) {
+func (b AgentConfig) SetHost(name string) {
 	b.Set("host", name)
 }
 
@@ -86,7 +87,7 @@ func (b AgentConfig) Port() uint {
 	return b.GetUint("port")
 }
 
-func (b *AgentConfig) SetPort(port uint) {
+func (b AgentConfig) SetPort(port uint) {
 	b.Set("port", port)
 }
 
@@ -94,7 +95,7 @@ func (b AgentConfig) LogDir() string {
 	return replaceTildeToHomePath(b.GetString("log-dir"))
 }
 
-func (b *AgentConfig) SetLogDir(logDir string) {
+func (b AgentConfig) SetLogDir(logDir string) {
 	b.Set("log-dir", logDir)
 }
 
@@ -102,7 +103,7 @@ func (b AgentConfig) DataDir() string {
 	return replaceTildeToHomePath(b.GetString("data-dir"))
 }
 
-func (b *AgentConfig) SetDataDir(dataDir string) {
+func (b AgentConfig) SetDataDir(dataDir string) {
 	b.Set("data-dir", dataDir)
 }
 
@@ -110,7 +111,7 @@ func (b AgentConfig) DBName() string {
 	return b.GetString("db-name")
 }
 
-func (b *AgentConfig) SetDBName(name string) {
+func (b AgentConfig) SetDBName(name string) {
 	b.Set("db-name", name)
 }
 
@@ -127,7 +128,7 @@ func (b AgentConfig) ZKQuorum() []string {
 	return addresses
 }
 
-func (b *AgentConfig) SetZKQuorum(addresses []string) {
+func (b AgentConfig) SetZKQuorum(addresses []string) {
 	b.Set("zookeeper.quorum", strings.Join(addresses, ","))
 }
 
@@ -135,7 +136,7 @@ func (b AgentConfig) ZKTimeout() uint {
 	return b.GetUint("zookeeper.timeout")
 }
 
-func (b *AgentConfig) SetZKTimeout(timeout uint) {
+func (b AgentConfig) SetZKTimeout(timeout uint) {
 	b.Set("zookeeper.timeout", timeout)
 }
 
@@ -143,7 +144,7 @@ func (b AgentConfig) LogLevel() zapcore.Level {
 	return zapcore.Level(b.GetUint("log-level"))
 }
 
-func (b *AgentConfig) SetLogLevel(logLevel zapcore.Level) {
+func (b AgentConfig) SetLogLevel(logLevel zapcore.Level) {
 	b.Set("log-level", logLevel)
 }
 
@@ -151,7 +152,7 @@ func (b AgentConfig) ZKFlushInterval() uint {
 	return b.GetUint("zookeeper.flush-interval")
 }
 
-func (b *AgentConfig) SetZKFlushInterval(interval uint) {
+func (b AgentConfig) SetZKFlushInterval(interval uint) {
 	b.Set("zookeeper.flush-interval", interval)
 }
 
@@ -159,7 +160,7 @@ func (b AgentConfig) RetentionCheckInterval() uint {
 	return b.GetUint("retention-check-interval")
 }
 
-func (b *AgentConfig) SetRetentionCheckInterval(interval uint) {
+func (b AgentConfig) SetRetentionCheckInterval(interval uint) {
 	b.Set("retention-check-interval", interval)
 }
 
