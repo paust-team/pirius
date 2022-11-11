@@ -16,6 +16,7 @@ const (
 	ErrTopicNotSet               = 0x0106
 	ErrValidation                = 0x0107
 	ErrTopicFragmentOffsetNotSet = 0x0108
+	ErrInvalidState              = 0x0109
 
 	// 02 - coordinating error
 	ErrCoordConnection          = 0x0200

@@ -8,22 +8,23 @@ import (
 type LockOperation struct {
 	conn *zk.Conn
 	path string
-	do   func()
+	lock *zk.Lock
 }
 
-func NewZKLockOperation(conn *zk.Conn, path string, do func()) LockOperation {
-	return LockOperation{conn: conn, path: path, do: do}
+func NewZKLockOperation(conn *zk.Conn, path string) LockOperation {
+	return LockOperation{conn: conn, path: path, lock: zk.NewLock(conn, path, zk.WorldACL(zk.PermAll))}
 }
 
-func (o LockOperation) Run() error {
-	lock := zk.NewLock(o.conn, o.path, zk.WorldACL(zk.PermAll))
-	err := lock.Lock()
+func (o LockOperation) Lock() error {
+	err := o.lock.Lock()
 	if err != nil {
 		err = qerror.CoordLockFailError{LockPath: o.path, ErrStr: err.Error()}
 		return err
 	}
-	defer lock.Unlock()
-	o.do()
 
 	return nil
+}
+
+func (o LockOperation) Unlock() error {
+	return o.lock.Unlock()
 }
