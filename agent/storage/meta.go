@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/paust-team/shapleq/helper"
 	"os"
 	"sync"
@@ -10,18 +11,23 @@ import (
 type TopicFragmentOffsets struct {
 	*sync.Map
 }
+type FragmentKey string
 
-func NewTopicFragmentOffsets(m map[string]map[uint]uint64) TopicFragmentOffsets {
+func NewFragmentKey(topicName string, fragmentId uint) FragmentKey {
+	return FragmentKey(fmt.Sprintf("%s/%d", topicName, fragmentId))
+}
+
+func NewTopicFragmentOffsets(m map[FragmentKey]uint64) TopicFragmentOffsets {
 	sm := sync.Map{}
 	for k, v := range m {
 		sm.Store(k, v)
 	}
 	return TopicFragmentOffsets{Map: &sm}
 }
-func (o *TopicFragmentOffsets) ToMap() map[string]map[uint]uint64 {
-	m := make(map[string]map[uint]uint64)
+func (o *TopicFragmentOffsets) ToMap() map[FragmentKey]uint64 {
+	m := make(map[FragmentKey]uint64)
 	o.Map.Range(func(k, v interface{}) bool {
-		m[k.(string)] = v.(map[uint]uint64)
+		m[k.(FragmentKey)] = v.(uint64)
 		return true
 	})
 	return m
@@ -30,8 +36,9 @@ func (o *TopicFragmentOffsets) ToMap() map[string]map[uint]uint64 {
 type agentMeta struct {
 	PubId      string
 	SubId      string
-	PubOffsets map[string]map[uint]uint64
-	SubOffsets map[string]map[uint]uint64
+	PubOffsets map[FragmentKey]uint64
+	SubOffsets map[FragmentKey]uint64
+	FetOffsets map[FragmentKey]uint64
 }
 
 func (a agentMeta) convert() AgentMeta {
@@ -40,6 +47,7 @@ func (a agentMeta) convert() AgentMeta {
 		SubscriberID:      a.SubId,
 		PublishedOffsets:  NewTopicFragmentOffsets(a.PubOffsets),
 		SubscribedOffsets: NewTopicFragmentOffsets(a.SubOffsets),
+		LastFetchedOffset: NewTopicFragmentOffsets(a.FetOffsets),
 	}
 }
 
@@ -48,6 +56,7 @@ type AgentMeta struct {
 	SubscriberID      string
 	PublishedOffsets  TopicFragmentOffsets
 	SubscribedOffsets TopicFragmentOffsets
+	LastFetchedOffset TopicFragmentOffsets
 }
 
 func (a AgentMeta) convert() agentMeta {
@@ -56,6 +65,7 @@ func (a AgentMeta) convert() agentMeta {
 		SubId:      a.SubscriberID,
 		PubOffsets: a.PublishedOffsets.ToMap(),
 		SubOffsets: a.SubscribedOffsets.ToMap(),
+		FetOffsets: a.LastFetchedOffset.ToMap(),
 	}
 }
 
@@ -76,8 +86,9 @@ func LoadAgentMeta(path string) (AgentMeta, error) {
 			meta := AgentMeta{
 				PublisherID:       helper.GenerateNodeId(),
 				SubscriberID:      helper.GenerateNodeId(),
-				PublishedOffsets:  NewTopicFragmentOffsets(make(map[string]map[uint]uint64)),
-				SubscribedOffsets: NewTopicFragmentOffsets(make(map[string]map[uint]uint64)),
+				PublishedOffsets:  NewTopicFragmentOffsets(make(map[FragmentKey]uint64)),
+				SubscribedOffsets: NewTopicFragmentOffsets(make(map[FragmentKey]uint64)),
+				LastFetchedOffset: NewTopicFragmentOffsets(make(map[FragmentKey]uint64)),
 			}
 			if err = SaveAgentMeta(path, meta); err == nil {
 				return meta, nil

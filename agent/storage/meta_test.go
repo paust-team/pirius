@@ -48,25 +48,38 @@ var _ = Describe("Meta", func() {
 		When("updating the `Offsets`", func() {
 			BeforeEach(func() {
 				tp.Set("expTopic", "testTopic")
-				tp.Set("expSubOffsets", map[uint]uint64{100: 10})
-				tp.Set("expPubOffsets", map[uint]uint64{200: 20})
+				tp.Set("expSubFragId", uint(100))
+				tp.Set("expPubFragId", uint(200))
+				tp.Set("expFetFragId", uint(200))
+				tp.Set("expSubOffsets", uint64(10))
+				tp.Set("expPubOffsets", uint64(20))
+				tp.Set("expFetOffsets", uint64(15))
 
-				agentMeta.SubscribedOffsets.Store(tp.GetString("expTopic"), tp.Get("expSubOffsets").(map[uint]uint64))
-				agentMeta.PublishedOffsets.Store(tp.GetString("expTopic"), tp.Get("expPubOffsets").(map[uint]uint64))
+				agentMeta.SubscribedOffsets.Store(
+					storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expSubFragId")), tp.GetUint64("expSubOffsets"))
+				agentMeta.PublishedOffsets.Store(
+					storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expPubFragId")), tp.GetUint64("expPubOffsets"))
+				agentMeta.LastFetchedOffset.Store(
+					storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expFetFragId")), tp.GetUint64("expFetOffsets"))
 				err := storage.SaveAgentMeta(tp.GetString("testPath"), *agentMeta)
+
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should be equal", func() {
 				loaded, err := storage.LoadAgentMeta(tp.GetString("testPath"))
 				Expect(err).NotTo(HaveOccurred())
 
-				pubOffsets, ok := loaded.PublishedOffsets.Load(tp.GetString("expTopic"))
+				pubOffsets, ok := loaded.PublishedOffsets.Load(storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expPubFragId")))
 				Expect(ok).To(Equal(true))
-				Expect(pubOffsets).To(Equal(tp.Get("expPubOffsets").(map[uint]uint64)))
+				Expect(pubOffsets).To(Equal(tp.Get("expPubOffsets").(uint64)))
 
-				subOffsets, ok := loaded.SubscribedOffsets.Load(tp.GetString("expTopic"))
+				subOffsets, ok := loaded.SubscribedOffsets.Load(storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expSubFragId")))
 				Expect(ok).To(Equal(true))
-				Expect(subOffsets).To(Equal(tp.Get("expSubOffsets").(map[uint]uint64)))
+				Expect(subOffsets).To(Equal(tp.Get("expSubOffsets").(uint64)))
+
+				fetOffsets, ok := loaded.LastFetchedOffset.Load(storage.NewFragmentKey(tp.GetString("expTopic"), tp.GetUint("expFetFragId")))
+				Expect(ok).To(Equal(true))
+				Expect(fetOffsets).To(Equal(tp.Get("expFetOffsets").(uint64)))
 			})
 		})
 	})

@@ -32,10 +32,9 @@ type Instance struct {
 
 func NewInstance(config config.AgentConfig) *Instance {
 	return &Instance{
-		shouldQuit: make(chan struct{}),
-		config:     config,
-		running:    false,
-		wg:         sync.WaitGroup{},
+		config:  config,
+		running: false,
+		wg:      sync.WaitGroup{},
 	}
 }
 
@@ -52,7 +51,7 @@ func (s *Instance) Start() error {
 	if err := os.MkdirAll(s.config.LogDir(), os.ModePerm); err != nil {
 		return err
 	}
-	meta, err := storage.LoadAgentMeta(s.config.DataDir() + "/" + constants.AgentMetaFileName)
+	meta, err := storage.LoadAgentMeta(s.GetMetaPath())
 	if err != nil {
 		logger.Error(err.Error())
 		return err
@@ -70,20 +69,12 @@ func (s *Instance) Start() error {
 		logger.Error(err.Error())
 		return err
 	}
-
+	agentAddress := fmt.Sprintf("%s:%d", s.config.Host(), s.config.Port())
 	bootstrapper := bootstrapping.NewBootStrapService(s.coordClient)
-	s.subscriber = pubsub.Subscriber{
-		Bootstrapper:        bootstrapper,
-		LastFragmentOffsets: s.meta.SubscribedOffsets,
-		SubscriberID:        meta.SubscriberID,
-	}
-	s.publisher = pubsub.Publisher{
-		DB:                  db,
-		Bootstrapper:        bootstrapper,
-		NextFragmentOffsets: s.meta.PublishedOffsets,
-		PublisherID:         meta.PublisherID,
-	}
+	s.subscriber = pubsub.NewSubscriber(meta.SubscriberID, bootstrapper, s.meta.SubscribedOffsets)
+	s.publisher = pubsub.NewPublisher(s.meta.PublisherID, agentAddress, db, bootstrapper, s.meta.PublishedOffsets, s.meta.LastFetchedOffset)
 	s.running = true
+	s.shouldQuit = make(chan struct{})
 	logger.Info("agent started with ",
 		zap.String("publisher-id", meta.PublisherID),
 		zap.String("subscriber-id", meta.SubscriberID),
@@ -99,7 +90,7 @@ func (s *Instance) Stop() {
 	s.wg.Wait()
 	s.db.Close()
 	s.coordClient.Close()
-	storage.SaveAgentMeta(s.config.DataDir()+"/"+constants.AgentMetaFileName, *s.meta)
+	storage.SaveAgentMeta(s.GetMetaPath(), *s.meta)
 	logger.Info("agent finished")
 }
 
@@ -109,11 +100,6 @@ func (s *Instance) StartPublish(ctx context.Context, topicName string, sendChan 
 	}
 	retentionPeriod := uint64(s.config.RetentionPeriod() * 60 * 60 * 24)
 	ctx, cancel := context.WithCancel(ctx)
-
-	if err := s.publisher.SetupGrpcServer(ctx, s.config.BindAddress(), s.config.Port()); err != nil {
-		cancel()
-		return err
-	}
 
 	errCh, err := s.publisher.PreparePublication(ctx, topicName, retentionPeriod, sendChan)
 	if err != nil {
@@ -126,8 +112,9 @@ func (s *Instance) StartPublish(ctx context.Context, topicName string, sendChan 
 	retentionScheduler.Run(ctx)
 	s.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer s.wg.Done()
+		defer s.publisher.Wait()
+		defer cancel()
 		for {
 			select {
 			case err = <-errCh:
@@ -158,8 +145,9 @@ func (s *Instance) StartSubscribe(ctx context.Context, topicName string, batchSi
 	}
 	s.wg.Add(1)
 	go func() {
-		defer cancel()
 		defer s.wg.Done()
+		defer s.subscriber.Wait()
+		defer cancel()
 		for {
 			select {
 			case err = <-errCh:
@@ -181,6 +169,10 @@ func (s *Instance) StartSubscribe(ctx context.Context, topicName string, batchSi
 	return recvCh, nil
 }
 
+func (s *Instance) GetMetaPath() string {
+	return s.config.DataDir() + "/" + constants.AgentMetaFileName
+}
+
 func (s *Instance) GetPublisherID() string {
 	return s.meta.PublisherID
 }
@@ -191,7 +183,7 @@ func (s *Instance) GetSubscriberID() string {
 
 func (s *Instance) CleanAllData() {
 	logger.Warn("this func made for test purpose only")
-	if s.running {
+	if !s.running {
 		_ = s.db.Destroy()
 		os.RemoveAll(s.config.LogDir())
 		os.RemoveAll(s.config.DataDir())
