@@ -2,16 +2,15 @@ package pubsub
 
 import (
 	"github.com/paust-team/shapleq/bootstrapping/topic"
+	"github.com/paust-team/shapleq/helper"
 	"github.com/paust-team/shapleq/logger"
 )
 
 func TopicWritingRule(option topic.Option, fragments []uint) func() []uint {
 	if option&topic.UniquePerFragment != 0 {
-		offset := 0
+		rrSelect := helper.RoundRobinSelection(fragments)
 		return func() []uint { // round-robin write for fragments if topic write policy has UniquePerFragment
-			selected := fragments[offset]
-			offset = (offset + 1) % len(fragments)
-			return []uint{selected}
+			return []uint{rrSelect()}
 		}
 	} else {
 		if len(fragments) > 1 {

@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"github.com/paust-team/shapleq/agent/storage"
 	"github.com/paust-team/shapleq/bootstrapping"
+	"github.com/paust-team/shapleq/bootstrapping/topic"
+	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/shapleq/helper"
 	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/proto/pb"
 	"github.com/paust-team/shapleq/qerror"
@@ -14,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 	"net"
 	"runtime"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -25,81 +29,207 @@ type TopicData struct {
 
 type Publisher struct {
 	pb.PubSubServer
-	PublisherID         string
-	DB                  *storage.QRocksDB
-	Bootstrapper        *bootstrapping.BootstrapService
-	server              *grpc.Server
-	NextFragmentOffsets storage.TopicFragmentOffsets // offsets to write
+	id                    string
+	address               string
+	db                    *storage.QRocksDB
+	bootstrapper          *bootstrapping.BootstrapService
+	server                *grpc.Server
+	currentPublishOffsets storage.TopicFragmentOffsets // current write offsets
+	lastFetchedOffsets    storage.TopicFragmentOffsets // last read offsets
+	wg                    sync.WaitGroup
+	currentFragMappings   topic.FragMappingInfo
+}
+
+func NewPublisher(id string, address string, db *storage.QRocksDB, bootstrapper *bootstrapping.BootstrapService,
+	publishedOffsets, fetchedOffsets storage.TopicFragmentOffsets) Publisher {
+	return Publisher{
+		id:                    id,
+		address:               address,
+		db:                    db,
+		bootstrapper:          bootstrapper,
+		server:                nil,
+		currentPublishOffsets: publishedOffsets,
+		lastFetchedOffsets:    fetchedOffsets,
+		wg:                    sync.WaitGroup{},
+	}
 }
 
 func (p *Publisher) PreparePublication(ctx context.Context, topicName string, retentionPeriodSec uint64,
 	inStream chan TopicData) (chan error, error) {
 
-	fragmentIds, err := p.findPublicationFragments(topicName)
+	if err := p.setupGrpcServer(ctx); err != nil {
+		return nil, err
+	}
+
+	// register watcher for topic fragment info
+	fragmentWatchCh, err := p.bootstrapper.WatchFragmentInfoChanged(ctx, topicName)
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("watcher for fragments registered", zap.String("topic", topicName))
+
+	// register publisher path and wait for initial rebalance
+	if err = p.bootstrapper.AddPublisher(topicName, p.id, p.address); err != nil {
+		return nil, err
+	}
+	select {
+	case initialFragment := <-fragmentWatchCh:
+		p.currentFragMappings = initialFragment
+	case <-time.After(time.Second * constants.InitialRebalanceTimeout):
+		return nil, qerror.InvalidStateError{State: fmt.Sprintf("initial rebalance timed out for topic(%s)", topicName)}
+	}
+
+	// setup  publishing fragments
+	activeFragIds, staleFragIds := p.findPublishingFragments(p.currentFragMappings)
+	if len(activeFragIds) == 0 {
+		return nil, qerror.InvalidStateError{State: fmt.Sprintf("no active fragments of topic(%s)", topicName)}
+	}
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("setup publishing fragments",
+		zap.Uints("active-fragments", activeFragIds),
+		zap.Uints("stale-fragments", staleFragIds))
 
 	// load topic policy and set fragments selecting rule
-	topicInfo, err := p.Bootstrapper.GetTopic(topicName)
+	topicInfo, err := p.bootstrapper.GetTopic(topicName)
 	if err != nil {
 		return nil, err
 	}
-	getFragmentsToWrite := TopicWritingRule(topicInfo.Options(), fragmentIds)
+	getFragmentsToWrite := TopicWritingRule(topicInfo.Options(), activeFragIds)
 
-	// load next offsets
-	value, _ := p.NextFragmentOffsets.LoadOrStore(topicName, make(map[uint]uint64))
-	nextOffsets := value.(map[uint]uint64)
-	for _, fragmentId := range fragmentIds {
-		if _, ok := nextOffsets[fragmentId]; !ok {
-			nextOffsets[fragmentId] = 1
-		}
+	// write staled fragment's data to active fragment
+	var inStreams chan TopicData
+	if len(staleFragIds) > 0 {
+		transferCh := p.transferStaledRecords(ctx, topicName, staleFragIds)
+		inStreams = helper.MergeChannels(inStream, transferCh)
+	} else {
+		inStreams = inStream
 	}
 
-	errCh := make(chan error)
+	errCh := make(chan error, 2)
+	p.wg.Add(1)
 	go func() {
 		defer close(errCh)
-
+		defer p.wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("stop publish from ctx.Done()")
+				logger.Info("stop publishing: ctx.Done()")
 				return
-			case data, ok := <-inStream:
+			case data, ok := <-inStreams:
 				if !ok {
-					logger.Info("stop publish from send buffer closed")
+					logger.Info("stop publishing: send buffer closed")
 					return
 				}
 				for _, fragmentId := range getFragmentsToWrite() {
-					err := p.onReceiveData(data, topicName, fragmentId, nextOffsets[fragmentId], retentionPeriodSec)
+					fragKey := storage.NewFragmentKey(topicName, fragmentId)
+					value, _ := p.currentPublishOffsets.LoadOrStore(fragKey, uint64(1))
+					currentOffset := value.(uint64)
+					err = p.onReceiveData(data, topicName, fragmentId, currentOffset, retentionPeriodSec)
 					if err != nil {
 						errCh <- err
 						return
 					}
-					nextOffsets[fragmentId]++
-					p.NextFragmentOffsets.Store(topicName, nextOffsets)
+					p.currentPublishOffsets.Store(fragKey, currentOffset+1)
+				}
+			case fragMappingInfo, ok := <-fragmentWatchCh:
+				if !ok {
+					logger.Error("stop publishing: watch closed")
+					errCh <- qerror.InvalidStateError{State: "watcher channel closed unexpectedly"}
+					return
+				}
+				logger.Info("received new fragment mapping info", zap.String("topic", topicName))
+
+				if p.isMappingUpdated(fragMappingInfo) {
+					// reset publishing fragments
+					logger.Info("resetting publishing fragments")
+					activeFragIds, staleFragIds = p.findPublishingFragments(fragMappingInfo)
+					if len(activeFragIds) == 0 {
+						err = qerror.InvalidStateError{State: fmt.Sprintf("no active fragments of topic(%s)", topicName)}
+						errCh <- err
+						logger.Error("failed to reset publishing fragments")
+					} else {
+						logger.Info("publishing fragments updated",
+							zap.Uints("active-fragments", activeFragIds),
+							zap.Uints("stale-fragments", staleFragIds))
+
+						// write staled fragment's data to active fragment
+						if len(staleFragIds) > 0 {
+							transferCh := p.transferStaledRecords(ctx, topicName, staleFragIds)
+							inStreams = helper.MergeChannels(inStreams, transferCh)
+						}
+
+						p.currentFragMappings = fragMappingInfo
+						getFragmentsToWrite = TopicWritingRule(topicInfo.Options(), activeFragIds)
+					}
 				}
 			}
 		}
 	}()
+
 	return errCh, nil
 }
 
-func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, port uint) error {
+func (p *Publisher) transferStaledRecords(ctx context.Context, topicName string, fragmentIds []uint) chan TopicData {
+	staleCh := make(chan TopicData)
+	logger.Info("start transferring staled records to active fragments", zap.Uints("fragmentIds", fragmentIds))
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		defer close(staleCh)
+
+		for _, staledFragId := range fragmentIds {
+			loaded, ok := p.lastFetchedOffsets.Load(storage.NewFragmentKey(topicName, staledFragId))
+			if !ok {
+				logger.Error("cannot load last fetched offset of staled fragment", zap.Uint("fragmentId", staledFragId))
+				continue
+			}
+			startStaledOffset := loaded.(uint64) + 1
+			loaded, ok = p.currentPublishOffsets.Load(storage.NewFragmentKey(topicName, staledFragId))
+			if !ok {
+				logger.Error("cannot load publish offset of staled fragment", zap.Uint("fragmentId", staledFragId))
+				continue
+			}
+			lastStaledOffset := loaded.(uint64)
+			for i := startStaledOffset; i < lastStaledOffset; i++ {
+				record, err := p.db.GetRecord(topicName, uint32(staledFragId), i)
+				if err != nil {
+					logger.Error(err.Error())
+					continue
+				}
+				recordValue := storage.NewRecordValue(record)
+				staled := TopicData{
+					SeqNum: recordValue.SeqNum(),
+					Data:   recordValue.PublishedData(),
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case staleCh <- staled:
+				}
+			}
+		}
+	}()
+
+	return staleCh
+}
+func (p *Publisher) setupGrpcServer(ctx context.Context) error {
 	if p.server == nil {
 		var opts []grpc.ServerOption
 		grpcServer := grpc.NewServer(opts...)
 		pb.RegisterPubSubServer(grpcServer, p)
 
-		lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindAddress, port))
-		logger.Debug("grpc server listening", zap.String("bind", bindAddress), zap.Uint("port", port))
+		lis, err := net.Listen("tcp", p.address)
+		logger.Debug("grpc server listening", zap.String("address", p.address))
 		if err != nil {
 			return err
 		}
 
 		p.server = grpcServer
-
+		p.wg.Add(1)
 		go func() {
+			defer p.wg.Done()
 			if err = grpcServer.Serve(lis); err != nil {
 				logger.Error(err.Error())
 			} else {
@@ -118,28 +248,10 @@ func (p *Publisher) SetupGrpcServer(ctx context.Context, bindAddress string, por
 	return nil
 }
 
-// find fragment info through topic-fragment discovery
-func (p *Publisher) findPublicationFragments(topicName string) (fragmentIds []uint, err error) {
-	topicFragmentFrame, err := p.Bootstrapper.GetTopicFragments(topicName)
-	if err != nil {
-		return nil, err
-	}
-	fragMappings := topicFragmentFrame.FragMappingInfo()
-	for fragId, fragInfo := range fragMappings {
-		if fragInfo.Active && fragInfo.PublisherId == p.PublisherID {
-			fragmentIds = append(fragmentIds, fragId)
-		}
-	}
-	if len(fragmentIds) == 0 {
-		return nil, qerror.TargetNotExistError{Target: fmt.Sprintf("fragments of topic(%s)", topicName)}
-	}
-	return
-}
-
 func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint, offset uint64, retentionPeriodSec uint64) error {
 	expirationDate := storage.GetNowTimestamp() + retentionPeriodSec
 	logger.Debug("write to", zap.String("topic", topicName), zap.Uint("fragmentId", fragmentId), zap.Uint64("offset", offset))
-	return p.DB.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
+	return p.db.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
 }
 
 // gRPC implementation
@@ -175,19 +287,27 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
+	logger.Info("received new subscription stream", zap.String("topic", subscription.TopicName))
+
 	for _, offsetInfo := range subscription.Offsets {
 		var startOffset uint64
-		// when start offset is not set, set current offset(to write) as last offset
+		// when start offset is not set, set current offset as last offset
 		if offsetInfo.StartOffset == nil {
-			value, _ := p.NextFragmentOffsets.Load(subscription.TopicName)
-			nextOffsets := value.(map[uint]uint64)
-			startOffset = nextOffsets[uint(offsetInfo.FragmentId)]
+			value, _ := p.currentPublishOffsets.Load(storage.NewFragmentKey(subscription.TopicName, uint(offsetInfo.FragmentId)))
+			currentOffset := value.(uint64)
+			startOffset = currentOffset
 		} else {
 			startOffset = *offsetInfo.StartOffset
+		}
+		if startOffset == 0 {
+			logger.Warn("start offset should be greater than 0. adjust start offset to 1")
+			startOffset = 1
 		}
 		go p.onFetchData(ctx, subscription.TopicName, offsetInfo.FragmentId, startOffset, sendBuf)
 	}
 
+	p.wg.Add(1)
+	defer p.wg.Done()
 	for {
 		select {
 		case <-stream.Context().Done():
@@ -217,6 +337,9 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 
 func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentId uint32, startOffset uint64, outStream chan *pb.SubscriptionResult_Fetched) {
 
+	p.wg.Add(1)
+	defer p.wg.Done()
+
 	prefix := make([]byte, len(topicName)+1+int(unsafe.Sizeof(uint32(0))))
 	copy(prefix, topicName+"@")
 	binary.BigEndian.PutUint32(prefix[len(topicName)+1:], fragmentId)
@@ -230,9 +353,15 @@ func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentI
 	iterateCount := 0
 	rescanCheckPoint := 0
 	rescanThreshold := 1000
-	it := p.DB.Scan(storage.RecordCF)
+	it := p.db.Scan(storage.RecordCF)
 	defer it.Close()
 
+	logger.Debug("start subscription goroutine",
+		zap.String("topic", topicName),
+		zap.Uint32("fragmentId", fragmentId),
+		zap.Uint64("startOffset", startOffset))
+
+	fragIdUint := uint(fragmentId)
 	for {
 		select {
 		case <-ctx.Done():
@@ -258,6 +387,7 @@ func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentI
 				case <-ctx.Done():
 					return
 				case outStream <- topicData:
+					p.lastFetchedOffsets.Store(storage.NewFragmentKey(topicName, fragIdUint), currentOffset)
 					currentOffset++
 					prevKey.SetOffset(currentOffset)
 				}
@@ -268,9 +398,41 @@ func (p *Publisher) onFetchData(ctx context.Context, topicName string, fragmentI
 			if iterateCount-rescanCheckPoint > rescanThreshold {
 				rescanCheckPoint = iterateCount
 				it.Close()
-				it = p.DB.Scan(storage.RecordCF)
+				it = p.db.Scan(storage.RecordCF)
 			}
 		}
 		timer.Reset(waitInterval)
 	}
+}
+
+func (p *Publisher) Wait() {
+	p.wg.Wait()
+}
+
+// helper functions
+func (p *Publisher) findPublishingFragments(fragMappings topic.FragMappingInfo) (activeFragments, staleFragments []uint) {
+	for fragId, fragInfo := range fragMappings {
+		if fragInfo.PublisherId == p.id {
+			if fragInfo.State == topic.Active {
+				activeFragments = append(activeFragments, fragId)
+			} else if fragInfo.State == topic.Stale {
+				staleFragments = append(staleFragments, fragId)
+			}
+		}
+	}
+
+	return
+}
+
+func (p *Publisher) isMappingUpdated(new topic.FragMappingInfo) bool {
+	for fragId, fragInfo := range new {
+		if fragInfo.PublisherId == p.id {
+			if oldFragInfo, ok := p.currentFragMappings[fragId]; !ok { // when new fragment created
+				return true
+			} else if fragInfo.State != oldFragInfo.State { // when previous fragment's state is changed
+				return true
+			}
+		}
+	}
+	return false
 }
