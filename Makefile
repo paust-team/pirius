@@ -63,7 +63,7 @@ $(PROTOC_GEN_GRPC):
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
 PROTO_DIR := ./proto
-PROTO_TARGETS := $(PROTO_DIR)/agent.pb.go
+PROTO_TARGETS := $(PROTO_DIR)/agent.pb.go $(PROTO_DIR)/broker.pb.go
 .SUFFIXES: .proto .pb.go
 %.pb.go: %.proto $(PROTOC_GEN_GO) $(PROTOC_GEN_GRPC) $(PROTOC)
 	$(PROTOC) --proto_path=$(PROTO_DIR) --go_out=$(PROTO_DIR) --go-grpc_out=$(PROTO_DIR) $<
