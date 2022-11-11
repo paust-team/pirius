@@ -71,7 +71,7 @@ func (o GetOperation) Watch(ctx context.Context) (<-chan coordinating.WatchEvent
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Debug("stop watching fragment info: parent ctx done")
+				logger.Debug("stop watching from ctx done")
 				return
 			case event, ok := <-eventCh:
 				if !ok {

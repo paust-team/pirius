@@ -115,7 +115,7 @@ func (s *Instance) CreateTopic(ctx context.Context, request *pb.CreateTopicReque
 	if err != nil {
 		return nil, err
 	}
-	if err = s.rebalancer.AddTopicWatchers(request.GetName()); err != nil {
+	if err = s.rebalancer.RegisterTopicWatchers(request.GetName()); err != nil {
 		return nil, err
 	}
 	return res, err
@@ -126,7 +126,7 @@ func (s *Instance) DeleteTopic(ctx context.Context, request *pb.TopicRequestWith
 	if !s.running {
 		return nil, qerror.InvalidStateError{State: "broker is not running"}
 	}
-	if err := s.rebalancer.RemoveTopicWatchers(request.GetName()); err != nil {
+	if err := s.rebalancer.DeregisterTopicWatchers(request.GetName()); err != nil {
 		return nil, err
 	}
 

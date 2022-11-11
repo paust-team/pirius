@@ -131,7 +131,7 @@ func (r *Rebalancer) prepareRebalance(ctx context.Context) error {
 
 	logger.Info("registering watchers", zap.Strings("topics", topics))
 	for _, t := range topics {
-		if err = r.AddTopicWatchers(t); err != nil {
+		if err = r.RegisterTopicWatchers(t); err != nil {
 			cancel()
 			r.topicContexts = sync.Map{}
 			return err
@@ -170,8 +170,7 @@ func (r *Rebalancer) waitUntilBeMaster(ctx context.Context) error {
 	return nil
 }
 
-func (r *Rebalancer) AddTopicWatchers(topic string) error {
-	fmt.Println("add topic watch called")
+func (r *Rebalancer) RegisterTopicWatchers(topic string) error {
 	if !r.running || !r.masterNode {
 		return qerror.InvalidStateError{State: fmt.Sprintf("running: %t / masterNode: %t", r.running, r.masterNode)}
 	}
@@ -243,7 +242,7 @@ func (r *Rebalancer) AddTopicWatchers(topic string) error {
 	return nil
 }
 
-func (r *Rebalancer) RemoveTopicWatchers(topic string) error {
+func (r *Rebalancer) DeregisterTopicWatchers(topic string) error {
 	if !r.running || !r.masterNode {
 		return qerror.InvalidStateError{State: fmt.Sprintf("running: %t / masterNode: %t", r.running, r.masterNode)}
 	}

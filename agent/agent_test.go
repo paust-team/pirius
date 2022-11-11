@@ -322,6 +322,7 @@ var _ = Describe("Agent", func() {
 					defer close(sendCh)
 
 					go func() {
+						time.Sleep(1 * time.Second)
 						// update subscription to new fragment
 						subscriptionInfo := topic.SubscriptionInfo{subscriber.GetSubscriberID(): []uint{uint(tp.GetUint32("newFragmentId"))}}
 						topicSubscriptionFrame := topic.NewTopicSubscriptionsFrame(subscriptionInfo)

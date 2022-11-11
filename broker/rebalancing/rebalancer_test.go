@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Rebalancer", func() {
+var _ = Describe("Rebalancer", Ordered, func() {
 	var coordClient coordinating.CoordClient
 	var bootstrapper *bootstrapping.BootstrapService
 	var rebalancer rebalancing.Rebalancer
@@ -45,9 +45,16 @@ var _ = Describe("Rebalancer", func() {
 
 		})
 		AfterEach(func() {
-			tp.Clear()
+			By("clear ephemerals nodes and topic path")
 			cancelRebalancer()
 			coordClient.Close()
+			coordClient = zk.NewZKCoordClient([]string{"127.0.0.1:2181"}, 5000)
+			err := coordClient.Connect()
+			Expect(err).NotTo(HaveOccurred())
+			bootstrapper = bootstrapping.NewBootStrapService(coordClient)
+			bootstrapper.DeleteTopic(tp.GetString("topic"))
+			coordClient.Close()
+			tp.Clear()
 		})
 
 		Context("Topic has no option", Ordered, func() {
@@ -64,9 +71,6 @@ var _ = Describe("Rebalancer", func() {
 
 				err = bootstrapper.AddPublisher(tp.GetString("topic"), tp.GetString("publisher-id"), tp.GetString("publisher-addr"))
 				Expect(err).NotTo(HaveOccurred())
-			})
-			AfterAll(func() {
-				bootstrapper.DeleteTopic(tp.GetString("topic"))
 			})
 			When("two subscriber appears", Ordered, func() {
 				BeforeAll(func() {
@@ -104,9 +108,6 @@ var _ = Describe("Rebalancer", func() {
 
 				err = bootstrapper.AddPublisher(tp.GetString("topic"), tp.GetString("publisher-id"), tp.GetString("publisher-addr"))
 				Expect(err).NotTo(HaveOccurred())
-			})
-			AfterAll(func() {
-				bootstrapper.DeleteTopic(tp.GetString("topic"))
 			})
 			When("two subscriber appears", func() {
 				It("should be processed by distribution rule executor", func() {
