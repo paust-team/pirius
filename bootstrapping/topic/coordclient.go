@@ -1,9 +1,12 @@
 package topic
 
 import (
+	"context"
 	"github.com/paust-team/shapleq/bootstrapping/path"
 	"github.com/paust-team/shapleq/coordinating"
+	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/qerror"
+	"go.uber.org/zap"
 )
 
 type CoordClientTopicWrapper struct {
@@ -94,35 +97,38 @@ func (t CoordClientTopicWrapper) GetTopics() ([]string, error) {
 }
 
 func (t CoordClientTopicWrapper) DeleteTopic(topicName string) error {
-	var err error
-	t.coordClient.Lock(path.TopicLockPath(topicName), func() {
-		topicSubPaths := []string{
-			path.TopicFragmentsPath(topicName),
-			path.TopicSubscriptionsPath(topicName),
-			path.TopicPubsPath(topicName),
-			path.TopicSubsPath(topicName),
-		}
-		// delete topic sub paths
-		t.coordClient.
-			Delete(topicSubPaths).
-			IgnoreError().
-			Run()
-
-		// delete topic path
-		if err = t.coordClient.
-			Delete([]string{path.TopicPath(topicName)}).
-			Run(); err != nil {
-			err = qerror.CoordRequestError{ErrStr: err.Error()}
-		}
-	}).Run()
-
-	if err != nil {
+	lock := t.coordClient.Lock(path.TopicLockPath(topicName))
+	if err := lock.Lock(); err != nil {
 		return err
 	}
+	defer lock.Unlock()
+	topicSubPaths := []string{
+		path.TopicFragmentsPath(topicName),
+		path.TopicSubscriptionsPath(topicName),
+		path.TopicPubsPath(topicName),
+		path.TopicSubsPath(topicName),
+	}
+	// delete topic sub paths
+	t.coordClient.
+		Delete(topicSubPaths).
+		IgnoreError().
+		Run()
+
+	// delete topic path
+	if err := t.coordClient.
+		Delete([]string{path.TopicPath(topicName)}).
+		Run(); err != nil {
+		return qerror.CoordRequestError{ErrStr: err.Error()}
+	}
+	lock.Unlock()
 	// delete topic lock path
 	return t.coordClient.
 		Delete([]string{path.TopicLockPath(topicName)}).
 		Run()
+}
+
+func (t CoordClientTopicWrapper) NewTopicLock(topicName string) coordinating.LockOperation {
+	return t.coordClient.Lock(path.TopicLockPath(topicName))
 }
 
 func (t CoordClientTopicWrapper) GetTopicFragments(topicName string) (FragmentsFrame, error) {
@@ -139,7 +145,6 @@ func (t CoordClientTopicWrapper) GetTopicFragments(topicName string) (FragmentsF
 func (t CoordClientTopicWrapper) UpdateTopicFragments(topicName string, fragmentsFrame FragmentsFrame) error {
 	if err := t.coordClient.
 		Set(path.TopicFragmentsPath(topicName), fragmentsFrame.Data()).
-		WithLock(path.TopicLockPath(topicName)).
 		Run(); err != nil {
 
 		return err
@@ -161,10 +166,176 @@ func (t CoordClientTopicWrapper) GetTopicSubscriptions(topicName string) (Subscr
 func (t CoordClientTopicWrapper) UpdateTopicSubscriptions(topicName string, subscriptionsFrame SubscriptionsFrame) error {
 	if err := t.coordClient.
 		Set(path.TopicSubscriptionsPath(topicName), subscriptionsFrame.Data()).
-		WithLock(path.TopicLockPath(topicName)).
 		Run(); err != nil {
 
 		return err
 	}
 	return nil
+}
+
+func (t CoordClientTopicWrapper) AddPublisher(topicName string, id string, host string) error {
+	return t.coordClient.
+		Create(path.TopicPublisherPath(topicName, id), []byte(host)).
+		AsEphemeral().
+		Run()
+}
+
+func (t CoordClientTopicWrapper) GetPublisher(topicName string, id string) (string, error) {
+	data, err := t.coordClient.Get(path.TopicPublisherPath(topicName, id)).Run()
+	if err != nil {
+		return "", err
+	}
+	return string(data[:]), nil
+}
+
+func (t CoordClientTopicWrapper) GetPublishers(topicName string) ([]string, error) {
+	if pubs, err := t.coordClient.Children(path.TopicPubsPath(topicName)).Run(); err != nil {
+		return nil, err
+	} else if len(pubs) > 0 {
+		return pubs, nil
+	} else {
+		return nil, nil
+	}
+}
+
+func (t CoordClientTopicWrapper) AddSubscriber(topicName string, id string) error {
+	return t.coordClient.
+		Create(path.TopicSubscriberPath(topicName, id), []byte{}).
+		AsEphemeral().
+		Run()
+}
+func (t CoordClientTopicWrapper) GetSubscriber(topicName string, id string) (string, error) {
+	data, err := t.coordClient.Get(path.TopicSubscriberPath(topicName, id)).Run()
+	if err != nil {
+		return "", err
+	}
+	return string(data[:]), nil
+}
+
+func (t CoordClientTopicWrapper) GetSubscribers(topicName string) ([]string, error) {
+	if subs, err := t.coordClient.Children(path.TopicSubsPath(topicName)).Run(); err != nil {
+		return nil, err
+	} else if len(subs) > 0 {
+		return subs, nil
+	} else {
+		return nil, nil
+	}
+}
+
+// WatchPubsPathChanged : register a watcher on children changed and retrieve updated publishers
+func (t CoordClientTopicWrapper) WatchPubsPathChanged(ctx context.Context, topicName string) (chan []string, error) {
+	ch, err := t.coordClient.Children(path.TopicPubsPath(topicName)).Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pubsCh := make(chan []string)
+	go func() {
+		defer close(pubsCh)
+		for event := range ch {
+			if event.Type == coordinating.EventNodeChildrenChanged {
+				publishers, err := t.GetPublishers(topicName)
+				if err != nil {
+					logger.Error("error occurred on receiving watch event", zap.Error(err))
+				}
+				select {
+				case <-ctx.Done():
+					logger.Debug("stop watching pubs path: parent ctx done")
+					return
+				case pubsCh <- publishers:
+					logger.Debug("sent new pubs path to channel")
+				}
+			}
+		}
+	}()
+	return pubsCh, nil
+}
+
+// WatchSubsPathChanged : register a watcher on children changed and retrieve updated subscribers
+func (t CoordClientTopicWrapper) WatchSubsPathChanged(ctx context.Context, topicName string) (chan []string, error) {
+	ch, err := t.coordClient.Children(path.TopicSubsPath(topicName)).Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	subsCh := make(chan []string)
+	go func() {
+		defer close(subsCh)
+		for event := range ch {
+			if event.Type == coordinating.EventNodeChildrenChanged {
+				subscribers, err := t.GetSubscribers(topicName)
+				if err != nil {
+					logger.Error("error occurred on receiving watch event", zap.Error(err))
+				}
+				select {
+				case <-ctx.Done():
+					logger.Debug("stop watching subs path: parent ctx done")
+					return
+				case subsCh <- subscribers:
+					logger.Debug("sent new subs path to channel")
+				}
+			}
+		}
+	}()
+	return subsCh, nil
+}
+
+// WatchFragmentInfoChanged : register a watcher on data changed and retrieve updated fragment info
+func (t CoordClientTopicWrapper) WatchFragmentInfoChanged(ctx context.Context, topicName string) (chan FragMappingInfo, error) {
+	ch, err := t.coordClient.Get(path.TopicFragmentsPath(topicName)).Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	fragmentCh := make(chan FragMappingInfo)
+	go func() {
+		defer close(fragmentCh)
+		for event := range ch {
+			if event.Type == coordinating.EventNodeDataChanged {
+				fragmentsFrame, err := t.GetTopicFragments(topicName)
+				if err != nil {
+					logger.Error("error occurred on receiving watch event", zap.Error(err))
+				}
+				select {
+				case <-ctx.Done():
+					logger.Debug("stop watching fragment info: parent ctx done")
+					return
+				case fragmentCh <- fragmentsFrame.FragMappingInfo():
+					logger.Debug("sent new fragment info to channel")
+				}
+			}
+		}
+		logger.Debug("stop watching fragment info: parent channel closed")
+	}()
+	return fragmentCh, nil
+}
+
+// WatchSubscriptionChanged : register a watcher on data changed and retrieve updated subscription info
+func (t CoordClientTopicWrapper) WatchSubscriptionChanged(ctx context.Context, topicName string) (chan SubscriptionInfo, error) {
+	ch, err := t.coordClient.Get(path.TopicSubscriptionsPath(topicName)).Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	subscriptionCh := make(chan SubscriptionInfo)
+	go func() {
+		defer close(subscriptionCh)
+		for event := range ch {
+			if event.Type == coordinating.EventNodeDataChanged {
+				subscriptionFrame, err := t.GetTopicSubscriptions(topicName)
+				if err != nil {
+					logger.Error("error occurred on receiving watch event", zap.Error(err))
+				}
+				select {
+				case <-ctx.Done():
+					logger.Debug("stop watching subscription info: parent ctx done")
+					return
+				case subscriptionCh <- subscriptionFrame.SubscriptionInfo():
+					logger.Debug("sent new subscription info to channel")
+				}
+			}
+		}
+		logger.Debug("stop watching subscription info: parent channel closed")
+	}()
+	return subscriptionCh, nil
 }

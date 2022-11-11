@@ -34,10 +34,18 @@ func (t Frame) Description() string {
 	return string(t.Data()[1:])
 }
 
+type FragState uint
+
+const (
+	Inactive FragState = iota
+	Active
+	Stale
+)
+
 type FragInfo struct {
-	Active      bool   `json:"active"`
-	PublisherId string `json:"pub-id"`
-	Address     string `json:"addr"`
+	State       FragState `json:"state"`
+	PublisherId string    `json:"pub-id"`
+	Address     string    `json:"addr"`
 }
 
 type FragMappingInfo map[uint]FragInfo // key is fragment-id
@@ -92,4 +100,39 @@ func (t SubscriptionsFrame) SubscriptionInfo() SubscriptionInfo {
 		return nil
 	}
 	return m
+}
+
+type PublisherInfo struct {
+	Address           string
+	Alive             bool
+	ActiveFragments   []uint
+	InActiveFragments []uint
+	StaleFragments    []uint
+}
+
+type PublisherInfoMap map[string]*PublisherInfo
+
+func ConvertToPublisherInfo(fragMappings FragMappingInfo) (PublisherInfoMap, int) {
+	publisherMap := make(PublisherInfoMap)
+	numActivePublishers := 0
+	for fragmentId, info := range fragMappings {
+		if _, ok := publisherMap[info.PublisherId]; !ok {
+			publisherMap[info.PublisherId] = &PublisherInfo{
+				ActiveFragments:   []uint{},
+				InActiveFragments: []uint{},
+				StaleFragments:    []uint{},
+			}
+		}
+		if info.State == Active {
+			publisherMap[info.PublisherId].Address = info.Address
+			publisherMap[info.PublisherId].Alive = true
+			publisherMap[info.PublisherId].ActiveFragments = append(publisherMap[info.PublisherId].ActiveFragments, fragmentId)
+			numActivePublishers++
+		} else if info.State == Inactive {
+			publisherMap[info.PublisherId].InActiveFragments = append(publisherMap[info.PublisherId].InActiveFragments, fragmentId)
+		} else {
+			publisherMap[info.PublisherId].StaleFragments = append(publisherMap[info.PublisherId].StaleFragments, fragmentId)
+		}
+	}
+	return publisherMap, numActivePublishers
 }
