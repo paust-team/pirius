@@ -185,7 +185,6 @@ func (p *Publisher) transferStaledRecords(ctx context.Context, topicName string,
 		defer close(staleCh)
 
 		for _, staledFragId := range fragmentIds {
-
 			var lastStaledOffset uint64
 			if loaded, ok := p.currentPublishOffsets.Load(storage.NewFragmentKey(topicName, staledFragId)); !ok {
 				logger.Info("skip: no record found for staled fragment.", zap.String("publisher-id", p.id), zap.Uint("fragmentId", staledFragId))

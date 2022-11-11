@@ -195,6 +195,7 @@ func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *syn
 			return nil, nil, err
 		}
 		wg.Add(1)
+
 		go func(pubEndpoint string) {
 			defer wg.Done()
 			defer conn.Close()
