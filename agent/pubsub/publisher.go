@@ -66,7 +66,7 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("watcher for fragments registered", zap.String("topic", topicName))
+	logger.Info("watcher for fragments registered", zap.String("publisher-id", p.id), zap.String("topic", topicName))
 
 	// register publisher path and wait for initial rebalance
 	if err = p.bootstrapper.AddPublisher(topicName, p.id, p.address); err != nil {
@@ -88,6 +88,7 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 		return nil, err
 	}
 	logger.Info("setup publishing fragments",
+		zap.String("publisher-id", p.id),
 		zap.Uints("active-fragments", activeFragIds),
 		zap.Uints("stale-fragments", staleFragIds))
 
@@ -115,11 +116,11 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("stop publishing: ctx.Done()")
+				logger.Info("stop publishing: ctx.Done()", zap.String("publisher-id", p.id))
 				return
 			case data, ok := <-inStreams:
 				if !ok {
-					logger.Info("stop publishing: send buffer closed")
+					logger.Info("stop publishing: send buffer closed", zap.String("publisher-id", p.id))
 					return
 				}
 				for _, fragmentId := range getFragmentsToWrite() {
@@ -135,7 +136,7 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 				}
 			case fragMappingInfo, ok := <-fragmentWatchCh:
 				if !ok {
-					logger.Error("stop publishing: watch closed")
+					logger.Error("stop publishing: watch closed", zap.String("publisher-id", p.id))
 					errCh <- qerror.InvalidStateError{State: "watcher channel closed unexpectedly"}
 					return
 				}
@@ -143,14 +144,15 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 
 				if p.isMappingUpdated(fragMappingInfo) {
 					// reset publishing fragments
-					logger.Info("resetting publishing fragments")
+					logger.Info("resetting publishing fragments", zap.String("publisher-id", p.id))
 					activeFragIds, staleFragIds = p.findPublishingFragments(fragMappingInfo)
 					if len(activeFragIds) == 0 {
 						err = qerror.InvalidStateError{State: fmt.Sprintf("no active fragments of topic(%s)", topicName)}
 						errCh <- err
-						logger.Error("failed to reset publishing fragments")
+						logger.Error("failed to reset publishing fragments", zap.String("publisher-id", p.id))
 					} else {
 						logger.Info("publishing fragments updated",
+							zap.String("publisher-id", p.id),
 							zap.Uints("active-fragments", activeFragIds),
 							zap.Uints("stale-fragments", staleFragIds))
 
@@ -173,29 +175,37 @@ func (p *Publisher) PreparePublication(ctx context.Context, topicName string, re
 
 func (p *Publisher) transferStaledRecords(ctx context.Context, topicName string, fragmentIds []uint) chan TopicData {
 	staleCh := make(chan TopicData)
-	logger.Info("start transferring staled records to active fragments", zap.Uints("fragmentIds", fragmentIds))
+	logger.Info("start transferring staled records to active fragments",
+		zap.String("publisher-id", p.id),
+		zap.String("topic", topicName),
+		zap.Uints("fragmentIds", fragmentIds))
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
 		defer close(staleCh)
 
 		for _, staledFragId := range fragmentIds {
-			loaded, ok := p.lastFetchedOffsets.Load(storage.NewFragmentKey(topicName, staledFragId))
-			if !ok {
-				logger.Error("cannot load last fetched offset of staled fragment", zap.Uint("fragmentId", staledFragId))
+
+			var lastStaledOffset uint64
+			if loaded, ok := p.currentPublishOffsets.Load(storage.NewFragmentKey(topicName, staledFragId)); !ok {
+				logger.Info("skip: no record found for staled fragment.", zap.String("publisher-id", p.id), zap.Uint("fragmentId", staledFragId))
 				continue
+			} else {
+				lastStaledOffset = loaded.(uint64)
 			}
-			startStaledOffset := loaded.(uint64) + 1
-			loaded, ok = p.currentPublishOffsets.Load(storage.NewFragmentKey(topicName, staledFragId))
-			if !ok {
-				logger.Error("cannot load publish offset of staled fragment", zap.Uint("fragmentId", staledFragId))
-				continue
+
+			var startStaledOffset uint64
+			if loaded, ok := p.lastFetchedOffsets.Load(storage.NewFragmentKey(topicName, staledFragId)); !ok {
+				logger.Info("cannot load last fetched offset of staled fragment", zap.String("publisher-id", p.id), zap.Uint("fragmentId", staledFragId))
+				startStaledOffset = 1
+			} else {
+				startStaledOffset = loaded.(uint64) + 1
 			}
-			lastStaledOffset := loaded.(uint64)
+
 			for i := startStaledOffset; i < lastStaledOffset; i++ {
 				record, err := p.db.GetRecord(topicName, uint32(staledFragId), i)
 				if err != nil {
-					logger.Error(err.Error())
+					logger.Error(err.Error(), zap.String("publisher-id", p.id))
 					continue
 				}
 				recordValue := storage.NewRecordValue(record)
@@ -207,6 +217,10 @@ func (p *Publisher) transferStaledRecords(ctx context.Context, topicName string,
 				case <-ctx.Done():
 					return
 				case staleCh <- staled:
+					logger.Debug("write to stale ch",
+						zap.String("publisher-id", p.id),
+						zap.String("topic", topicName),
+						zap.Uint("staledFragmentId", staledFragId), zap.Uint64("offset", i))
 				}
 			}
 		}
@@ -221,7 +235,7 @@ func (p *Publisher) setupGrpcServer(ctx context.Context) error {
 		pb.RegisterPubSubServer(grpcServer, p)
 
 		lis, err := net.Listen("tcp", p.address)
-		logger.Debug("grpc server listening", zap.String("address", p.address))
+		logger.Debug("grpc server listening", zap.String("publisher-id", p.id), zap.String("address", p.address))
 		if err != nil {
 			return err
 		}
@@ -231,9 +245,9 @@ func (p *Publisher) setupGrpcServer(ctx context.Context) error {
 		go func() {
 			defer p.wg.Done()
 			if err = grpcServer.Serve(lis); err != nil {
-				logger.Error(err.Error())
+				logger.Error(err.Error(), zap.String("publisher-id", p.id))
 			} else {
-				logger.Info("grpc server stopped")
+				logger.Info("grpc server stopped", zap.String("publisher-id", p.id))
 			}
 		}()
 
@@ -250,7 +264,7 @@ func (p *Publisher) setupGrpcServer(ctx context.Context) error {
 
 func (p *Publisher) onReceiveData(data TopicData, topicName string, fragmentId uint, offset uint64, retentionPeriodSec uint64) error {
 	expirationDate := storage.GetNowTimestamp() + retentionPeriodSec
-	logger.Debug("write to", zap.String("topic", topicName), zap.Uint("fragmentId", fragmentId), zap.Uint64("offset", offset))
+	logger.Debug("write to", zap.String("publisher-id", p.id), zap.String("topic", topicName), zap.Uint("fragmentId", fragmentId), zap.Uint64("offset", offset))
 	return p.db.PutRecord(topicName, uint32(fragmentId), offset, data.SeqNum, data.Data, expirationDate)
 }
 
@@ -275,6 +289,7 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 		}
 
 		logger.Debug("sent",
+			zap.String("publisher-id", p.id),
 			zap.Int("num data", len(batched)),
 			zap.Uint64("last seqNum", batched[len(batched)-1].SeqNum))
 
@@ -287,7 +302,7 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	logger.Info("received new subscription stream", zap.String("topic", subscription.TopicName))
+	logger.Info("received new subscription stream", zap.String("publisher-id", p.id), zap.String("topic", subscription.TopicName))
 
 	for _, offsetInfo := range subscription.Offsets {
 		var startOffset uint64
@@ -300,7 +315,7 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 			startOffset = *offsetInfo.StartOffset
 		}
 		if startOffset == 0 {
-			logger.Warn("start offset should be greater than 0. adjust start offset to 1")
+			logger.Warn("start offset should be greater than 0. adjust start offset to 1", zap.String("publisher-id", p.id))
 			startOffset = 1
 		}
 		go p.onFetchData(ctx, subscription.TopicName, offsetInfo.FragmentId, startOffset, sendBuf)
@@ -311,7 +326,7 @@ func (p *Publisher) Subscribe(subscription *pb.Subscription, stream pb.PubSub_Su
 	for {
 		select {
 		case <-stream.Context().Done():
-			logger.Debug("stream closed from client")
+			logger.Debug("stream closed from client", zap.String("publisher-id", p.id))
 			return nil
 
 		case fetched := <-sendBuf:

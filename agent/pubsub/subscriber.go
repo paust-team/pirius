@@ -13,6 +13,10 @@ import (
 	"github.com/paust-team/shapleq/qerror"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"io"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -89,11 +93,11 @@ func (s *Subscriber) PrepareSubscription(ctx context.Context, topicName string, 
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("stop subscribing: ctx.Done()")
+				logger.Info("stop subscribing: ctx.Done()", zap.String("subscriber-id", s.id))
 				return
 			case result, ok := <-subscriptionCh:
 				if !ok {
-					logger.Info("stop subscribing: receive buffer closed")
+					logger.Info("stop subscribing: receive buffer closed", zap.String("subscriber-id", s.id))
 					return
 				}
 				select {
@@ -107,13 +111,16 @@ func (s *Subscriber) PrepareSubscription(ctx context.Context, topicName string, 
 				}
 			case subscriptionInfo, ok := <-subscriptionWatchCh:
 				if !ok {
-					logger.Error("stop subscribing: watch closed")
+					logger.Error("stop subscribing: watch closed", zap.String("subscriber-id", s.id))
 					errStream <- qerror.InvalidStateError{State: "watcher channel closed unexpectedly"}
 					return
 				}
-				logger.Info("received new subscription info", zap.String("topic", topicName))
+				logger.Info("received new subscription info", zap.String("subscriber-id", s.id), zap.String("topic", topicName))
 				if s.isSubscriptionUpdated(subscriptionInfo) {
-					logger.Info("resetting subscriptions")
+					logger.Info("resetting subscriptions",
+						zap.String("subscriber-id", s.id),
+						zap.Uints("old-fragments", s.currentSubscriptions),
+						zap.Uints("new-fragments", subscriptionInfo[s.id]))
 					cancel()
 					subscriptionWg.Wait()
 					subscriptionCtx, cancel = context.WithCancel(ctx)
@@ -124,6 +131,10 @@ func (s *Subscriber) PrepareSubscription(ctx context.Context, topicName string, 
 						return
 					}
 					s.currentSubscriptions = subscriptions
+					logger.Info("succeed to reset subscriptions",
+						zap.String("subscriber-id", s.id),
+						zap.Uints("old-fragments", s.currentSubscriptions),
+						zap.Uints("new-fragments", subscriptionInfo[s.id]))
 				}
 			}
 		}
@@ -135,7 +146,7 @@ func (s *Subscriber) PrepareSubscription(ctx context.Context, topicName string, 
 func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *sync.WaitGroup, topicName string, subscriptionFragments []uint,
 	batchSize, flushInterval uint32) (chan []SubscriptionResult, chan error, error) {
 
-	logger.Info("setup subscription streams", zap.String("topic", topicName), zap.Uints("fragmentIds", subscriptionFragments))
+	logger.Info("setup subscription streams", zap.String("subscriber-id", s.id), zap.String("topic", topicName), zap.Uints("fragmentIds", subscriptionFragments))
 	endpointMap, err := s.findSubscriptionEndpoints(topicName, subscriptionFragments)
 	if err != nil {
 		return nil, nil, err
@@ -184,23 +195,47 @@ func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *syn
 			return nil, nil, err
 		}
 		wg.Add(1)
-		go func() {
+		go func(pubEndpoint string) {
 			defer wg.Done()
 			defer conn.Close()
 
 			for {
 				select {
 				case <-ctx.Done():
-					logger.Info("stop subscribe from ctx.Done()")
+					logger.Info("stop subscribe from ctx.Done()",
+						zap.String("subscriber-id", s.id),
+						zap.String("topic", topicName),
+						zap.String("publisher-endpoint", pubEndpoint))
 					return
 				default:
 					subscriptionResult, err := stream.Recv()
 					if err != nil {
-						errStream <- err
+						if err == io.EOF {
+							// TODO :: this is abnormal case. should be restarted?
+							logger.Info("stop subscribe from io.EOF",
+								zap.String("subscriber-id", s.id),
+								zap.String("topic", topicName),
+								zap.String("publisher-endpoint", pubEndpoint))
+						} else if status.Code(err) == codes.Canceled { // client closing (subscriber context canceled)
+							logger.Info("stop subscribe from inner context canceled",
+								zap.String("subscriber-id", s.id),
+								zap.String("topic", topicName),
+								zap.String("publisher-endpoint", pubEndpoint))
+						} else if status.Code(err) == codes.Unavailable { // server closing (publisher context canceled)
+							logger.Info("stop subscribe from publisher closed",
+								zap.String("subscriber-id", s.id),
+								zap.String("topic", topicName),
+								zap.String("publisher-endpoint", pubEndpoint))
+						} else {
+							errStream <- err
+						}
 						return
 					}
 					fetchedResults := subscriptionResult.Results
 					logger.Debug("received",
+						zap.String("subscriber-id", s.id),
+						zap.String("topic", topicName),
+						zap.String("publisher-endpoint", pubEndpoint),
 						zap.Int("num data", len(fetchedResults)),
 						zap.Uint64("last seqNum", fetchedResults[len(fetchedResults)-1].SeqNum))
 
@@ -215,13 +250,17 @@ func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *syn
 					}
 					select {
 					case <-ctx.Done():
-						logger.Info("stop subscribe from ctx.Done()")
+						logger.Info("stop subscribe from ctx.Done()",
+							zap.String("subscriber-id", s.id),
+							zap.String("topic", topicName),
+							zap.String("publisher-endpoint", pubEndpoint))
 						return
 					case outStream <- results:
 					}
+					runtime.Gosched()
 				}
 			}
-		}()
+		}(endpoint)
 	}
 
 	// wait for all subscription to be finished
@@ -229,7 +268,7 @@ func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *syn
 	go func() {
 		defer subscriptionWg.Done()
 		wg.Wait()
-		logger.Info("all subscription streams closed", zap.String("topic", topicName), zap.Uints("fragmentIds", subscriptionFragments))
+		logger.Info("all subscription streams closed", zap.String("subscriber-id", s.id), zap.String("topic", topicName), zap.Uints("fragmentIds", subscriptionFragments))
 	}()
 
 	return outStream, errStream, nil

@@ -1,7 +1,6 @@
 package agent_test
 
 import (
-	"bytes"
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -336,7 +335,7 @@ var _ = Describe("Agent", func() {
 					totalRecords := append(tp.GetBytesList("stale-records"), tp.GetBytesList("new-records")...)
 					for subscriptionResult := range recvCh {
 						Expect(subscriptionResult).To(HaveLen(1))
-						Expect(bytesContain(subscriptionResult[0].Data, totalRecords)).To(BeTrue())
+						Expect(helper.IsContainBytes(subscriptionResult[0].Data, totalRecords)).To(BeTrue())
 						idx++
 						if idx == len(totalRecords) {
 							break
@@ -347,12 +346,3 @@ var _ = Describe("Agent", func() {
 		})
 	})
 })
-
-func bytesContain(e []byte, s [][]byte) bool {
-	for _, a := range s {
-		if bytes.Compare(a, e) == 0 {
-			return true
-		}
-	}
-	return false
-}

@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"bytes"
 	"errors"
 	"github.com/google/uuid"
 	"net"
@@ -136,4 +137,13 @@ func RoundRobinSelection[T any](list []T) func() T {
 		offset = (offset + 1) % len(list)
 		return selected
 	}
+}
+
+func IsContainBytes(e []byte, s [][]byte) bool {
+	for _, a := range s {
+		if bytes.Compare(a, e) == 0 {
+			return true
+		}
+	}
+	return false
 }

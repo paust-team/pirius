@@ -13,7 +13,6 @@ import (
 	"github.com/paust-team/shapleq/helper"
 	"github.com/paust-team/shapleq/logger"
 	"go.uber.org/zap"
-	"io"
 	"os"
 	"sync"
 )
@@ -151,11 +150,7 @@ func (s *Instance) StartSubscribe(ctx context.Context, topicName string, batchSi
 		for {
 			select {
 			case err = <-errCh:
-				if err == io.EOF {
-					// TODO :: this is abnormal case. should be restarted?
-					logger.Info("stop subscribe from io.EOF")
-					return
-				} else if err != nil {
+				if err != nil {
 					logger.Error(err.Error())
 				}
 				return
