@@ -7,7 +7,6 @@ import (
 	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/qerror"
 	"go.uber.org/zap"
-	"sync"
 )
 
 type DistributionRuleExecutor struct {
@@ -141,18 +140,15 @@ func (d DistributionRuleExecutor) OnPublisherRemoved(id string, topicName string
 		return err
 	}
 	subscriptionMappings := topicSubscriptions.SubscriptionInfo()
-	once := sync.Once{}
-	var newSubsFragmentIds []uint
 
+	// exclude removed fragments from subscriptions
 	for subscriberId, subsFragmentIds := range subscriptionMappings {
-		// in default rule, all subscribers must have same fragment assignment
-		once.Do(func() {
-			for _, fragmentId := range subsFragmentIds {
-				if !helper.IsContains(fragmentId, pubsFragmentIds) { // exclude inactive pubs fragments
-					newSubsFragmentIds = append(newSubsFragmentIds, fragmentId)
-				}
+		var newSubsFragmentIds []uint
+		for _, fragmentId := range subsFragmentIds {
+			if !helper.IsContains(fragmentId, pubsFragmentIds) { // exclude inactive pubs fragments
+				newSubsFragmentIds = append(newSubsFragmentIds, fragmentId)
 			}
-		})
+		}
 		subscriptionMappings[subscriberId] = newSubsFragmentIds
 	}
 
@@ -271,7 +267,7 @@ func (d DistributionRuleExecutor) OnSubscriberRemoved(id string, topicName strin
 	for _, fragmentId := range subscribingFragmentIds {
 		fragMappings[fragmentId] = topic.FragInfo{
 			State:       topic.Stale,
-			PublisherId: id,
+			PublisherId: fragMappings[fragmentId].PublisherId,
 			Address:     "",
 		}
 	}
