@@ -17,7 +17,7 @@ func NewZKCoordClient(quorum []string, timeout uint) *CoordClient {
 	return &CoordClient{quorum: quorum, timeout: timeout}
 }
 
-func (c CoordClient) Connect() error {
+func (c *CoordClient) Connect() error {
 	conn, _, err := zk.Connect(c.quorum, time.Millisecond*time.Duration(c.timeout))
 
 	if err != nil {

@@ -1,6 +1,7 @@
 package agent_test
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/paust-team/shapleq/agent"
@@ -24,7 +25,7 @@ var _ = Describe("Agent", func() {
 			var subscriber *agent.Instance
 
 			BeforeAll(func() {
-				coordClient = helper.BuildCoordClient(config.NewAgentConfig())
+				coordClient = helper.BuildCoordClient([]string{}, 2118) // in-memory coord client
 				topicClient = topic.NewCoordClientTopicWrapper(coordClient)
 			})
 			AfterAll(func() {
@@ -70,7 +71,7 @@ var _ = Describe("Agent", func() {
 
 			When("nothing published to the topic", func() {
 				It("cannot start to subscribe", func() {
-					_, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+					_, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 					Expect(err).To(BeAssignableToTypeOf(qerror.TargetNotExistError{}))
 				})
 			})
@@ -104,7 +105,7 @@ var _ = Describe("Agent", func() {
 
 					// publish
 					sendCh = make(chan pubsub.TopicData)
-					err = publisher.StartPublish(tp.GetString("topic"), sendCh)
+					err = publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 					Expect(err).NotTo(HaveOccurred())
 
 					for i, record := range tp.GetBytesList("records") {
@@ -119,7 +120,7 @@ var _ = Describe("Agent", func() {
 				})
 
 				It("can subscribe all published records", func() {
-					recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+					recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 					Expect(err).NotTo(HaveOccurred())
 
 					idx := 0

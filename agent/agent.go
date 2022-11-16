@@ -103,12 +103,12 @@ func (s *Instance) Stop() {
 	logger.Info("agent finished")
 }
 
-func (s *Instance) StartPublish(topicName string, sendChan chan pubsub.TopicData) error {
+func (s *Instance) StartPublish(ctx context.Context, topicName string, sendChan chan pubsub.TopicData) error {
 	if !s.running {
 		return errors.New("not running state")
 	}
 	retentionPeriod := uint64(s.config.RetentionPeriod() * 60 * 60 * 24)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	if err := s.publisher.SetupGrpcServer(ctx, s.config.BindAddress(), s.config.Port()); err != nil {
 		cancel()
@@ -145,11 +145,11 @@ func (s *Instance) StartPublish(topicName string, sendChan chan pubsub.TopicData
 	return nil
 }
 
-func (s *Instance) StartSubscribe(topicName string, batchSize, flushInterval uint32) (chan []pubsub.SubscriptionResult, error) {
+func (s *Instance) StartSubscribe(ctx context.Context, topicName string, batchSize, flushInterval uint32) (chan []pubsub.SubscriptionResult, error) {
 	if !s.running {
 		return nil, errors.New("not running state")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	recvCh, errCh, err := s.subscriber.PrepareSubscription(ctx, topicName, batchSize, flushInterval)
 	if err != nil {
