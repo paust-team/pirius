@@ -8,10 +8,10 @@ mac-os-host := $(findstring Darwin, $(shell uname))
 linux-os-host := $(findstring Linux, $(shell uname))
 
 # bin
-BROKER_BIN_DIR := broker/cmd/shapleq
-CLIENT_BIN_DIR := client/cmd/shapleq-client
-BROKER_BIN_NAME := shapleq
-CLIENT_BIN_NAME := shapleq-client
+BROKER_BIN_DIR := broker/cmd
+CLIENT_BIN_DIR := agent/cmd
+BROKER_BIN_NAME := qbroker
+CLIENT_BIN_NAME := qagent
 BROKER_BIN := $(BROKER_BIN_DIR)/$(BROKER_BIN_NAME)
 CLIENT_BIN := $(CLIENT_BIN_DIR)/$(CLIENT_BIN_NAME)
 
@@ -20,15 +20,20 @@ INSTALL_BIN_DIR := /usr/local/bin
 # config
 CONFIG_NAME := config
 BROKER_CONFIG_DIR := broker/config
-ADMIN_CONFIG_DIR := client/config/admin
-PRODUCER_CONFIG_DIR := client/config/producer
-CONSUMER_CONFIG_DIR := client/config/consumer
+AGENT_CONFIG_DIR := agent/config
 
-INSTALL_CONFIG_HOME_DIR := ${HOME}/.shapleq/config
+# debug | release
+DEPLOY_TARGET ?= debug
+
+INSTALL_CONFIG_HOME_DIR=
+ifeq "$(DEPLOY_TARGET)" "debug"
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.shapleq-debug/config
+else
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.shapleq/config
+endif
+
 INSTALL_BROKER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/broker
-INSTALL_ADMIN_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/admin
-INSTALL_PRODUCER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/producer
-INSTALL_CONSUMER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/consumer
+INSTALL_AGENT_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/agent
 
 # rocksdb
 ROCKSDB_DIR := $(THIRDPARTY_DIR)/rocksdb
@@ -43,7 +48,7 @@ PROTOC_DIR := $(THIRDPARTY_DIR)/protoc
 PROTOC := $(PROTOC_DIR)/bin/protoc
 PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
 
-DEPLOY_TARGET ?= debug # debug | release
+
 
 $(PROTOC):
 	mkdir -p $(PROTOC_DIR)
@@ -111,24 +116,19 @@ endif
 $(CLIENT_BIN):
 	go build -tags $(DEPLOY_TARGET) -o $(CLIENT_BIN) ./$(CLIENT_BIN_DIR)/main.go
 
-.PHONY: build-broker build-client
+.PHONY: build-broker
 build-broker: $(BROKER_BIN)
-build-client: $(CLIENT_BIN)
 
 .PHONY: all build rebuild install test clean-rocksdb clean-proto
-build: build-broker build-client install-config
+build: build-broker install-config
 all: build
 
 install-config:
 	mkdir -p ${INSTALL_BROKER_CONFIG_DIR} && cp ${BROKER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_BROKER_CONFIG_DIR}/
-	mkdir -p ${INSTALL_ADMIN_CONFIG_DIR} && cp ${ADMIN_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_ADMIN_CONFIG_DIR}/
-	mkdir -p ${INSTALL_PRODUCER_CONFIG_DIR} && cp ${PRODUCER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_PRODUCER_CONFIG_DIR}/
-	mkdir -p ${INSTALL_CONSUMER_CONFIG_DIR} && cp ${CONSUMER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_CONSUMER_CONFIG_DIR}/
-
+	mkdir -p ${INSTALL_AGENT_CONFIG_DIR} && cp ${AGENT_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_AGENT_CONFIG_DIR}/
 
 install: build
 	cp ${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ${INSTALL_BIN_DIR}/
-	cp ${CLIENT_BIN_DIR}/${CLIENT_BIN_NAME} ${INSTALL_BIN_DIR}/
 
 clean:
 	rm -f $(BROKER_BIN)

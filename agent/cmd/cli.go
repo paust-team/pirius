@@ -7,7 +7,7 @@ import (
 
 var qagentCmd = &cobra.Command{
 	Use:   "qagent [command] (flags)",
-	Short: "PaustQ cli",
+	Short: "ShapleQ Agent cli",
 }
 
 func Main() {

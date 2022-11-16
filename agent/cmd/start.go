@@ -23,7 +23,7 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "start shapleq agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			// TODO :: implement start command
+			panic("stand-alone agent is not supported for now")
 		},
 	}
 

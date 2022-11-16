@@ -6,13 +6,12 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"strings"
 )
 
 var (
 	defaultLogLevel       = zap.InfoLevel
 	defaultTimeout        = 10000
-	defaultZKQuorum       = "localhost:2181"
+	defaultZKQuorum       = []string{"127.0.0.1:2181"}
 	defaultZKTimeout uint = 3000
 	defaultBindAddr       = "127.0.0.1"
 )
@@ -79,20 +78,19 @@ func (b BrokerConfig) SetPort(port uint) {
 }
 
 func (b BrokerConfig) ZKQuorum() []string {
-	addresses := strings.Split(b.GetString("zookeeper.quorum"), ",")
-	return addresses
+	return b.GetStringSlice("zookeeper.quorum")
 }
 
-func (b BrokerConfig) SetZKQuorum(addresses []string) {
-	b.Set("zookeeper.quorum", strings.Join(addresses, ","))
-}
-
-func (b BrokerConfig) ZKTimeout() uint {
-	return b.GetUint("zookeeper.timeout")
+func (b BrokerConfig) SetZKQuorum(quorum []string) {
+	b.Set("zookeeper.quorum", quorum)
 }
 
 func (b BrokerConfig) SetZKTimeout(timeout uint) {
 	b.Set("zookeeper.timeout", timeout)
+}
+
+func (b BrokerConfig) ZKTimeout() uint {
+	return b.GetUint("zookeeper.timeout")
 }
 
 func (b BrokerConfig) LogLevel() zapcore.Level {
