@@ -115,7 +115,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 
 				By("start publishing slowly")
 				sendCh := make(chan pubsub.TopicData)
-				err := publisher.StartPublish(tp.GetString("topic"), sendCh)
+				err := publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 				Expect(err).NotTo(HaveOccurred())
 				go func() {
 					for i, record := range tp.GetBytesList("records1") {
@@ -129,7 +129,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 			})
 			It("can subscribe all publishing records1", func(ctx SpecContext) {
 				By("start subscribing")
-				recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+				recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 				Expect(err).NotTo(HaveOccurred())
 
 				idx := 0
@@ -154,7 +154,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 
 				By("start publishing fastly")
 				sendCh = make(chan pubsub.TopicData)
-				err := publisher.StartPublish(tp.GetString("topic"), sendCh)
+				err := publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 				Expect(err).NotTo(HaveOccurred())
 				go func() {
 					for i, record := range tp.GetBytesList("records1") {
@@ -170,7 +170,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 			})
 			It("number of subscription result should be equal to batch-size", func(ctx SpecContext) {
 				By("start subscribing")
-				recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+				recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 				Expect(err).NotTo(HaveOccurred())
 
 				idx := 0
@@ -257,7 +257,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 
 				By("start publishing slowly")
 				sendCh := make(chan pubsub.TopicData)
-				err = publisher.StartPublish(tp.GetString("topic"), sendCh)
+				err = publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 				Expect(err).NotTo(HaveOccurred())
 				go func() {
 					for i, record := range tp.GetBytesList("records1") {
@@ -285,7 +285,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 
 					By("start subscribing")
 					for _, subscriber := range subscribers {
-						recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+						recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 						Expect(err).NotTo(HaveOccurred())
 						recvChs = append(recvChs, recvCh)
 					}
@@ -293,7 +293,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 					By("start publishing fastly")
 					sendCh := make(chan pubsub.TopicData)
 					sendChs = append(sendChs, sendCh)
-					err = publisher.StartPublish(tp.GetString("topic"), sendCh)
+					err = publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 					Expect(err).NotTo(HaveOccurred())
 					go func() {
 						for i, record := range tp.GetBytesList("records2") {
@@ -342,7 +342,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				for i, publisher := range publishers {
 					sendCh := make(chan pubsub.TopicData, 10)
 					sendChs = append(sendChs, sendCh)
-					err := publisher.StartPublish(tp.GetString("topic"), sendCh)
+					err := publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 					Expect(err).NotTo(HaveOccurred())
 					wg.Add(1)
 					go func(idx int) {
@@ -362,7 +362,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				BeforeEach(func() {
 					By("start subscribing")
 					for _, subscriber := range subscribers {
-						recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+						recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 						Expect(err).NotTo(HaveOccurred())
 						recvChs = append(recvChs, recvCh)
 					}
@@ -456,7 +456,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				for i, publisher := range publishers {
 					sendCh := make(chan pubsub.TopicData, 10)
 					sendChs = append(sendChs, sendCh)
-					err := publisher.StartPublish(tp.GetString("topic"), sendCh)
+					err := publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 					Expect(err).NotTo(HaveOccurred())
 					wg.Add(1)
 					go func(idx int) {
@@ -479,7 +479,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("subscriber1: start subscribing")
-				recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+				recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 				Expect(err).NotTo(HaveOccurred())
 				subscribers = append(subscribers, subscriber)
 				recvChs = append(recvChs, recvCh)
@@ -495,7 +495,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("subscriber2: start subscribing")
-					recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+					recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 					Expect(err).NotTo(HaveOccurred())
 					subscribers = append(subscribers, subscriber)
 					recvChs = append(recvChs, recvCh)
@@ -523,7 +523,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				for i, publisher := range publishers {
 					sendCh := make(chan pubsub.TopicData, 10)
 					sendChs = append(sendChs, sendCh)
-					err := publisher.StartPublish(tp.GetString("topic"), sendCh)
+					err := publisher.StartPublish(context.Background(), tp.GetString("topic"), sendCh)
 					Expect(err).NotTo(HaveOccurred())
 					wg.Add(1)
 					go func(idx int) {
@@ -554,7 +554,7 @@ var _ = Describe("IntegrationTest_WithDistributionRule", Ordered, func() {
 				BeforeEach(func() {
 					By("start subscribing")
 					for _, subscriber := range subscribers {
-						recvCh, err := subscriber.StartSubscribe(tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
+						recvCh, err := subscriber.StartSubscribe(context.Background(), tp.GetString("topic"), tp.GetUint32("batchSize"), tp.GetUint32("flushInterval"))
 						Expect(err).NotTo(HaveOccurred())
 						recvChs = append(recvChs, recvCh)
 					}
