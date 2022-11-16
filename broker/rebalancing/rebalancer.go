@@ -26,10 +26,11 @@ type Rebalancer struct {
 	brokerHost    string
 	running       bool
 	masterNode    bool
-	topicContexts sync.Map
+	topicContexts map[string]*topicContext
 	masterCtx     context.Context
 	ruleExecutors []rule.Executor
 	wg            sync.WaitGroup
+	mu            sync.Mutex
 }
 
 func NewRebalancer(service *bootstrapping.BootstrapService, brokerHost string) Rebalancer {
@@ -38,7 +39,7 @@ func NewRebalancer(service *bootstrapping.BootstrapService, brokerHost string) R
 		brokerHost:    brokerHost,
 		running:       false,
 		masterNode:    false,
-		topicContexts: sync.Map{},
+		topicContexts: make(map[string]*topicContext),
 		ruleExecutors: []rule.Executor{
 			rule.NewDefaultRuleExecutor(service),
 			rule.NewDistributionRuleExecutor(service),
@@ -133,7 +134,7 @@ func (r *Rebalancer) prepareRebalance(ctx context.Context) error {
 	for _, t := range topics {
 		if err = r.RegisterTopicWatchers(t); err != nil {
 			cancel()
-			r.topicContexts = sync.Map{}
+			r.topicContexts = make(map[string]*topicContext)
 			return err
 		}
 	}
@@ -171,10 +172,12 @@ func (r *Rebalancer) waitUntilBeMaster(ctx context.Context) error {
 }
 
 func (r *Rebalancer) RegisterTopicWatchers(topic string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if !r.running || !r.masterNode {
 		return qerror.InvalidStateError{State: fmt.Sprintf("running: %t / masterNode: %t", r.running, r.masterNode)}
 	}
-	if _, ok := r.topicContexts.Load(topic); ok {
+	if _, ok := r.topicContexts[topic]; ok {
 		return qerror.InvalidStateError{State: fmt.Sprintf("watchers for topic(%s) already exist", topic)}
 	}
 
@@ -193,13 +196,13 @@ func (r *Rebalancer) RegisterTopicWatchers(topic string) error {
 	}
 
 	topicCtx, cancel := context.WithCancel(r.masterCtx)
-	r.topicContexts.Store(topic, &topicContext{
+	r.topicContexts[topic] = &topicContext{
 		ctx:         topicCtx,
 		cancelFn:    cancel,
 		option:      topicFrame.Options(),
 		publishers:  pubs,
 		subscribers: subs,
-	})
+	}
 
 	pubsCh, err := r.bootstrapper.WatchPubsPathChanged(topicCtx, topic)
 	if err != nil {
@@ -243,38 +246,42 @@ func (r *Rebalancer) RegisterTopicWatchers(topic string) error {
 }
 
 func (r *Rebalancer) DeregisterTopicWatchers(topic string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if !r.running || !r.masterNode {
 		return qerror.InvalidStateError{State: fmt.Sprintf("running: %t / masterNode: %t", r.running, r.masterNode)}
 	}
-	tc, ok := r.topicContexts.Load(topic)
+	tc, ok := r.topicContexts[topic]
 	if !ok {
 		return qerror.InvalidStateError{State: fmt.Sprintf("watchers for topic(%s) not exist", topic)}
 	}
 
 	logger.Info("deregistering watchers", zap.String("topic", topic))
-	tc.(*topicContext).cancelFn()
+	tc.cancelFn()
 
-	r.topicContexts.Delete(topic)
+	delete(r.topicContexts, topic)
 	return nil
 }
 
 func (r *Rebalancer) rebalanceFragments(topicName string, publishers []string) error {
-	tc, ok := r.topicContexts.Load(topicName)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	tc, ok := r.topicContexts[topicName]
 	if !ok {
 		return qerror.InvalidStateError{State: fmt.Sprintf("context for topic(%s) not exist", topicName)}
 	}
 
-	rebalanceRuleExec := r.dispatchRuleExecutor(tc.(*topicContext).option)
+	rebalanceRuleExec := r.dispatchRuleExecutor(tc.option)
 	if rebalanceRuleExec == nil {
 		return qerror.InvalidStateError{State: "cannot dispatch rule executor"}
 	}
 
-	if len(tc.(*topicContext).publishers) > len(publishers) {
+	if len(tc.publishers) > len(publishers) {
 		logger.Info("a publisher seems to have been removed",
-			zap.Int("prev amount", len(tc.(*topicContext).publishers)),
+			zap.Int("prev amount", len(tc.publishers)),
 			zap.Int("curr amount", len(publishers)))
 
-		removedPublisher := helper.FindDiff(tc.(*topicContext).publishers, publishers)
+		removedPublisher := helper.FindDiff(tc.publishers, publishers)
 		if removedPublisher == "" {
 			return qerror.InvalidStateError{State: "no difference between old and new publishers"}
 		}
@@ -286,10 +293,10 @@ func (r *Rebalancer) rebalanceFragments(topicName string, publishers []string) e
 
 	} else {
 		logger.Info("a publisher seems to have been added",
-			zap.Int("prev amount", len(tc.(*topicContext).publishers)),
+			zap.Int("prev amount", len(tc.publishers)),
 			zap.Int("curr amount", len(publishers)))
 
-		addedPublisher := helper.FindDiff(publishers, tc.(*topicContext).publishers)
+		addedPublisher := helper.FindDiff(publishers, tc.publishers)
 		if addedPublisher == "" {
 			return qerror.InvalidStateError{State: "no difference between old and new publishers"}
 		}
@@ -305,28 +312,29 @@ func (r *Rebalancer) rebalanceFragments(topicName string, publishers []string) e
 		}
 	}
 
-	tc.(*topicContext).publishers = publishers
-	r.topicContexts.Store(topicName, tc)
+	tc.publishers = publishers
 	return nil
 }
 
 func (r *Rebalancer) rebalanceSubscriptions(topicName string, subscribers []string) error {
-	tc, ok := r.topicContexts.Load(topicName)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	tc, ok := r.topicContexts[topicName]
 	if !ok {
 		return qerror.InvalidStateError{State: fmt.Sprintf("context for topic(%s) not exist", topicName)}
 	}
 
-	rebalanceRuleExec := r.dispatchRuleExecutor(tc.(*topicContext).option)
+	rebalanceRuleExec := r.dispatchRuleExecutor(tc.option)
 	if rebalanceRuleExec == nil {
 		return qerror.InvalidStateError{State: "cannot dispatch rule executor"}
 	}
 
-	if len(tc.(*topicContext).subscribers) > len(subscribers) {
+	if len(tc.subscribers) > len(subscribers) {
 		logger.Info("a subscriber seems to have been removed",
-			zap.Int("prev amount", len(tc.(*topicContext).publishers)),
+			zap.Int("prev amount", len(tc.publishers)),
 			zap.Int("curr amount", len(subscribers)))
 
-		removedSubscriber := helper.FindDiff(tc.(*topicContext).subscribers, subscribers)
+		removedSubscriber := helper.FindDiff(tc.subscribers, subscribers)
 		if removedSubscriber == "" {
 			return qerror.InvalidStateError{State: "no difference between old and new subscribers"}
 		}
@@ -337,10 +345,10 @@ func (r *Rebalancer) rebalanceSubscriptions(topicName string, subscribers []stri
 		}
 	} else {
 		logger.Info("a subscriber seems to have been added",
-			zap.Int("prev amount", len(tc.(*topicContext).subscribers)),
+			zap.Int("prev amount", len(tc.subscribers)),
 			zap.Int("curr amount", len(subscribers)))
 
-		addedSubscriber := helper.FindDiff(subscribers, tc.(*topicContext).subscribers)
+		addedSubscriber := helper.FindDiff(subscribers, tc.subscribers)
 		if addedSubscriber == "" {
 			return qerror.InvalidStateError{State: "no difference between old and new publishers"}
 		}
@@ -351,8 +359,7 @@ func (r *Rebalancer) rebalanceSubscriptions(topicName string, subscribers []stri
 		}
 	}
 
-	tc.(*topicContext).subscribers = subscribers
-	r.topicContexts.Store(topicName, tc)
+	tc.subscribers = subscribers
 
 	return nil
 }
