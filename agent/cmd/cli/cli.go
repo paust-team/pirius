@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -7,13 +7,15 @@ import (
 
 var qagentCmd = &cobra.Command{
 	Use:   "qagent [command] (flags)",
-	Short: "PaustQ cli",
+	Short: "ShapleQ Agent cli",
 }
 
 func Main() {
 
 	qagentCmd.AddCommand(
-		NewStartCmd(),
+		NewStartPublishCmd(),
+		NewStartSubscribeCmd(),
+		NewTopicCmd(),
 	)
 
 	if err := qagentCmd.Execute(); err != nil {
