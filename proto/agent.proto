@@ -6,6 +6,10 @@ service PubSub {
   rpc Subscribe(Subscription) returns (stream SubscriptionResult) {}
 }
 
+service RetrievablePubSub {
+  rpc RetrievableSubscribe(stream RetrievableSubscription) returns (stream SubscriptionResult) {}
+}
+
 message Subscription {
   message FragmentOffset {
     uint32 fragment_id = 1;
@@ -29,3 +33,10 @@ message SubscriptionResult {
   repeated Fetched results = 2;
 }
 
+message RetrievableSubscription {
+  int32 magic = 1;
+  oneof type {
+    Subscription subscription = 2;
+    SubscriptionResult result = 3;
+  }
+}
