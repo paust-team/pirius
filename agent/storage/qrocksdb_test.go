@@ -89,7 +89,7 @@ var _ = Describe("Qrocksdb", func() {
 					record.Free()
 				})
 
-				It("should have nil data", func() {
+				It("must have nil data", func() {
 					Expect(record.Data()).To(BeNil())
 				})
 			})
@@ -111,7 +111,7 @@ var _ = Describe("Qrocksdb", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should fetch same record value", func() {
+				It("must have same record value", func() {
 					record, err := db.GetRecord(tp.GetString("expTopic"), tp.GetUint32("expFragmentId"), tp.GetUint64("expOffset"))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(record.Data()).NotTo(BeNil())
