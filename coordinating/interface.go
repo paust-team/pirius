@@ -1,5 +1,7 @@
 package coordinating
 
+import "context"
+
 type CoordClient interface {
 	Connect() error
 	IsClosed() bool
@@ -10,15 +12,15 @@ type CoordClient interface {
 	Get(path string) GetOperation
 	Delete(paths []string) DeleteOperation
 	Children(path string) ChildrenOperation
-	Lock(path string, do func()) LockOperation
+	Lock(path string) LockOperation
 	OptimisticUpdate(path string, update func(current []byte) []byte) OptimisticUpdateOperation
 }
 
 type Recursive bool
 
 type ExistsOperation interface {
+	Watchable
 	WithLock(string) ExistsOperation
-	OnEvent(func(WatchEvent) Recursive) ExistsOperation
 	Run() (bool, error)
 }
 
@@ -35,8 +37,8 @@ type SetOperation interface {
 }
 
 type GetOperation interface {
+	Watchable
 	WithLock(string) GetOperation
-	OnEvent(func(WatchEvent) Recursive) GetOperation
 	Run() ([]byte, error)
 }
 
@@ -47,17 +49,22 @@ type DeleteOperation interface {
 }
 
 type ChildrenOperation interface {
+	Watchable
 	WithLock(string) ChildrenOperation
-	OnEvent(func(WatchEvent) Recursive) ChildrenOperation
 	Run() ([]string, error)
 }
 
 type LockOperation interface {
-	Run() error
+	Lock() error
+	Unlock() error
 }
 
 type OptimisticUpdateOperation interface {
 	Run() error
+}
+
+type Watchable interface {
+	Watch(context.Context) (<-chan WatchEvent, error)
 }
 
 type WatchEventType int32
@@ -67,6 +74,7 @@ const (
 	EventNodeDeleted         WatchEventType = 2
 	EventNodeDataChanged     WatchEventType = 3
 	EventNodeChildrenChanged WatchEventType = 4
+	EventSession             WatchEventType = -1
 )
 
 type WatchEvent struct {

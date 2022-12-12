@@ -9,6 +9,31 @@ type PQError interface {
 	Error() string
 }
 
+type InvalidStateError struct {
+	State string
+}
+
+func (e InvalidStateError) Error() string {
+	return fmt.Sprintf("invalid state (%s)", e.State)
+}
+
+func (e InvalidStateError) Code() QErrCode {
+	return ErrInvalidState
+}
+
+type ValidationError struct {
+	Value   string
+	HintMsg string
+}
+
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("Invalid value: %s. %s\n", e.Value, e.HintMsg)
+}
+
+func (e ValidationError) Code() QErrCode {
+	return ErrValidation
+}
+
 // bootstrapping
 type TopicNotExistError struct {
 	Topic string

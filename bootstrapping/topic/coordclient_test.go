@@ -45,16 +45,16 @@ var _ = Describe("CoordClient", func() {
 					topicFrame, err = topicClient.GetTopic(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should be equal to expected", func() {
+				It("must be equal to expected", func() {
 					Expect(topicFrame.Description()).To(Equal(testDescription))
 					Expect(topicFrame.Options()).To(Equal(testOptions))
 				})
 
-				It("should have topic fragments", func() {
+				It("must have topic fragments", func() {
 					_, err = topicClient.GetTopicFragments(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should have subscriptions", func() {
+				It("must have subscriptions", func() {
 					_, err = topicClient.GetTopicSubscriptions(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -80,10 +80,10 @@ var _ = Describe("CoordClient", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have 1 item", func() {
+			It("must have 1 item", func() {
 				Expect(topics).To(HaveLen(1))
 			})
-			It("should have same item", func() {
+			It("must have same item", func() {
 				Expect(topics[0]).To(Equal(testTopic))
 			})
 
@@ -101,10 +101,10 @@ var _ = Describe("CoordClient", func() {
 					topicClient.DeleteTopic(testTopic2)
 				})
 
-				It("should be has 2 item", func() {
+				It("must have 2 item", func() {
 					Expect(topics).To(HaveLen(2))
 				})
-				It("should be has same item", func() {
+				It("must have same item", func() {
 					sort.Strings(topics)
 					Expect(topics[0]).To(Equal(testTopic))
 					Expect(topics[1]).To(Equal(testTopic2))
@@ -160,7 +160,7 @@ var _ = Describe("CoordClient", func() {
 					topicFragmentFrame, err = topicClient.GetTopicFragments(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should be empty", func() {
+				It("must be empty", func() {
 					Expect(topicFragmentFrame.FragMappingInfo()).To(HaveLen(0))
 				})
 			})
@@ -180,7 +180,7 @@ var _ = Describe("CoordClient", func() {
 			var err error
 			var fragment1Id uint = 10
 			fragment1Info := topic.FragInfo{
-				Active:      true,
+				State:       topic.Active,
 				PublisherId: "test-publisher-1",
 				Address:     "192.168.0.1:11010",
 			}
@@ -198,10 +198,10 @@ var _ = Describe("CoordClient", func() {
 					topicFragmentFrame, err = topicClient.GetTopicFragments(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should have same item", func() {
+				It("must have same item", func() {
 					fragmentInfo := topicFragmentFrame.FragMappingInfo()[fragment1Id]
 					Expect(fragmentInfo).NotTo(BeNil())
-					Expect(fragmentInfo.Active).To(Equal(fragment1Info.Active))
+					Expect(fragmentInfo.State).To(Equal(fragment1Info.State))
 					Expect(fragmentInfo.PublisherId).To(Equal(fragment1Info.PublisherId))
 					Expect(fragmentInfo.Address).To(Equal(fragment1Info.Address))
 				})
@@ -237,7 +237,7 @@ var _ = Describe("CoordClient", func() {
 					topicSubscriptionFrame, err = topicClient.GetTopicSubscriptions(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should be empty", func() {
+				It("must be empty", func() {
 					Expect(topicSubscriptionFrame.SubscriptionInfo()).To(HaveLen(0))
 				})
 			})
@@ -253,7 +253,7 @@ var _ = Describe("CoordClient", func() {
 			})
 		})
 
-		Describe("Updating topic fragments", func() {
+		Describe("Updating topic subscriptions", func() {
 			var err error
 			var fragment1Id uint = 10
 			subscriber1Id := "test-subscriber-1"
@@ -272,7 +272,7 @@ var _ = Describe("CoordClient", func() {
 					topicSubscriptionFrame, err = topicClient.GetTopicSubscriptions(testTopic)
 					Expect(err).NotTo(HaveOccurred())
 				})
-				It("should have same item", func() {
+				It("must have same item", func() {
 					subscriptionInfo := topicSubscriptionFrame.SubscriptionInfo()[subscriber1Id]
 					Expect(subscriptionInfo).NotTo(BeNil())
 					Expect(subscriptionInfo).To(HaveLen(1))

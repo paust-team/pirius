@@ -1,18 +1,13 @@
 package helper
 
 import (
+	"bytes"
 	"errors"
 	"github.com/google/uuid"
-	"github.com/paust-team/shapleq/constants"
-	"math/rand"
 	"net"
 	"strings"
 	"sync"
 )
-
-func GenerateFragmentId() uint32 {
-	return uint32(rand.Intn(constants.MaxFragmentCount)) + 1
-}
 
 func GenerateNodeId() string {
 	id, _ := uuid.NewUUID()
@@ -83,10 +78,10 @@ func MergeChannels[T any](chs ...chan T) chan T {
 	wg.Add(len(chs))
 	for _, ch := range chs {
 		go func(c <-chan T) {
+			defer wg.Done()
 			for v := range c {
 				out <- v
 			}
-			wg.Done()
 		}(ch)
 	}
 	go func() {
@@ -94,4 +89,62 @@ func MergeChannels[T any](chs ...chan T) chan T {
 		close(out)
 	}()
 	return out
+}
+
+func IsContains[T comparable](value T, arr []T) bool {
+	for _, a := range arr {
+		if a == value {
+			return true
+		}
+	}
+	return false
+}
+
+func FindDiff[T comparable](src []T, trg []T) []T {
+	var found []T
+	for _, s := range src {
+		if !IsContains(s, trg) {
+			found = append(found, s)
+		}
+	}
+	return found
+}
+
+func HasSameElement[T comparable](src []T, trg []T) bool {
+	for _, s := range src {
+		if IsContains(s, trg) {
+			return true
+		}
+	}
+	return false
+}
+
+func HasAllElements[T comparable](src []T, trg []T) bool {
+	if len(src) == 0 || len(trg) == 0 {
+		return false
+	}
+	for _, s := range src {
+		if !IsContains(s, trg) {
+			return false
+		}
+	}
+	return true
+}
+
+func RoundRobinSelection[T any](list []T) func() T {
+	offset := 0
+	return func() T { // round-robin write for fragments if topic write policy has UniquePerFragment
+		selected := list[offset]
+		offset = (offset + 1) % len(list)
+		return selected
+	}
+}
+
+func IsContainBytes(e []byte, s [][]byte) bool {
+	for _, a := range s {
+		if bytes.Compare(a, e) == 0 {
+			return true
+		}
+	}
+	return false
 }

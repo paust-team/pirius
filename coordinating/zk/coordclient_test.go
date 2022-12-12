@@ -2,9 +2,9 @@ package zk
 
 import (
 	"bytes"
+	"context"
 	"github.com/paust-team/shapleq/coordinating"
 	"os"
-	"sync"
 	"testing"
 	"time"
 )
@@ -70,27 +70,22 @@ func TestCoordinator_Exists(t *testing.T) {
 func TestCoordinator_ExistsWatch_OnCreate(t *testing.T) {
 	testPath := testBasePath + "/test-exists-watch-create"
 	testData := []byte{'a'}
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	exists, err := zkCoord.Exists(testPath).OnEvent(func(event coordinating.WatchEvent) coordinating.Recursive {
-		defer wg.Done()
-		if event.Type != coordinating.EventNodeCreated {
-			t.Error("received wrong event", event.Type)
-		}
-		return false
-	}).Run()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watchCh, err := zkCoord.Exists(testPath).Watch(ctx)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if exists {
-		t.Error("node not exists but return true")
 	}
 
 	if err = zkCoord.Create(testPath, testData).Run(); err != nil {
 		t.Fatal(err)
 	}
 
-	wg.Wait()
+	event := <-watchCh
+	if event.Type != coordinating.EventNodeCreated {
+		t.Error("received wrong event", event.Type)
+	}
 }
 
 func TestCoordinator_ExistsWatch_OnDelete(t *testing.T) {
@@ -101,27 +96,21 @@ func TestCoordinator_ExistsWatch_OnDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	exists, err := zkCoord.Exists(testPath).OnEvent(func(event coordinating.WatchEvent) coordinating.Recursive {
-		defer wg.Done()
-		if event.Type != coordinating.EventNodeDeleted {
-			t.Error("received wrong event", event.Type)
-		}
-		return false
-	}).Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watchCh, err := zkCoord.Exists(testPath).Watch(ctx)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if !exists {
-		t.Error("node exists but return false")
 	}
 
 	if err = zkCoord.Delete([]string{testPath}).Run(); err != nil {
 		t.Error(err)
 	}
 
-	wg.Wait()
+	event := <-watchCh
+	if event.Type != coordinating.EventNodeDeleted {
+		t.Error("received wrong event", event.Type)
+	}
 }
 
 func TestCoordinator_Get(t *testing.T) {
@@ -170,27 +159,23 @@ func TestCoordinator_SetWatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wg := sync.WaitGroup{}
-	if _, err := zkCoord.Get(testPath).OnEvent(func(event coordinating.WatchEvent) coordinating.Recursive {
-		defer wg.Done()
-		if event.Type != coordinating.EventNodeDataChanged {
-			t.Error("received wrong event", event.Type)
-		}
-		if event.Err != nil {
-			t.Error(event.Err)
-		}
-		return false
-	}).Run(); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watchCh, err := zkCoord.Get(testPath).Watch(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	wg.Add(1)
-
-	if err := zkCoord.Set(testPath, testData).WithLock(testLockPath).Run(); err != nil {
+	if err = zkCoord.Set(testPath, testData).WithLock(testLockPath).Run(); err != nil {
 		t.Error(err)
 	}
-
-	wg.Wait()
+	event := <-watchCh
+	if event.Type != coordinating.EventNodeDataChanged {
+		t.Error("received wrong event", event.Type)
+	}
+	if event.Err != nil {
+		t.Error(event.Err)
+	}
 }
 
 func TestCoordinator_Children(t *testing.T) {
@@ -220,32 +205,22 @@ func TestCoordinator_Children(t *testing.T) {
 func TestCoordinator_ChildrenWatch(t *testing.T) {
 	testPath := testBasePath + "/test-children-watch-created"
 
-	wg := sync.WaitGroup{}
-	totalEvent := 2
-	receivedEventCount := 0
-	wg.Add(totalEvent)
-	if _, err := zkCoord.Children(testBasePath).OnEvent(func(event coordinating.WatchEvent) coordinating.Recursive {
-		defer wg.Done()
-		receivedEventCount++
-		if event.Type != coordinating.EventNodeChildrenChanged {
-			t.Error("received wrong event", event.Type)
-		}
-		if event.Err != nil {
-			t.Error(event.Err)
-		}
-		if receivedEventCount == totalEvent {
-			return false
-		} else {
-			return true
-		}
-
-	}).Run(); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watchCh, err := zkCoord.Children(testBasePath).Watch(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
-
 	// create test
 	if err := zkCoord.Create(testPath, []byte{}).Run(); err != nil {
 		t.Fatal(err)
+	}
+	event := <-watchCh
+	if event.Type != coordinating.EventNodeChildrenChanged {
+		t.Error("received wrong event", event.Type)
+	}
+	if event.Err != nil {
+		t.Error(event.Err)
 	}
 
 	time.Sleep(1 * time.Second) // sleep for re-registering a watch
@@ -253,7 +228,13 @@ func TestCoordinator_ChildrenWatch(t *testing.T) {
 	if err := zkCoord.Delete([]string{testPath}).Run(); err != nil {
 		t.Error(err)
 	}
-	wg.Wait()
+
+	if event.Type != coordinating.EventNodeChildrenChanged {
+		t.Error("received wrong event", event.Type)
+	}
+	if event.Err != nil {
+		t.Error(event.Err)
+	}
 }
 
 func TestCoordinator_OptimisticUpdate(t *testing.T) {

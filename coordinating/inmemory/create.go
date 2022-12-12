@@ -8,9 +8,10 @@ import (
 )
 
 type CreateOperation struct {
-	m     *sync.Map
-	path  string
-	value []byte
+	m           *sync.Map
+	path        string
+	value       []byte
+	isEphemeral bool
 }
 
 func NewInMemCreateOperation(m *sync.Map, path string, value []byte) CreateOperation {
@@ -23,7 +24,7 @@ func (o CreateOperation) WithLock(string) coordinating.CreateOperation {
 }
 
 func (o CreateOperation) AsEphemeral() coordinating.CreateOperation {
-	logger.Warn("CreateOperation.AsEphemeral is not implement in in-mem coordinator")
+	o.isEphemeral = true
 	return o
 }
 
@@ -43,5 +44,10 @@ func (o CreateOperation) Run() error {
 		return qerror.CoordTargetAlreadyExistsError{Target: o.path}
 	}
 	o.m.Store(o.path, o.value)
+	if o.isEphemeral {
+		epPaths, _ := o.m.Load(ephemeralPath)
+		o.m.Store(ephemeralPath, append(epPaths.([]string), o.path))
+	}
+
 	return nil
 }

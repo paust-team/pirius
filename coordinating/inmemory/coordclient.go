@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+const ephemeralPath = "eps"
+
 type CoordClient struct {
 	m      sync.Map
 	closed bool
@@ -15,6 +17,7 @@ func NewInMemCoordClient() *CoordClient {
 }
 
 func (c *CoordClient) Connect() error {
+	c.m.Store(ephemeralPath, []string{})
 	return nil
 }
 
@@ -42,8 +45,8 @@ func (c *CoordClient) Children(path string) coordinating.ChildrenOperation {
 	return NewInMemChildrenOperation(&c.m, path)
 }
 
-func (c *CoordClient) Lock(path string, fn func()) coordinating.LockOperation {
-	return NewInMemLockOperation(fn)
+func (c *CoordClient) Lock(path string) coordinating.LockOperation {
+	return NewInMemLockOperation()
 }
 
 func (c *CoordClient) OptimisticUpdate(path string, update func([]byte) []byte) coordinating.OptimisticUpdateOperation {
@@ -56,4 +59,8 @@ func (c *CoordClient) IsClosed() bool {
 
 func (c *CoordClient) Close() {
 	c.closed = true
+	epPaths, _ := c.m.Load(ephemeralPath)
+	for _, path := range epPaths.([]string) {
+		c.m.Delete(path)
+	}
 }
