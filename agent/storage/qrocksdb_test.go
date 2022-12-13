@@ -124,17 +124,17 @@ var _ = Describe("Qrocksdb", func() {
 			})
 		})
 
-		Describe("Deleting expired records", func() {
+		Describe("Deleting expired records", Ordered, func() {
 			tp := test.NewTestParams()
 			var deletedCount int
 
-			BeforeEach(func() {
+			BeforeAll(func() {
 				tp.Set("expTopic", "test_topic")
 				tp.Set("expFragmentId", uint32(1))
 				tp.Set("offsetShouldBeDeleted", uint64(1))
 				tp.Set("offsetShouldBeRemained", uint64(0))
 				tp.Set("shortExpirationDate", storage.GetNowTimestamp()+1)
-				tp.Set("longExpirationDate", storage.GetNowTimestamp()+10)
+				tp.Set("longExpirationDate", storage.GetNowTimestamp()+10000)
 
 				err = db.PutRecord(tp.GetString("expTopic"),
 					tp.GetUint32("expFragmentId"),
@@ -156,10 +156,15 @@ var _ = Describe("Qrocksdb", func() {
 				deletedCount, err = db.DeleteExpiredRecords()
 				Expect(err).NotTo(HaveOccurred())
 			})
-
+			It("cannot delete again", func() {
+				count, err := db.DeleteExpiredRecords()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(count).To(Equal(0))
+			})
 			It("only expired records are deleted", func() {
 				Expect(deletedCount).To(Equal(1))
 			})
+
 			It("can fetch non-expired record", func() {
 				record, err := db.GetRecord(tp.GetString("expTopic"), tp.GetUint32("expFragmentId"), tp.GetUint64("offsetShouldBeRemained"))
 				defer record.Free()
