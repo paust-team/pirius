@@ -33,6 +33,7 @@ var _ = Describe("Agent", func() {
 				coordClient = helper.BuildCoordClient(agentConfig.ZKQuorum(), agentConfig.ZKTimeout())
 				err := coordClient.Connect()
 				Expect(err).NotTo(HaveOccurred())
+
 				topicClient = topic.NewCoordClientTopicWrapper(coordClient)
 
 				// prepare publisher

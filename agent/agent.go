@@ -92,6 +92,7 @@ func (s *instance) Stop() {
 	logger.Info("agent finished")
 }
 
+
 func (s *instance) GetMetaPath() string {
 	return s.config.DataDir() + "/" + constants.AgentMetaFileName
 }
