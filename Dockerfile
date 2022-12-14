@@ -34,8 +34,7 @@ RUN apk add --no-cache libstdc++ bash snappy &&\
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
-COPY --from=builder /usr/local/bin/shapleq /shapleq/bin/shapleq
-COPY --from=builder /usr/local/bin/shapleq-client /shapleq/bin/shapleq-client
+COPY --from=builder /usr/local/bin/qbroker /shapleq/bin/qbroker
 COPY --from=builder /shapleq/start-shapleq.sh /shapleq/start-shapleq.sh
 COPY --from=builder /shapleq/.shapleq/config /shapleq/config
 

@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"context"
 	"github.com/paust-team/shapleq/coordinating"
 	"github.com/paust-team/shapleq/logger"
 	"github.com/paust-team/shapleq/qerror"
@@ -21,9 +22,9 @@ func (o GetOperation) WithLock(string) coordinating.GetOperation {
 	return o
 }
 
-func (o GetOperation) OnEvent(fn func(coordinating.WatchEvent) coordinating.Recursive) coordinating.GetOperation {
-	logger.Warn("GetOperation.OnEvent is not implement in in-mem coordinator")
-	return o
+func (o GetOperation) Watch(context.Context) (<-chan coordinating.WatchEvent, error) {
+	logger.Warn("GetOperation.Watch is not implement in in-mem coordinator")
+	return nil, nil
 }
 
 func (o GetOperation) Run() ([]byte, error) {

@@ -32,7 +32,7 @@ func (p Params) GetInt(key string) int {
 	return p.values[key].(int)
 }
 
-func (p Params) GetUInt(key string) uint {
+func (p Params) GetUint(key string) uint {
 	return p.values[key].(uint)
 }
 

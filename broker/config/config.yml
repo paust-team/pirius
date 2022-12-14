@@ -1,0 +1,8 @@
+bind: 127.0.0.1 # bind address
+host: 127.0.0.1 # broker host address
+port: 1101  # broker port
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+timeout: 10000
+zookeeper:
+  quorum: localhost:2181
+  timeout: 5000

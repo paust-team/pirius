@@ -14,7 +14,7 @@ import (
 var (
 	defaultLogLevel                    = zap.InfoLevel
 	defaultTimeout                     = 10000
-	defaultZKQuorum                    = "localhost:2181"
+	defaultZKQuorum                    = []string{"127.0.0.1:2181"}
 	defaultZKTimeout              uint = 3000
 	defaultZKFlushInterval             = 2000
 	defaultRetentionPeriod             = 1
@@ -124,12 +124,11 @@ func (b AgentConfig) SetRetentionPeriod(retention uint32) {
 }
 
 func (b AgentConfig) ZKQuorum() []string {
-	addresses := strings.Split(b.GetString("zookeeper.quorum"), ",")
-	return addresses
+	return b.GetStringSlice("zookeeper.quorum")
 }
 
-func (b AgentConfig) SetZKQuorum(addresses []string) {
-	b.Set("zookeeper.quorum", strings.Join(addresses, ","))
+func (b AgentConfig) SetZKQuorum(quorum []string) {
+	b.Set("zookeeper.quorum", quorum)
 }
 
 func (b AgentConfig) ZKTimeout() uint {

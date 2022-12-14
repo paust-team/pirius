@@ -1,8 +1,7 @@
-//go:build release
-
 package helper
 
 import (
+	"github.com/paust-team/shapleq/coordinating"
 	"github.com/paust-team/shapleq/coordinating/zk"
 )
 

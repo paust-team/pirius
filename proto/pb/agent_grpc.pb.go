@@ -126,3 +126,121 @@ var PubSub_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "agent.proto",
 }
+
+// RetrievablePubSubClient is the client API for RetrievablePubSub service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RetrievablePubSubClient interface {
+	RetrievableSubscribe(ctx context.Context, opts ...grpc.CallOption) (RetrievablePubSub_RetrievableSubscribeClient, error)
+}
+
+type retrievablePubSubClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRetrievablePubSubClient(cc grpc.ClientConnInterface) RetrievablePubSubClient {
+	return &retrievablePubSubClient{cc}
+}
+
+func (c *retrievablePubSubClient) RetrievableSubscribe(ctx context.Context, opts ...grpc.CallOption) (RetrievablePubSub_RetrievableSubscribeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RetrievablePubSub_ServiceDesc.Streams[0], "/agent.proto.RetrievablePubSub/RetrievableSubscribe", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &retrievablePubSubRetrievableSubscribeClient{stream}
+	return x, nil
+}
+
+type RetrievablePubSub_RetrievableSubscribeClient interface {
+	Send(*RetrievableSubscription) error
+	Recv() (*SubscriptionResult, error)
+	grpc.ClientStream
+}
+
+type retrievablePubSubRetrievableSubscribeClient struct {
+	grpc.ClientStream
+}
+
+func (x *retrievablePubSubRetrievableSubscribeClient) Send(m *RetrievableSubscription) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *retrievablePubSubRetrievableSubscribeClient) Recv() (*SubscriptionResult, error) {
+	m := new(SubscriptionResult)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// RetrievablePubSubServer is the server API for RetrievablePubSub service.
+// All implementations must embed UnimplementedRetrievablePubSubServer
+// for forward compatibility
+type RetrievablePubSubServer interface {
+	RetrievableSubscribe(RetrievablePubSub_RetrievableSubscribeServer) error
+	mustEmbedUnimplementedRetrievablePubSubServer()
+}
+
+// UnimplementedRetrievablePubSubServer must be embedded to have forward compatible implementations.
+type UnimplementedRetrievablePubSubServer struct {
+}
+
+func (UnimplementedRetrievablePubSubServer) RetrievableSubscribe(RetrievablePubSub_RetrievableSubscribeServer) error {
+	return status.Errorf(codes.Unimplemented, "method RetrievableSubscribe not implemented")
+}
+func (UnimplementedRetrievablePubSubServer) mustEmbedUnimplementedRetrievablePubSubServer() {}
+
+// UnsafeRetrievablePubSubServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RetrievablePubSubServer will
+// result in compilation errors.
+type UnsafeRetrievablePubSubServer interface {
+	mustEmbedUnimplementedRetrievablePubSubServer()
+}
+
+func RegisterRetrievablePubSubServer(s grpc.ServiceRegistrar, srv RetrievablePubSubServer) {
+	s.RegisterService(&RetrievablePubSub_ServiceDesc, srv)
+}
+
+func _RetrievablePubSub_RetrievableSubscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RetrievablePubSubServer).RetrievableSubscribe(&retrievablePubSubRetrievableSubscribeServer{stream})
+}
+
+type RetrievablePubSub_RetrievableSubscribeServer interface {
+	Send(*SubscriptionResult) error
+	Recv() (*RetrievableSubscription, error)
+	grpc.ServerStream
+}
+
+type retrievablePubSubRetrievableSubscribeServer struct {
+	grpc.ServerStream
+}
+
+func (x *retrievablePubSubRetrievableSubscribeServer) Send(m *SubscriptionResult) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *retrievablePubSubRetrievableSubscribeServer) Recv() (*RetrievableSubscription, error) {
+	m := new(RetrievableSubscription)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// RetrievablePubSub_ServiceDesc is the grpc.ServiceDesc for RetrievablePubSub service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RetrievablePubSub_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "agent.proto.RetrievablePubSub",
+	HandlerType: (*RetrievablePubSubServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "RetrievableSubscribe",
+			Handler:       _RetrievablePubSub_RetrievableSubscribe_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "agent.proto",
+}

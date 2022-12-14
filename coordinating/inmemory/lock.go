@@ -5,15 +5,18 @@ import (
 )
 
 type LockOperation struct {
-	do func()
 }
 
-func NewInMemLockOperation(do func()) LockOperation {
-	return LockOperation{do: do}
+func NewInMemLockOperation() LockOperation {
+	return LockOperation{}
 }
 
-func (o LockOperation) Run() error {
+func (o LockOperation) Lock() error {
 	logger.Warn("not fully implement in in-mem coordinator")
-	o.do()
+	return nil
+}
+
+func (o LockOperation) Unlock() error {
+	logger.Warn("not fully implement in in-mem coordinator")
 	return nil
 }

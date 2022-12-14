@@ -112,14 +112,15 @@ func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error)
 		if retentionKey.ExpirationDate() <= now {
 			if err := db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
 				deletionErr = err
-				break
+				continue
 			}
 			if startRetentionKey == nil {
-				startRetentionKey = it.Key().Data()
+				startRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
 			}
-			endRetentionKey = it.Key().Data()
+			endRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
 			deletedCount++
 		}
+		retentionKey.Free()
 	}
 
 	if bytes.Compare(startRetentionKey, endRetentionKey) == 0 {
