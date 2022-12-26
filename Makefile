@@ -119,8 +119,11 @@ $(CLIENT_BIN):
 .PHONY: build-broker
 build-broker: $(BROKER_BIN)
 
+.PHONY: build-agent
+build-agent: $(CLIENT_BIN)
+
 .PHONY: all build rebuild install test clean-rocksdb clean-proto
-build: build-broker install-config
+build: build-broker build-agent install-config
 all: build
 
 install-config:
