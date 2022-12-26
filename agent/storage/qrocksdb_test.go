@@ -124,7 +124,7 @@ var _ = Describe("Qrocksdb", func() {
 			})
 		})
 
-		Describe("Deleting expired records", Ordered, func() {
+		Describe("Deleting expired record", Ordered, func() {
 			tp := test.NewTestParams()
 			var deletedCount int
 
@@ -176,6 +176,39 @@ var _ = Describe("Qrocksdb", func() {
 				defer record.Free()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(record.Data()).To(BeNil())
+			})
+		})
+
+		Describe("Deleting expired records (ranged delete)", Ordered, func() {
+			tp := test.NewTestParams()
+			var deletedCount int
+
+			BeforeAll(func() {
+				tp.Set("expTopic", "test_topic3")
+				tp.Set("expFragmentId", uint32(1))
+				tp.Set("expireDate", storage.GetNowTimestamp()+1)
+				tp.Set("count", 10)
+				for i := 0; i < tp.GetInt("count"); i++ {
+					err = db.PutRecord(tp.GetString("expTopic"),
+						tp.GetUint32("expFragmentId"),
+						uint64(i+1),
+						uint64(i+1),
+						[]byte{1},
+						tp.GetUint64("expireDate"))
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				time.Sleep(2 * time.Second)
+				deletedCount, err = db.DeleteExpiredRecords()
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("cannot delete again", func() {
+				count, err := db.DeleteExpiredRecords()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(count).To(Equal(0))
+			})
+			It("all records are deleted", func() {
+				Expect(deletedCount).To(Equal(tp.GetInt("count")))
 			})
 		})
 

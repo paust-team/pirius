@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"bytes"
 	"errors"
 	"github.com/linxGnu/grocksdb"
 	"path/filepath"
+	"runtime"
 	"time"
 	"unsafe"
 )
@@ -103,9 +103,6 @@ func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error)
 	it := db.Scan(RecordExpCF)
 	defer it.Close()
 	now := GetNowTimestamp()
-	var (
-		startRetentionKey, endRetentionKey []byte
-	)
 
 	for it.SeekToFirst(); it.Valid(); it.Next() {
 		retentionKey := NewRetentionPeriodKey(it.Key())
@@ -114,20 +111,14 @@ func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error)
 				deletionErr = err
 				continue
 			}
-			if startRetentionKey == nil {
-				startRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
+			if err := db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data()); err != nil {
+				deletionErr = err
+				continue
 			}
-			endRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
 			deletedCount++
 		}
 		retentionKey.Free()
-	}
-
-	if bytes.Compare(startRetentionKey, endRetentionKey) == 0 {
-		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey)
-	} else {
-		deletionErr = db.db.DeleteRangeCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey, endRetentionKey)
-		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], endRetentionKey)
+		runtime.Gosched()
 	}
 	return
 }
