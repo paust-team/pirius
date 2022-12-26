@@ -293,13 +293,13 @@ func (p *RetrievablePublisher) RetrievableSubscribe(stream pb.RetrievablePubSub_
 			batched = append(batched, fetched)
 			if len(batched) >= maxBatchSize || (len(batched) > 0 && dontWait) {
 				if err := flush(); err != nil {
-					return err
+					logger.Error("error occurred on flushing records", zap.Error(err))
 				}
 			}
 		case <-timer.C:
 			if len(batched) > 0 {
 				if err := flush(); err != nil {
-					timer.Reset(flushIntervalMs)
+					logger.Error("error occurred on flushing records", zap.Error(err))
 				}
 			} else {
 				// if flush time is over and no data collected,
