@@ -79,7 +79,8 @@ func (s *RetrievablePubSubAgent) StartRetrievablePublish(ctx context.Context, to
 		return nil, errors.New("not running state")
 	}
 
-	retentionPeriod := uint64(s.config.RetentionPeriod() * 60 * 60 * 24)
+	//retentionPeriod := uint64(s.config.RetentionPeriod() * 60 * 60 * 24)
+	retentionPeriod := uint64(10)
 	ctx, cancel := context.WithCancel(ctx)
 
 	retrieveCh, errCh, err := s.publisher.StartTopicPublication(ctx, topicName, retentionPeriod, sendChan)
