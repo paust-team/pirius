@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"bytes"
 	"errors"
 	"github.com/linxGnu/grocksdb"
 	"path/filepath"
+	"runtime"
 	"time"
 	"unsafe"
 )
@@ -39,6 +39,8 @@ type QRocksDB struct {
 	db                  *grocksdb.DB
 	ro                  *grocksdb.ReadOptions
 	wo                  *grocksdb.WriteOptions
+	dwo                 *grocksdb.WriteOptions
+	fo                  *grocksdb.FlushOptions
 	columnFamilyHandles grocksdb.ColumnFamilyHandles
 }
 
@@ -65,7 +67,12 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	ro := grocksdb.NewDefaultReadOptions()
 	ro.SetTailing(true)
 	wo := grocksdb.NewDefaultWriteOptions()
-	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, columnFamilyHandles: columnFamilyHandles}, nil
+	dwo := grocksdb.NewDefaultWriteOptions()
+	dwo.SetLowPri(true)
+	fo := grocksdb.NewDefaultFlushOptions()
+	fo.SetWait(false)
+
+	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, dwo: dwo, fo: fo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
 func (db *QRocksDB) Flush() error {
@@ -103,32 +110,31 @@ func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error)
 	it := db.Scan(RecordExpCF)
 	defer it.Close()
 	now := GetNowTimestamp()
-	var (
-		startRetentionKey, endRetentionKey []byte
-	)
 
 	for it.SeekToFirst(); it.Valid(); it.Next() {
 		retentionKey := NewRetentionPeriodKey(it.Key())
 		if retentionKey.ExpirationDate() <= now {
-			if err := db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
+			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
 				deletionErr = err
 				continue
 			}
-			if startRetentionKey == nil {
-				startRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
+			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data()); err != nil {
+				deletionErr = err
+				continue
 			}
-			endRetentionKey = append(make([]byte, 0, len(retentionKey.Data())), retentionKey.Data()...)
 			deletedCount++
 		}
 		retentionKey.Free()
+		runtime.Gosched()
 	}
 
-	if bytes.Compare(startRetentionKey, endRetentionKey) == 0 {
-		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey)
-	} else {
-		deletionErr = db.db.DeleteRangeCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], startRetentionKey, endRetentionKey)
-		deletionErr = db.db.DeleteCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], endRetentionKey)
+	if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordCF], db.fo); err != nil {
+		deletionErr = err
 	}
+	if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordExpCF], db.fo); err != nil {
+		deletionErr = err
+	}
+
 	return
 }
 

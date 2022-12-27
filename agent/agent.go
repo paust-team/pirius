@@ -92,7 +92,6 @@ func (s *instance) Stop() {
 	logger.Info("agent finished")
 }
 
-
 func (s *instance) GetMetaPath() string {
 	return s.config.DataDir() + "/" + constants.AgentMetaFileName
 }
@@ -150,6 +149,11 @@ func (s *PubSubAgent) StartWithServer() error {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		//start retention scheduler
+		retentionScheduler := storage.NewRetentionScheduler(s.db, s.config.RetentionCheckInterval())
+		retentionScheduler.Run(ctx)
 		if err = grpcServer.Serve(lis); err != nil {
 			logger.Error(err.Error(), zap.String("publisher-id", s.meta.PublisherID))
 		} else {
@@ -185,9 +189,6 @@ func (s *PubSubAgent) StartPublish(ctx context.Context, topicName string, sendCh
 		return err
 	}
 
-	//start retention scheduler
-	retentionScheduler := storage.NewRetentionScheduler(s.db, s.config.RetentionCheckInterval())
-	retentionScheduler.Run(ctx)
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
