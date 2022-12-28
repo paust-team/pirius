@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"github.com/linxGnu/grocksdb"
 	"path/filepath"
 	"runtime"
@@ -106,33 +107,42 @@ func (db *QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, se
 }
 
 // DeleteExpiredRecords Record only can be deleted on expired
-func (db *QRocksDB) DeleteExpiredRecords() (deletedCount int, deletionErr error) {
+func (db *QRocksDB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
 	it := db.Scan(RecordExpCF)
 	defer it.Close()
 	now := GetNowTimestamp()
 
+	var accError []error
 	for it.SeekToFirst(); it.Valid(); it.Next() {
 		retentionKey := NewRetentionPeriodKey(it.Key())
 		if retentionKey.ExpirationDate() <= now {
 			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
-				deletionErr = err
+				accError = append(accError, err)
 				continue
 			}
 			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data()); err != nil {
-				deletionErr = err
+				accError = append(accError, err)
 				continue
 			}
-			deletedCount++
+			numDeleted++
 		}
 		retentionKey.Free()
 		runtime.Gosched()
 	}
-
-	if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordCF], db.fo); err != nil {
-		deletionErr = err
+	if numDeleted > 0 {
+		if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordCF], db.fo); err != nil {
+			accError = append(accError, err)
+		}
+		if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordExpCF], db.fo); err != nil {
+			accError = append(accError, err)
+		}
 	}
-	if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordExpCF], db.fo); err != nil {
-		deletionErr = err
+	if len(accError) > 0 {
+		errorStr := ""
+		for idx, err := range accError {
+			errorStr += fmt.Sprintf("error no(%d): %s\n", idx, err.Error())
+		}
+		deletionErr = errors.New(errorStr)
 	}
 
 	return
