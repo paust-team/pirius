@@ -5,5 +5,5 @@ package constants
 import "os"
 
 var (
-	DefaultHomeDir = os.ExpandEnv("$HOME/.shapleq-debug")
+	DefaultHomeDir = os.ExpandEnv("$HOME/.pirius-debug")
 )

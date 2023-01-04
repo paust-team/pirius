@@ -2,7 +2,7 @@ package zk
 
 import (
 	"github.com/go-zookeeper/zk"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/qerror"
 )
 
 type LockOperation struct {

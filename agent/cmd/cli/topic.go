@@ -2,9 +2,9 @@ package cli
 
 import (
 	"fmt"
-	topic2 "github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/coordinating/zk"
+	topic2 "github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/coordinating/zk"
 	"github.com/spf13/cobra"
 )
 

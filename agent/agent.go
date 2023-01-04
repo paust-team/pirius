@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/paust-team/shapleq/agent/config"
-	"github.com/paust-team/shapleq/agent/pubsub"
-	"github.com/paust-team/shapleq/agent/storage"
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/constants"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
-	"github.com/paust-team/shapleq/proto/pb"
+	"github.com/paust-team/pirius/agent/config"
+	"github.com/paust-team/pirius/agent/pubsub"
+	"github.com/paust-team/pirius/agent/storage"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/constants"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
+	"github.com/paust-team/pirius/proto/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"net"
@@ -22,7 +22,7 @@ import (
 
 type instance struct {
 	shouldQuit   chan struct{}
-	db           *storage.QRocksDB
+	db           *storage.DB
 	config       config.AgentConfig
 	running      bool
 	meta         *storage.AgentMeta
@@ -52,7 +52,7 @@ func (s *instance) Start() error {
 	}
 	s.meta = &meta
 
-	db, err := storage.NewQRocksDB(s.config.DBName(), s.config.DataDir())
+	db, err := storage.NewDB(s.config.DBName(), s.config.DataDir())
 	if err != nil {
 		logger.Error(err.Error())
 		return err

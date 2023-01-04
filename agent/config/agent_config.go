@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/pirius/constants"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +18,7 @@ var (
 	defaultZKTimeout              uint = 3000
 	defaultRetentionPeriod             = 1
 	defaultRetentionCheckInterval uint = 10000
-	defaultDBName                      = "shapleq-store"
+	defaultDBName                      = "pirius-store"
 	defaultBindAddr                    = "127.0.0.1"
 )
 

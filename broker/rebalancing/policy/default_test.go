@@ -3,13 +3,13 @@ package policy_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/bootstrapping/path"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/broker/rebalancing/policy"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/coordinating/zk"
-	"github.com/paust-team/shapleq/test"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/bootstrapping/path"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/broker/rebalancing/policy"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/coordinating/zk"
+	"github.com/paust-team/pirius/test"
 )
 
 var _ = Describe("Default", func() {

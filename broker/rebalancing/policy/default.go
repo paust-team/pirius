@@ -2,12 +2,12 @@ package policy
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/constants"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/constants"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
+	"github.com/paust-team/pirius/qerror"
 	"go.uber.org/zap"
 	"math/rand"
 	"sync"

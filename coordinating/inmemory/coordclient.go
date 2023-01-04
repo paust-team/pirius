@@ -1,7 +1,7 @@
 package inmemory
 
 import (
-	"github.com/paust-team/shapleq/coordinating"
+	"github.com/paust-team/pirius/coordinating"
 	"sync"
 )
 

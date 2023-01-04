@@ -2,8 +2,8 @@ package path
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/qerror"
 )
 
 func TopicPath(topic string) string {
@@ -47,7 +47,7 @@ func BrokerPath(name string) string {
 }
 
 func CreatePathsIfNotExist(client coordinating.CoordClient) error {
-	paths := []string{ShapleQPath, BrokersPath, TopicsPath, LockPath, TopicsLockPath}
+	paths := []string{HomePath, BrokersPath, TopicsPath, LockPath, TopicsLockPath}
 	for _, path := range paths {
 		if err := client.Create(path, []byte{}).Run(); err != nil {
 			if _, ok := err.(qerror.CoordTargetAlreadyExistsError); ok { // ignore if node already exists

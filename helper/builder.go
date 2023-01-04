@@ -1,8 +1,8 @@
 package helper
 
 import (
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/coordinating/zk"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/coordinating/zk"
 )
 
 func BuildCoordClient(quorum []string, timeout uint) coordinating.CoordClient {

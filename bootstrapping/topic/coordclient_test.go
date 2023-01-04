@@ -3,10 +3,10 @@ package topic_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/coordinating/inmemory"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/coordinating/inmemory"
+	"github.com/paust-team/pirius/qerror"
 	"sort"
 )
 

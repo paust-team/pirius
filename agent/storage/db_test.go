@@ -7,14 +7,14 @@ import (
 	"github.com/linxGnu/grocksdb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/paust-team/shapleq/agent/storage"
-	"github.com/paust-team/shapleq/test"
+	"github.com/paust-team/pirius/agent/storage"
+	"github.com/paust-team/pirius/test"
 	"runtime"
 	"time"
 	"unsafe"
 )
 
-var _ = Describe("Qrocksdb", func() {
+var _ = Describe("DB", func() {
 
 	Context("RecordKey", func() {
 		Describe("Generating new RecordKey", func() {
@@ -65,12 +65,12 @@ var _ = Describe("Qrocksdb", func() {
 		})
 	})
 
-	Context("QRocksDB", Ordered, func() {
-		var db *storage.QRocksDB
+	Context("DB", Ordered, func() {
+		var db *storage.DB
 		var err error
 
 		BeforeAll(func() {
-			db, err = storage.NewQRocksDB("qstore", ".")
+			db, err = storage.NewDB("dbstore", ".")
 			Expect(err).NotTo(HaveOccurred())
 		})
 		AfterAll(func() {

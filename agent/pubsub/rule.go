@@ -1,9 +1,9 @@
 package pubsub
 
 import (
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
 )
 
 func TopicWritingRule(option topic.Option, fragments []uint) func() []uint {

@@ -3,8 +3,8 @@ package zk
 import (
 	"fmt"
 	"github.com/go-zookeeper/zk"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/qerror"
 	"time"
 )
 

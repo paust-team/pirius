@@ -2,8 +2,8 @@ package inmemory
 
 import (
 	"context"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/logger"
 	"sync"
 )
 

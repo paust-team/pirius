@@ -3,7 +3,7 @@
 package path
 
 const (
-	ShapleQPath    = "/qdata-debug"
+	HomePath       = "/qdata-debug"
 	BrokersPath    = "/qdata-debug/brokers"
 	TopicsPath     = "/qdata-debug/topics"
 	LockPath       = "/qdata-debug/lock"

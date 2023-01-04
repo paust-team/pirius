@@ -2,9 +2,9 @@ package broker
 
 import (
 	"context"
-	"github.com/paust-team/shapleq/bootstrapping/path"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/bootstrapping/path"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/logger"
 	"go.uber.org/zap"
 )
 

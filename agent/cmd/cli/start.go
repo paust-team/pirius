@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"github.com/paust-team/shapleq/agent"
-	"github.com/paust-team/shapleq/agent/config"
-	"github.com/paust-team/shapleq/agent/pubsub"
-	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/pirius/agent"
+	"github.com/paust-team/pirius/agent/config"
+	"github.com/paust-team/pirius/agent/pubsub"
+	"github.com/paust-team/pirius/constants"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -31,7 +31,7 @@ func NewStartPublishCmd() *cobra.Command {
 	agentConfig := config.NewAgentConfig()
 	var startCmd = &cobra.Command{
 		Use:   "start-publish",
-		Short: "start shapleq agent for publishing",
+		Short: "start pirius agent for publishing",
 		Run: func(cmd *cobra.Command, args []string) {
 			publisher := agent.NewRetrievablePubSubAgent(agentConfig)
 
@@ -105,7 +105,7 @@ func NewStartSubscribeCmd() *cobra.Command {
 	agentConfig := config.NewAgentConfig()
 	var startCmd = &cobra.Command{
 		Use:   "start-subscribe",
-		Short: "start shapleq agent for subscribing",
+		Short: "start pirius agent for subscribing",
 		Run: func(cmd *cobra.Command, args []string) {
 			subscriber := agent.NewRetrievablePubSubAgent(agentConfig)
 
