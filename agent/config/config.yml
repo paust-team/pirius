@@ -11,4 +11,3 @@ retention-check-interval: 10000 # millisecond
 zookeeper:
   quorum: localhost:2181
   timeout: 5000
-  flush-interval: 2000
