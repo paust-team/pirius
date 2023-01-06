@@ -4,11 +4,11 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/paust-team/shapleq/bootstrapping/broker"
-	"github.com/paust-team/shapleq/bootstrapping/path"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/coordinating/zk"
-	"github.com/paust-team/shapleq/test"
+	"github.com/paust-team/pirius/bootstrapping/broker"
+	"github.com/paust-team/pirius/bootstrapping/path"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/coordinating/zk"
+	"github.com/paust-team/pirius/test"
 )
 
 var _ = Describe("Coordclient", func() {

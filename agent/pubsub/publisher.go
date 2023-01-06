@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/paust-team/shapleq/agent/storage"
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/constants"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
-	"github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/agent/storage"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/constants"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
+	"github.com/paust-team/pirius/proto/pb"
+	"github.com/paust-team/pirius/qerror"
 	"go.uber.org/zap"
 	"runtime"
 	"sync"
@@ -23,7 +23,7 @@ import (
 type publisherBase struct {
 	id                    string
 	address               string
-	db                    *storage.QRocksDB
+	db                    *storage.DB
 	bootstrapper          *bootstrapping.BootstrapService
 	currentPublishOffsets storage.TopicFragmentOffsets // current write offsets
 	lastFetchedOffsets    storage.TopicFragmentOffsets // last read offsets
@@ -270,7 +270,7 @@ type Publisher struct {
 	wg sync.WaitGroup
 }
 
-func NewPublisher(id string, address string, db *storage.QRocksDB, bootstrapper *bootstrapping.BootstrapService,
+func NewPublisher(id string, address string, db *storage.DB, bootstrapper *bootstrapping.BootstrapService,
 	publishedOffsets, fetchedOffsets storage.TopicFragmentOffsets) Publisher {
 	return Publisher{
 		publisherBase: publisherBase{

@@ -1,4 +1,4 @@
-module github.com/paust-team/shapleq
+module github.com/paust-team/pirius
 
 go 1.18
 

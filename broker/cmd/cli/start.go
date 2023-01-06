@@ -2,9 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/broker"
-	"github.com/paust-team/shapleq/broker/config"
-	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/pirius/broker"
+	"github.com/paust-team/pirius/broker/config"
+	"github.com/paust-team/pirius/constants"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"log"
@@ -31,7 +31,7 @@ func NewStartCmd() *cobra.Command {
 	brokerConfig := config.NewBrokerConfig()
 	var startCmd = &cobra.Command{
 		Use:   "start",
-		Short: "start ShapleQ broker",
+		Short: "start pirius broker",
 		Run: func(cmd *cobra.Command, args []string) {
 			running, pid := checkRunningBrokerProcess()
 			if running {
@@ -54,7 +54,7 @@ func NewStartCmd() *cobra.Command {
 					os.Exit(1)
 				}
 
-				daemon := exec.Command(fmt.Sprintf("%s/qbroker", dir), reconstructedArgs...)
+				daemon := exec.Command(fmt.Sprintf("%s/pirius-broker", dir), reconstructedArgs...)
 				if err = daemon.Start(); err != nil {
 					fmt.Println("start error: ", err)
 					os.Exit(1)
@@ -108,7 +108,7 @@ func NewStartCmd() *cobra.Command {
 	startCmd.Flags().Uint8Var(&logLevel, "log-level", 0, "set log level [0=debug|1=info|2=warning|3=error]")
 	startCmd.Flags().StringSliceVar(&zkQuorum, "zk-quorum", []string{"127.0.0.1:2181"}, "zookeeper quorum")
 	startCmd.Flags().UintVar(&zkTimeout, "zk-timeout", 0, "zookeeper timeout")
-	startCmd.Flags().StringVar(&hostname, "host", "127.0.0.1", "shapleq broker hostname for registered bootstrapping")
+	startCmd.Flags().StringVar(&hostname, "host", "127.0.0.1", "pirius broker hostname for registered bootstrapping")
 	startCmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "bind address")
 	brokerConfig.BindPFlags(startCmd.Flags())
 	brokerConfig.BindPFlag("zookeeper.quorum", startCmd.Flags().Lookup("zk-quorum"))

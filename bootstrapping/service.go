@@ -1,9 +1,9 @@
 package bootstrapping
 
 import (
-	"github.com/paust-team/shapleq/bootstrapping/broker"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/coordinating"
+	"github.com/paust-team/pirius/bootstrapping/broker"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/coordinating"
 )
 
 type BootstrapService struct {

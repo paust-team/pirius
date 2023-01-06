@@ -10,8 +10,8 @@ linux-os-host := $(findstring Linux, $(shell uname))
 # bin
 BROKER_BIN_DIR := broker/cmd
 CLIENT_BIN_DIR := agent/cmd
-BROKER_BIN_NAME := qbroker
-CLIENT_BIN_NAME := qagent
+BROKER_BIN_NAME := pirius-broker
+CLIENT_BIN_NAME := pirius-agent
 BROKER_BIN := $(BROKER_BIN_DIR)/$(BROKER_BIN_NAME)
 CLIENT_BIN := $(CLIENT_BIN_DIR)/$(CLIENT_BIN_NAME)
 
@@ -27,9 +27,9 @@ DEPLOY_TARGET ?= debug
 
 INSTALL_CONFIG_HOME_DIR=
 ifeq "$(DEPLOY_TARGET)" "debug"
-	INSTALL_CONFIG_HOME_DIR=${HOME}/.shapleq-debug/config
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.pirius-debug/config
 else
-	INSTALL_CONFIG_HOME_DIR=${HOME}/.shapleq/config
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.pirius/config
 endif
 
 INSTALL_BROKER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/broker
@@ -101,20 +101,29 @@ build-rocksdb: $(LIB_ROCKSDB)
 
 $(BROKER_BIN): $(LIB_ROCKSDB)
 ifdef linux-os-host
-	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
-	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
 	GOOS=linux GOARCH=amd64 \
 	go build -tags $(DEPLOY_TARGET) -o $(BROKER_BIN) ./$(BROKER_BIN_DIR)/main.go
 endif
 ifdef mac-os-host
-	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
-	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
 	go build -tags $(DEPLOY_TARGET) -o $(BROKER_BIN) ./$(BROKER_BIN_DIR)/main.go
 endif
 	touch $(BROKER_BIN)
 
 $(CLIENT_BIN):
+ifdef linux-os-host
+	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
+	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
+	GOOS=linux GOARCH=amd64 \
 	go build -tags $(DEPLOY_TARGET) -o $(CLIENT_BIN) ./$(CLIENT_BIN_DIR)/main.go
+endif
+ifdef mac-os-host
+	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
+	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
+	go build -tags $(DEPLOY_TARGET) -o $(CLIENT_BIN) ./$(CLIENT_BIN_DIR)/main.go
+endif
+	touch $(CLIENT_BIN)
+
+
 
 .PHONY: build-broker
 build-broker: $(BROKER_BIN)

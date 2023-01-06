@@ -1,10 +1,10 @@
 package policy
 
 import (
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
 	"go.uber.org/zap"
 	"sync"
 )

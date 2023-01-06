@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/paust-team/shapleq/constants"
+	"github.com/paust-team/pirius/constants"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,10 +16,9 @@ var (
 	defaultTimeout                     = 10000
 	defaultZKQuorum                    = []string{"127.0.0.1:2181"}
 	defaultZKTimeout              uint = 3000
-	defaultZKFlushInterval             = 2000
 	defaultRetentionPeriod             = 1
 	defaultRetentionCheckInterval uint = 10000
-	defaultDBName                      = "shapleq-store"
+	defaultDBName                      = "pirius-store"
 	defaultBindAddr                    = "127.0.0.1"
 )
 
@@ -41,9 +40,8 @@ func NewAgentConfig() AgentConfig {
 	v.SetDefault("retention", defaultRetentionPeriod)
 	v.SetDefault("db-name", defaultDBName)
 	v.SetDefault("zookeeper", map[string]interface{}{
-		"quorum":         defaultZKQuorum,
-		"timeout":        defaultZKTimeout,
-		"flush-interval": defaultZKFlushInterval,
+		"quorum":  defaultZKQuorum,
+		"timeout": defaultZKTimeout,
 	})
 	v.SetDefault("retention-check-interval", defaultRetentionCheckInterval)
 
@@ -145,14 +143,6 @@ func (b AgentConfig) LogLevel() zapcore.Level {
 
 func (b AgentConfig) SetLogLevel(logLevel zapcore.Level) {
 	b.Set("log-level", logLevel)
-}
-
-func (b AgentConfig) ZKFlushInterval() uint {
-	return b.GetUint("zookeeper.flush-interval")
-}
-
-func (b AgentConfig) SetZKFlushInterval(interval uint) {
-	b.Set("zookeeper.flush-interval", interval)
 }
 
 func (b AgentConfig) RetentionCheckInterval() uint {

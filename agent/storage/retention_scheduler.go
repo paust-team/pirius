@@ -3,17 +3,17 @@ package storage
 import (
 	"context"
 	"fmt"
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/logger"
 	"time"
 )
 
 type RetentionScheduler struct {
-	db            *QRocksDB
+	db            *DB
 	checkInterval time.Duration
 }
 
 // NewRetentionScheduler interval is milliseconds
-func NewRetentionScheduler(db *QRocksDB, interval uint) *RetentionScheduler {
+func NewRetentionScheduler(db *DB, interval uint) *RetentionScheduler {
 	return &RetentionScheduler{
 		db:            db,
 		checkInterval: time.Millisecond * time.Duration(interval),

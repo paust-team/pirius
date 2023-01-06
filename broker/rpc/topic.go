@@ -2,9 +2,9 @@ package rpc
 
 import (
 	"context"
-	"github.com/paust-team/shapleq/bootstrapping/topic"
-	"github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/proto/pb"
+	"github.com/paust-team/pirius/qerror"
 )
 
 type TopicService struct {

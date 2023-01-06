@@ -1,37 +1,38 @@
-# ShapleQ
-Reference of ShapleQ Broker and Client for golang.
+# Pirius
+Pirius has a great mission to deliver data streams over a distributed network in real-time.
 
-## Introduction
-ShapleQ has a great mission to offer delivery of data streams over distribute network in real-time.
+Unlike kafka, Pirius aims to efficiently deliver messages on distrubuted and decentralized networks through P2P connections between `agent` while minimizing the role of `broker`.
 
-### Brokers
-Brokers connect data streams between producers and consumers. It also operates the flow of data transformation on request of consumer applications. Broker network is composed of multiple brokers and it behaves like a single broker. Clients don't have to specify a particular broker. Additionally, brokers store data temporarily according to its policy, so that clients can utilize the broker network as a storage system.
+### Broker
+The pirius broker helps to connect data streams between publishers and subscribers. When a publisher or subscriber for a specific topic appears, it manages topic fragments to distribute the topic to multiple publishers and coordinates subscription for subscriber to find publishers to connect.
 
-### Producers
-Producers transfer data streams related to the topic to brokers. Producers can set policies of replication and distribution of data.
+### Agent
+The pirius agent is a messeage queue library that can be used in any application that requires a pubsub mechanism over a distributed(or decentralized) network.
+An agent can be used for two types of clients: `Publisher` and `Subscriber`.
 
-### Consumers
-Consumers receive data streams from brokers. Since brokers send data to consumers actively and manage its frequency according to consumer configurations, so consumers don't have to poll continuously to receive data, unlike other data stream platform. 
+A `Publisher` transfers data streams related to specific topic to `Subscribers`. And a `Subscriber` receives data streams from `Publishers`. Since the publisher sends data to the subscriber actively and manages throughput of stream(batch), so unlike other data stream platform, the subscriber don't have to ask for next data to receive directly.
 
-## Installation
-### Use Docker
-1. Install [docker](https://docs.docker.com/get-docker/) and [docker compose](https://docs.docker.com/compose/install/) 
-2. Download the source and build docker image as name shapleq (gonna be changed to get image from docker hub)
+
+## Quick Start
+### Broker
+#### Using [docker](https://docs.docker.com/get-docker/)
+1. Download the source and build docker image
 ```
-$ git clone https://github.com/paust-team/ShapleQ && cd ShapleQ
-$ docker build -t shapleq .
+$ git clone https://github.com/paust-team/pirius && cd pirius
+$ docker build -t pirius .
 ```
-3. Run docker compose. Docker-compose examples are in the `examples/docker` directory.
+2. Start pirius image
 ```
-$ docker-compose -f {file name} up
+$ docker run -p 1101:1101 --rm -d pirius
 ```
 
-### Build & Install From Source
+
+#### Build & Install From Source
 1. Install the following prerequisites.
 * [git](https://git-scm.com)
-* [golang](https://golang.org/dl/) v1.16 or later
-* [zookeeper](https://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html#sc_Download)
-* [dep](https://golang.github.io/dep/)
+* [golang](https://golang.org/dl/) v1.18+
+* [zookeeper](https://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html#sc_Download) v3.5.0+
+* [go-dep](https://golang.github.io/dep/)
   ```
   $ curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
   ```
@@ -47,91 +48,103 @@ $ docker-compose -f {file name} up
   $ xcode-select --install // if command line tools are not installed,
   ```
 
-2. Download the ShapleQ source.
+2. Download the Pirius source.
 ```
-$ git clone https://github.com/paust-team/ShapleQ
+$ git clone https://github.com/paust-team/pirius
 ```
 3. Run `make build`
 ```
-$ cd ShapleQ
-$ make build
+$ cd Pirius
+$ make clean
+$ make build-broker
+$ make install-config
 ```
-4. Run `make install` and execute ShapleQ CLI 
+4. Execute pirius CLI. Before running broker, zookeeper server must be running state.
 ```
-$ make install 
-$ shapleq 
-ShapleQ cli
+$ cd broker/cmd
+$ ./pirius 
+Pirius cli
 
 Usage:
-  shapleQ [command]
+  pirius [command]
 
 Available Commands:
   help        Help about any command
-  start       start shapleQ broker
-  stop        stop shapleQ broker
-  status      show status of shapleQ broker
+  start       start pirius broker
+  stop        stop pirius broker
 
 Flags:
-  -h, --help   help for shapleQ
+  -h, --help   help for pirius
 
-Use "shapleq [command] --help" for more information about a command.
+Use "pirius [command] --help" for more information about a command.
 ```
-## Configurations
+
+#### Configuration
 We support below configurations to setup broker.
-
 ```yaml
-# config.yml
-hostname: 127.0.0.1 # broker hostname
-port: 1101  # broker port
-log-dir: ~/.shapleq/log # log directory
-data-dir: ~/.shapleq/data # data directory
-log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
-timeout: 3000 # socket timeout
-zookeeper:
-  quorum: localhost:2181
-  timeout: 3000 # zookeeper connection timeout(milliseconds)
+# pirius/broker/config/config.yml
+bind: 127.0.0.1 # use 0.0.0.0 to connect from remote host
+host: 127.0.0.1 # broker host address. private or public ip of host
+port: 1101  # broker port  
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR  
+timeout: 10000  
+zookeeper:  
+  quorum: localhost:2181 # zk-quorum (addr1:port1,addr2:port2...)
+  timeout: 5000 # zk connection timeout
 ```
 
-Default template for configuring the broker is located at `broker/config/config.yml`. And every config files will be installed in `${HOME}/.shapleq/config` via `make install-config` command. 
+Default template for configuring the broker is located at `pirius/config/config.yml`. And every config files will be installed in `${HOME}/.pirius/config` via `make install-config` command by default.
 
-## Usage
-### Broker
-Before running broker, zookeeper server must be running.
+### Agent
+Currently, standalone agent is not supported officially. But there is sample standalone agent as example  in `agent/cmd` path.
 
-```shell
-$ zkServer start
+To build sample agent and run it, follow below guide. The pirius broker should be running before starting agents.
+```
+$ cd pirius
+$ make build-agent
+$ cd agent/cmd
+
+# create topic
+$ ./pirius-agent topic create -t test-topic
+
+# run publisher
+# it will send sequential numbered data to all subscribers of a topic per a second.
+$ ./pirius-agent start-publish -t test-topic
+
+# run subscriber
+# it will receive sequential numbered data from all publishers of a topic.
+$ ./pirius-agent start-subscribe -t test-topic
+
+# when running multiple publishers or subscribers, data-dir should be different to avoid collision of Rocksdb's data path.
+$ ./pirius-agent start-publish -t test-topic --data-dir ./pub1 &
+$ ./pirius-agent start-publish -t test-topic --data-dir ./pub2
 ```
 
-#### Start broker
-- **Flags** (***Flags will override the configurations in the config file***)
-	- `-i, --config-path` config path (default: ~/.shapleq/config/broker/config.yml)
-	- `-d, --daemon` run with background
-	- `-c, --clear` clear data directory after broker stopped (for testing)
-	- `--port` port
-	- `--zk-quorum` zookeeper quorum
-	- `--zk-timeout` zookeeper timeout
-	- `-—log-level` log level : 0-debug, 1-info, 2-warning, 3-error
-	- `—-log-dir` directory for saving log file
-	- `—-data-dir` directory for saving data file
+If you are looking for other examples, check out agent tests(`agent/agent_test.go`) or integration tests(test/integration_test.go).
 
-```shell
-$ shapleq start --port 11010 -d
+#### Configuration
+```yaml
+# pirius/agent/config/config.yml
+bind: 127.0.0.1 # bind address  
+host: 192.168.0.10 # agent host address  
+port: 11010  # agent port  
+log-dir: ~/.pirius/log # log directory  
+data-dir: ~/.pirius/data # directory for storing agent-meta and data
+db-name: pirius-store  
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR  
+timeout: 10000  
+retention: 1 # data retention period for publisher (day)
+retention-check-interval: 10000 # millisecond  
+zookeeper:  
+  quorum: localhost:2181 # zk-quorum (addr1:port1,addr2:port2...)
+  timeout: 5000  # zk connection timeout
+  flush-interval: 2000
 ```
 
-#### Stop broker
 
-```shell
-$ shapleq stop
-```
+#### PubSubAgent
+The `PubSubAgent` is basic pirius agent. `StartPublish` is a publisher method to start data stream to publish for a topic and `StartSubscribe` is a subscriber method to start data stream to subscribe for a topic. The `PubSubAgent` can be used aOr, it can be both publisher and subscriber at the same time.
 
-#### Status of broker
+#### RetrievablePubSubAgent
+The `RetrievablePubSubAgent` is a agent that can be used for a more specific purpose than `PubSubAgent`. It is designed for a case when the publisher needs to receive the results after the subscriber consumed the data received from it.
 
-```shell
-$ shapleq status
-```
-
-### Client
-- **[Client documentation](https://github.com/paust-team/shapleq/tree/master/client#shapleq-client)**
-
-## License
-- GPLv3

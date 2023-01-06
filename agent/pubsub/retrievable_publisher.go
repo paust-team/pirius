@@ -3,12 +3,12 @@ package pubsub
 import (
 	"context"
 	"fmt"
-	"github.com/paust-team/shapleq/agent/storage"
-	"github.com/paust-team/shapleq/bootstrapping"
-	"github.com/paust-team/shapleq/helper"
-	"github.com/paust-team/shapleq/logger"
-	"github.com/paust-team/shapleq/proto/pb"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/agent/storage"
+	"github.com/paust-team/pirius/bootstrapping"
+	"github.com/paust-team/pirius/helper"
+	"github.com/paust-team/pirius/logger"
+	"github.com/paust-team/pirius/proto/pb"
+	"github.com/paust-team/pirius/qerror"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,7 +37,7 @@ type RetrievablePublisher struct {
 	wg            sync.WaitGroup
 }
 
-func NewRetrievablePublisher(id string, address string, db *storage.QRocksDB, bootstrapper *bootstrapping.BootstrapService,
+func NewRetrievablePublisher(id string, address string, db *storage.DB, bootstrapper *bootstrapping.BootstrapService,
 	publishedOffsets, fetchedOffsets storage.TopicFragmentOffsets) RetrievablePublisher {
 	return RetrievablePublisher{
 		publisherBase: publisherBase{

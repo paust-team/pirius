@@ -1,6 +1,6 @@
 port: 11010  # broker port
-log-dir: .shapleq/log # log directory
-data-dir: .shapleq/data # data directory
+log-dir: .pirius/log # log directory
+data-dir: .pirius/data # data directory
 log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
 zookeeper:
   port: 2181

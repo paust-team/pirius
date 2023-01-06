@@ -3,7 +3,7 @@ package zk
 import (
 	"bytes"
 	"context"
-	"github.com/paust-team/shapleq/coordinating"
+	"github.com/paust-team/pirius/coordinating"
 	"os"
 	"testing"
 	"time"

@@ -34,8 +34,8 @@ var columnFamilies = []string{
 
 func (c CFIndex) String() string { return columnFamilies[c] }
 
-// QRocksDB is helper for gorocksdb
-type QRocksDB struct {
+// DB is helper for grocksdb
+type DB struct {
 	dbPath              string
 	db                  *grocksdb.DB
 	ro                  *grocksdb.ReadOptions
@@ -45,7 +45,7 @@ type QRocksDB struct {
 	columnFamilyHandles grocksdb.ColumnFamilyHandles
 }
 
-func NewQRocksDB(name, dir string) (*QRocksDB, error) {
+func NewDB(name, dir string) (*DB, error) {
 
 	dbPath := filepath.Join(dir, name)
 
@@ -73,20 +73,20 @@ func NewQRocksDB(name, dir string) (*QRocksDB, error) {
 	fo := grocksdb.NewDefaultFlushOptions()
 	fo.SetWait(false)
 
-	return &QRocksDB{dbPath: dbPath, db: db, ro: ro, wo: wo, dwo: dwo, fo: fo, columnFamilyHandles: columnFamilyHandles}, nil
+	return &DB{dbPath: dbPath, db: db, ro: ro, wo: wo, dwo: dwo, fo: fo, columnFamilyHandles: columnFamilyHandles}, nil
 }
 
-func (db *QRocksDB) Flush() error {
-	return db.db.Flush(&grocksdb.FlushOptions{})
+func (d *DB) Flush() error {
+	return d.db.Flush(&grocksdb.FlushOptions{})
 }
 
-func (db *QRocksDB) GetRecord(topic string, fragmentId uint32, offset uint64) (*grocksdb.Slice, error) {
+func (d *DB) GetRecord(topic string, fragmentId uint32, offset uint64) (*grocksdb.Slice, error) {
 	key := NewRecordKeyFromData(topic, fragmentId, offset)
-	return db.db.GetCF(db.ro, db.ColumnFamilyHandles()[RecordCF], key.Data())
+	return d.db.GetCF(d.ro, d.ColumnFamilyHandles()[RecordCF], key.Data())
 }
 
 // PutRecord expirationDate is timestamp(second) type
-func (db *QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, seqNum uint64, data []byte, expirationDate uint64) error {
+func (d *DB) PutRecord(topic string, fragmentId uint32, offset uint64, seqNum uint64, data []byte, expirationDate uint64) error {
 	if expirationDate <= GetNowTimestamp() {
 		return errors.New("invalid retentionPeriod: expiration date should be greater than current timestamp")
 	}
@@ -94,21 +94,21 @@ func (db *QRocksDB) PutRecord(topic string, fragmentId uint32, offset uint64, se
 	// put record
 	key := NewRecordKeyFromData(topic, fragmentId, offset)
 	value := NewRecordValueFromData(seqNum, data)
-	if err := db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordCF], key.Data(), value.Data()); err != nil {
+	if err := d.db.PutCF(d.wo, d.ColumnFamilyHandles()[RecordCF], key.Data(), value.Data()); err != nil {
 		return err
 	}
 
 	// put retention period
 	retentionKey := NewRetentionPeriodKeyFromData(key, expirationDate)
-	if err := db.db.PutCF(db.wo, db.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data(), []byte{}); err != nil {
+	if err := d.db.PutCF(d.wo, d.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data(), []byte{}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // DeleteExpiredRecords Record only can be deleted on expired
-func (db *QRocksDB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
-	it := db.Scan(RecordExpCF)
+func (d *DB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
+	it := d.Scan(RecordExpCF)
 	defer it.Close()
 	now := GetNowTimestamp()
 
@@ -116,11 +116,11 @@ func (db *QRocksDB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
 	for it.SeekToFirst(); it.Valid(); it.Next() {
 		retentionKey := NewRetentionPeriodKey(it.Key())
 		if retentionKey.ExpirationDate() <= now {
-			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
+			if err := d.db.DeleteCF(d.dwo, d.ColumnFamilyHandles()[RecordCF], retentionKey.RecordKey().Data()); err != nil {
 				accError = append(accError, err)
 				continue
 			}
-			if err := db.db.DeleteCF(db.dwo, db.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data()); err != nil {
+			if err := d.db.DeleteCF(d.dwo, d.ColumnFamilyHandles()[RecordExpCF], retentionKey.Data()); err != nil {
 				accError = append(accError, err)
 				continue
 			}
@@ -130,10 +130,10 @@ func (db *QRocksDB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
 		runtime.Gosched()
 	}
 	if numDeleted > 0 {
-		if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordCF], db.fo); err != nil {
+		if err := d.db.FlushCF(d.ColumnFamilyHandles()[RecordCF], d.fo); err != nil {
 			accError = append(accError, err)
 		}
-		if err := db.db.FlushCF(db.ColumnFamilyHandles()[RecordExpCF], db.fo); err != nil {
+		if err := d.db.FlushCF(d.ColumnFamilyHandles()[RecordExpCF], d.fo); err != nil {
 			accError = append(accError, err)
 		}
 	}
@@ -148,20 +148,20 @@ func (db *QRocksDB) DeleteExpiredRecords() (numDeleted int, deletionErr error) {
 	return
 }
 
-func (db *QRocksDB) Close() {
-	db.db.Close()
-	db.ro.Destroy()
-	db.wo.Destroy()
+func (d *DB) Close() {
+	d.db.Close()
+	d.ro.Destroy()
+	d.wo.Destroy()
 }
 
-func (db *QRocksDB) Destroy() error {
-	return grocksdb.DestroyDb(db.dbPath, grocksdb.NewDefaultOptions())
+func (d *DB) Destroy() error {
+	return grocksdb.DestroyDb(d.dbPath, grocksdb.NewDefaultOptions())
 }
 
-func (db *QRocksDB) ColumnFamilyHandles() grocksdb.ColumnFamilyHandles {
-	return db.columnFamilyHandles
+func (d *DB) ColumnFamilyHandles() grocksdb.ColumnFamilyHandles {
+	return d.columnFamilyHandles
 }
 
-func (db *QRocksDB) Scan(cfIndex CFIndex) *grocksdb.Iterator {
-	return db.db.NewIteratorCF(db.ro, db.ColumnFamilyHandles()[cfIndex])
+func (d *DB) Scan(cfIndex CFIndex) *grocksdb.Iterator {
+	return d.db.NewIteratorCF(d.ro, d.ColumnFamilyHandles()[cfIndex])
 }

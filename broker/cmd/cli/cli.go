@@ -12,7 +12,7 @@ import (
 func checkRunningBrokerProcess() (bool, int) {
 
 	parentPid := os.Getppid()
-	existsProcess := "ps -ef | grep 'qbroker start' | grep -v grep | awk '{print $2, $3}'"
+	existsProcess := "ps -ef | grep 'pirius-broker start' | grep -v grep | awk '{print $2, $3}'"
 	out, err := exec.Command("bash", "-c", existsProcess).Output()
 	if err != nil {
 		return false, 0
@@ -31,8 +31,8 @@ func checkRunningBrokerProcess() (bool, int) {
 }
 
 var brokerCmd = &cobra.Command{
-	Use:   "qbroker [command] (flags)",
-	Short: "ShapleQ Broker cli",
+	Use:   "pirius-broker [command] (flags)",
+	Short: "Pirius Broker cli",
 }
 
 func Main() {

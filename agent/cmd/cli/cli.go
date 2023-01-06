@@ -5,20 +5,20 @@ import (
 	"log"
 )
 
-var qagentCmd = &cobra.Command{
-	Use:   "qagent [command] (flags)",
-	Short: "ShapleQ Agent cli",
+var agentCmd = &cobra.Command{
+	Use:   "pirius-agent [command] (flags)",
+	Short: "Pirius Agent cli",
 }
 
 func Main() {
 
-	qagentCmd.AddCommand(
+	agentCmd.AddCommand(
 		NewStartPublishCmd(),
 		NewStartSubscribeCmd(),
 		NewTopicCmd(),
 	)
 
-	if err := qagentCmd.Execute(); err != nil {
+	if err := agentCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }

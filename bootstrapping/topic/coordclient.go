@@ -2,10 +2,10 @@ package topic
 
 import (
 	"context"
-	"github.com/paust-team/shapleq/bootstrapping/path"
-	"github.com/paust-team/shapleq/coordinating"
-	"github.com/paust-team/shapleq/logger"
-	"github.com/paust-team/shapleq/qerror"
+	"github.com/paust-team/pirius/bootstrapping/path"
+	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/logger"
+	"github.com/paust-team/pirius/qerror"
 	"go.uber.org/zap"
 )
 

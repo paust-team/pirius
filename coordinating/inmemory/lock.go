@@ -1,7 +1,7 @@
 package inmemory
 
 import (
-	"github.com/paust-team/shapleq/logger"
+	"github.com/paust-team/pirius/logger"
 )
 
 type LockOperation struct {
