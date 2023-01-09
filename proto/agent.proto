@@ -1,0 +1,42 @@
+syntax = "proto3";
+package agent.proto;
+option go_package = "./pb";
+
+service PubSub {
+  rpc Subscribe(Subscription) returns (stream SubscriptionResult) {}
+}
+
+service RetrievablePubSub {
+  rpc RetrievableSubscribe(stream RetrievableSubscription) returns (stream SubscriptionResult) {}
+}
+
+message Subscription {
+  message FragmentOffset {
+    uint32 fragment_id = 1;
+    optional uint64 start_offset = 2;
+  }
+  int32 magic = 1;
+  string topic_name = 2;
+  repeated FragmentOffset offsets = 3;
+  uint32 max_batch_size = 4;
+  uint32 flush_interval = 5;
+}
+
+message SubscriptionResult {
+  message Fetched {
+    uint32 fragment_id = 1;
+    uint64 seq_num = 2;
+    bytes data = 3;
+    uint64 offset = 4;
+  }
+  int32 magic = 1;
+  repeated Fetched results = 2;
+}
+
+message RetrievableSubscription {
+  int32 magic = 1;
+  oneof type {
+    Subscription subscription = 2;
+    SubscriptionResult result = 3;
+  }
+}

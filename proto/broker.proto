@@ -1,0 +1,47 @@
+syntax = "proto3";
+package broker.proto;
+option go_package = "./pb";
+
+service Topic {
+  rpc CreateTopic(CreateTopicRequest) returns (Empty) {}
+  rpc GetTopic(TopicRequestWithName) returns (TopicInfo) {}
+  rpc DeleteTopic(TopicRequestWithName) returns (Empty) {}
+  rpc ListTopics(Empty) returns (NameList) {}
+}
+
+enum TopicOption {
+  NONE = 0x00;
+  UNIQUE_PER_FRAGMENT = 0x01;
+}
+
+message TopicInfo {
+  string name = 1;
+  string description = 2;
+  optional uint32 options = 3;
+}
+
+message NameList {
+  repeated string names = 1;
+}
+
+message TopicRequestWithName {
+  int32 magic = 1;
+  string name = 2;
+}
+
+message Empty {
+  int32 magic = 1;
+}
+
+message CreateTopicRequest {
+  int32 magic = 1;
+  string name = 2;
+  string description = 3;
+  optional uint32 options = 4;
+}
+
+
+
+
+
+

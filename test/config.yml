@@ -1,0 +1,8 @@
+port: 11010  # broker port
+log-dir: .pirius/log # log directory
+data-dir: .pirius/data # data directory
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+zookeeper:
+  port: 2181
+  host: localhost
+  timeout: 5

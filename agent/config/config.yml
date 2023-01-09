@@ -1,0 +1,13 @@
+bind: 127.0.0.1 # bind address
+host: 192.168.0.10 # agent host address
+port: 11010  # agent port
+log-dir: ~/.pirius/log # log directory
+data-dir: ~/.pirius/data # data directory
+db-name: pirius-store
+log-level: DEBUG # DEBUG/INFO/WARNING/ERROR
+timeout: 10000
+retention: 1 # day
+retention-check-interval: 10000 # millisecond
+zookeeper:
+  quorum: localhost:2181
+  timeout: 5000

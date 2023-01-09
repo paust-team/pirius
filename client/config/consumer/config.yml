@@ -1,5 +1,0 @@
-bootstrap: # server addresses : zookeeper
-  servers: localhost:2181 # zookeeper
-  timeout: 3000
-broker-timeout: 3000
-log-level: INFO # DEBUG/INFO/WARNING/ERROR

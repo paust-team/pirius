@@ -8,10 +8,10 @@ mac-os-host := $(findstring Darwin, $(shell uname))
 linux-os-host := $(findstring Linux, $(shell uname))
 
 # bin
-BROKER_BIN_DIR := broker/cmd/shapleq
-CLIENT_BIN_DIR := client/cmd/shapleq-client
-BROKER_BIN_NAME := shapleq
-CLIENT_BIN_NAME := shapleq-client
+BROKER_BIN_DIR := broker/cmd
+CLIENT_BIN_DIR := agent/cmd
+BROKER_BIN_NAME := pirius-broker
+CLIENT_BIN_NAME := pirius-agent
 BROKER_BIN := $(BROKER_BIN_DIR)/$(BROKER_BIN_NAME)
 CLIENT_BIN := $(CLIENT_BIN_DIR)/$(CLIENT_BIN_NAME)
 
@@ -20,15 +20,20 @@ INSTALL_BIN_DIR := /usr/local/bin
 # config
 CONFIG_NAME := config
 BROKER_CONFIG_DIR := broker/config
-ADMIN_CONFIG_DIR := client/config/admin
-PRODUCER_CONFIG_DIR := client/config/producer
-CONSUMER_CONFIG_DIR := client/config/consumer
+AGENT_CONFIG_DIR := agent/config
 
-INSTALL_CONFIG_HOME_DIR := ${HOME}/.shapleq/config
+# debug | release
+DEPLOY_TARGET ?= debug
+
+INSTALL_CONFIG_HOME_DIR=
+ifeq "$(DEPLOY_TARGET)" "debug"
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.pirius-debug/config
+else
+	INSTALL_CONFIG_HOME_DIR=${HOME}/.pirius/config
+endif
+
 INSTALL_BROKER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/broker
-INSTALL_ADMIN_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/admin
-INSTALL_PRODUCER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/producer
-INSTALL_CONSUMER_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/consumer
+INSTALL_AGENT_CONFIG_DIR := ${INSTALL_CONFIG_HOME_DIR}/agent
 
 # rocksdb
 ROCKSDB_DIR := $(THIRDPARTY_DIR)/rocksdb
@@ -43,7 +48,7 @@ PROTOC_DIR := $(THIRDPARTY_DIR)/protoc
 PROTOC := $(PROTOC_DIR)/bin/protoc
 PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
 
-DEPLOY_TARGET ?= debug # debug | release
+
 
 $(PROTOC):
 	mkdir -p $(PROTOC_DIR)
@@ -59,11 +64,14 @@ endif
 $(PROTOC_GEN_GO):
 	go install github.com/golang/protobuf/protoc-gen-go
 
+$(PROTOC_GEN_GRPC):
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
 PROTO_DIR := ./proto
-PROTO_TARGETS := $(PROTO_DIR)/api.pb.go $(PROTO_DIR)/data.pb.go
+PROTO_TARGETS := $(PROTO_DIR)/agent.pb.go $(PROTO_DIR)/broker.pb.go
 .SUFFIXES: .proto .pb.go
-%.pb.go: %.proto $(PROTOC_GEN_GO) $(PROTOC)
-	$(PROTOC) --proto_path=$(PROTO_DIR) --go_out=$(PROTO_DIR) $<
+%.pb.go: %.proto $(PROTOC_GEN_GO) $(PROTOC_GEN_GRPC) $(PROTOC)
+	$(PROTOC) --proto_path=$(PROTO_DIR) --go_out=$(PROTO_DIR) --go-grpc_out=$(PROTO_DIR) $<
 
 .PHONY: compile-protobuf prepare
 compile-protobuf: $(PROTO_TARGETS) $(PROTOC_GEN_GO) $(PROTOC)
@@ -93,39 +101,46 @@ build-rocksdb: $(LIB_ROCKSDB)
 
 $(BROKER_BIN): $(LIB_ROCKSDB)
 ifdef linux-os-host
-	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
-	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
 	GOOS=linux GOARCH=amd64 \
 	go build -tags $(DEPLOY_TARGET) -o $(BROKER_BIN) ./$(BROKER_BIN_DIR)/main.go
 endif
 ifdef mac-os-host
-	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
-	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
 	go build -tags $(DEPLOY_TARGET) -o $(BROKER_BIN) ./$(BROKER_BIN_DIR)/main.go
 endif
 	touch $(BROKER_BIN)
 
 $(CLIENT_BIN):
+ifdef linux-os-host
+	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
+	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
+	GOOS=linux GOARCH=amd64 \
 	go build -tags $(DEPLOY_TARGET) -o $(CLIENT_BIN) ./$(CLIENT_BIN_DIR)/main.go
+endif
+ifdef mac-os-host
+	CGO_ENABLED=1 CGO_CFLAGS="${CGO_CFLAGS} -I$(ROCKSDB_INCLUDE_DIR)" \
+	CGO_LDFLAGS="${CGO_LDFLAGS} -L$(ROCKSDB_LIB_DIR)" \
+	go build -tags $(DEPLOY_TARGET) -o $(CLIENT_BIN) ./$(CLIENT_BIN_DIR)/main.go
+endif
+	touch $(CLIENT_BIN)
 
-.PHONY: build-broker build-client
+
+
+.PHONY: build-broker
 build-broker: $(BROKER_BIN)
-build-client: $(CLIENT_BIN)
+
+.PHONY: build-agent
+build-agent: $(CLIENT_BIN)
 
 .PHONY: all build rebuild install test clean-rocksdb clean-proto
-build: build-broker build-client install-config
+build: build-broker build-agent install-config
 all: build
 
 install-config:
 	mkdir -p ${INSTALL_BROKER_CONFIG_DIR} && cp ${BROKER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_BROKER_CONFIG_DIR}/
-	mkdir -p ${INSTALL_ADMIN_CONFIG_DIR} && cp ${ADMIN_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_ADMIN_CONFIG_DIR}/
-	mkdir -p ${INSTALL_PRODUCER_CONFIG_DIR} && cp ${PRODUCER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_PRODUCER_CONFIG_DIR}/
-	mkdir -p ${INSTALL_CONSUMER_CONFIG_DIR} && cp ${CONSUMER_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_CONSUMER_CONFIG_DIR}/
-
+	mkdir -p ${INSTALL_AGENT_CONFIG_DIR} && cp ${AGENT_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_AGENT_CONFIG_DIR}/
 
 install: build
 	cp ${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ${INSTALL_BIN_DIR}/
-	cp ${CLIENT_BIN_DIR}/${CLIENT_BIN_NAME} ${INSTALL_BIN_DIR}/
 
 clean:
 	rm -f $(BROKER_BIN)
