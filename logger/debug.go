@@ -8,7 +8,7 @@ var log *zap.Logger
 
 func init() {
 	var err error
-	log, err = zap.NewDevelopment(zap.AddStacktrace(zap.ErrorLevel))
+	log, err = zap.NewDevelopment(zap.AddCallerSkip(1), zap.AddStacktrace(zap.ErrorLevel))
 	if err != nil {
 		panic(err)
 	}
