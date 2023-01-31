@@ -492,7 +492,9 @@ var _ = Describe("Agent", func() {
 							Data:       append(subscriptionResult.Results[0].Data, retrievePostfix...),
 						}}
 						sentSubscriptionResults = append(sentSubscriptionResults, results[0])
-						subscriptionResult.SendBack(results)
+						err := subscriptionResult.SendBack(results)
+						Expect(err).NotTo(HaveOccurred())
+
 						idx++
 						if idx == totalRecords {
 							break

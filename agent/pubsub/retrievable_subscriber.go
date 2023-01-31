@@ -21,7 +21,7 @@ import (
 
 type RetrievableSubscriptionResults struct {
 	Results  []SubscriptionResult
-	SendBack func([]SubscriptionResult)
+	SendBack func([]SubscriptionResult) error
 }
 
 type RetrievableSubscriber struct {
@@ -67,6 +67,8 @@ func (s *RetrievableSubscriber) StartTopicSubscription(ctx context.Context, topi
 		defer s.wg.Done()
 		defer cancel()
 		defer subscriptionCtxCancel()
+		defer close(outStream)
+		defer close(errStream)
 		for {
 			select {
 			case <-ctx.Done():
@@ -192,7 +194,7 @@ func (s *RetrievableSubscriber) startSubscriptions(ctx context.Context, subscrip
 			return nil, nil, err
 		}
 
-		onSendBack := func(res []SubscriptionResult) {
+		onSendBack := func(res []SubscriptionResult) error {
 			var batched []*pb.SubscriptionResult_Fetched
 			for _, res := range res {
 				batched = append(batched, &pb.SubscriptionResult_Fetched{
@@ -214,7 +216,9 @@ func (s *RetrievableSubscriber) startSubscriptions(ctx context.Context, subscrip
 					zap.Error(err),
 					zap.String("subscriber-id", s.id),
 					zap.String("topic", topicName))
+				return err
 			}
+			return nil
 		}
 
 		wg.Add(1)
