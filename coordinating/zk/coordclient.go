@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-zookeeper/zk"
 	"github.com/paust-team/pirius/coordinating"
+	"github.com/paust-team/pirius/logger"
 	"github.com/paust-team/pirius/qerror"
 	"time"
 )
@@ -71,6 +72,7 @@ func (c *CoordClient) IsClosed() bool {
 func (c *CoordClient) Close() {
 	if !c.IsClosed() {
 		c.zkConn.Close()
+		logger.Debug("zk coord client is closed")
 	}
 }
 

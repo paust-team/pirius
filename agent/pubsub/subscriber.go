@@ -154,6 +154,8 @@ func (s *Subscriber) StartTopicSubscription(ctx context.Context, topicName strin
 		defer s.wg.Done()
 		defer cancel()
 		defer subscriptionCtxCancel()
+		defer close(outStream)
+		defer close(errStream)
 		for {
 			select {
 			case <-ctx.Done():
@@ -346,6 +348,8 @@ func (s *Subscriber) startSubscriptions(ctx context.Context, subscriptionWg *syn
 	subscriptionWg.Add(1)
 	go func() {
 		defer subscriptionWg.Done()
+		defer close(errStream)
+		defer close(outStream)
 		wg.Wait()
 		logger.Info("all subscription streams closed", zap.String("subscriber-id", s.id), zap.String("topic", topicName), zap.Uints("fragmentIds", subscriptionFragments))
 	}()

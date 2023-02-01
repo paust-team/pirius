@@ -140,7 +140,9 @@ func NewStartSubscribeCmd() *cobra.Command {
 						SeqNum:     result.Results[0].SeqNum,
 						Data:       append(result.Results[0].Data, retrievePostfix...),
 					}}
-					result.SendBack(results)
+					if err := result.SendBack(results); err != nil {
+						panic(err)
+					}
 				}
 			}()
 
