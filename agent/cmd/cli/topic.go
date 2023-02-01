@@ -40,7 +40,11 @@ func NewCreateTopicCmd(coordClient coordinating.CoordClient) *cobra.Command {
 			defer coordClient.Close()
 
 			topicClient := topic2.NewCoordClientTopicWrapper(coordClient)
-			if err := topicClient.CreateTopic(topic, topic2.NewTopicFrame("", 0)); err != nil {
+			var option topic2.Option
+			if unique {
+				option = topic2.UniquePerFragment
+			}
+			if err := topicClient.CreateTopic(topic, topic2.NewTopicFrame("", option)); err != nil {
 				panic(err)
 			}
 
@@ -49,6 +53,8 @@ func NewCreateTopicCmd(coordClient coordinating.CoordClient) *cobra.Command {
 	}
 
 	createTopicCmd.Flags().StringVarP(&topic, "topic", "t", "", "new topic name to create")
+	createTopicCmd.Flags().BoolVarP(&unique, "unique", "u", false, "set topic as UniquePerFragment")
+
 	createTopicCmd.MarkFlagRequired("topic")
 
 	return createTopicCmd
