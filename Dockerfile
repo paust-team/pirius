@@ -35,6 +35,7 @@ RUN apk add --no-cache libstdc++ bash snappy &&\
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 COPY --from=builder /usr/local/bin/pirius-broker /pirius/bin/pirius-broker
+COPY --from=builder /usr/local/bin/pirius-agent /pirius/bin/pirius-agent
 COPY --from=builder /pirius/start-broker.sh /pirius/start-broker.sh
 COPY --from=builder /pirius/.pirius/config /pirius/config
 
