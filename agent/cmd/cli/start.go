@@ -24,6 +24,7 @@ var (
 	zkQuorum   []string
 	zkTimeout  uint
 	topic      string
+	unique     bool
 )
 
 func NewStartPublishCmd() *cobra.Command {
