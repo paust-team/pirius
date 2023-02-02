@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	topic2 "github.com/paust-team/pirius/bootstrapping/topic"
+	"github.com/paust-team/pirius/bootstrapping/broker"
 	"github.com/paust-team/pirius/coordinating/zk"
+	"github.com/paust-team/pirius/proto/pb"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"time"
 )
 
 func NewTopicCmd() *cobra.Command {
@@ -25,8 +30,34 @@ func NewTopicCmd() *cobra.Command {
 	return topicCmd
 }
 
-func newZkCoordClient() *zk.CoordClient {
-	return zk.NewZKCoordClient(zkQuorum, zkTimeout)
+func newTopicClient() (pb.TopicClient, error) {
+	coordClient := zk.NewZKCoordClient(zkQuorum, zkTimeout)
+	if err := coordClient.Connect(); err != nil {
+		return nil, err
+	}
+	defer coordClient.Close()
+
+	brokers := broker.NewCoordClientWrapper(coordClient)
+
+	brokerAddresses, err := brokers.GetBrokers()
+	if err != nil {
+		return nil, err
+	}
+	if len(brokerAddresses) == 0 {
+		return nil, fmt.Errorf("not existed broker address in zk")
+	}
+	brokerAddr, err := brokers.GetBroker(brokerAddresses[0])
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(brokerAddr, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	topicClient := pb.NewTopicClient(conn)
+	return topicClient, nil
 }
 
 func NewCreateTopicCmd() *cobra.Command {
@@ -34,23 +65,36 @@ func NewCreateTopicCmd() *cobra.Command {
 	var createTopicCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create topic",
-		Run: func(cmd *cobra.Command, args []string) {
-			coordClient := newZkCoordClient()
-			if err := coordClient.Connect(); err != nil {
-				panic(err)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicClient, err := newTopicClient()
+			if err != nil {
+				return err
 			}
-			defer coordClient.Close()
 
-			topicClient := topic2.NewCoordClientTopicWrapper(coordClient)
-			var option topic2.Option
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)
+			defer func() {
+				cancel()
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					fmt.Printf("topic client operation is timeout error")
+				}
+			}()
+
+			topicOption := uint32(pb.TopicOption_NONE)
 			if unique {
-				option = topic2.UniquePerFragment
+				topicOption = uint32(pb.TopicOption_UNIQUE_PER_FRAGMENT)
 			}
-			if err := topicClient.CreateTopic(topic, topic2.NewTopicFrame("", option)); err != nil {
-				panic(err)
+
+			if _, err := topicClient.CreateTopic(ctx, &pb.CreateTopicRequest{
+				Magic:       1,
+				Name:        topic,
+				Description: "",
+				Options:     &topicOption,
+			}); err != nil {
+				return err
 			}
 
 			fmt.Printf("topic(%s) created\n", topic)
+			return nil
 		},
 	}
 
@@ -67,19 +111,29 @@ func NewDeleteTopicCmd() *cobra.Command {
 	var deleteTopicCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete topic",
-		Run: func(cmd *cobra.Command, args []string) {
-			coordClient := newZkCoordClient()
-			if err := coordClient.Connect(); err != nil {
-				panic(err)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			topicClient, err := newTopicClient()
+			if err != nil {
+				return err
 			}
-			defer coordClient.Close()
 
-			topicClient := topic2.NewCoordClientTopicWrapper(coordClient)
-			if err := topicClient.DeleteTopic(topic); err != nil {
-				panic(err)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)
+			defer func() {
+				cancel()
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					fmt.Printf("topic client operation is timeout error")
+				}
+			}()
+
+			if _, err := topicClient.DeleteTopic(ctx, &pb.TopicRequestWithName{
+				Magic: 1,
+				Name:  topic,
+			}); err != nil {
+				return err
 			}
 
 			fmt.Printf("topic(%s) deleted\n", topic)
+			return nil
 		},
 	}
 
