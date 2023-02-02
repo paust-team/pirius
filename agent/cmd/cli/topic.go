@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	topic2 "github.com/paust-team/pirius/bootstrapping/topic"
-	"github.com/paust-team/pirius/coordinating"
 	"github.com/paust-team/pirius/coordinating/zk"
 	"github.com/spf13/cobra"
 )
@@ -18,22 +17,25 @@ func NewTopicCmd() *cobra.Command {
 	topicCmd.PersistentFlags().StringSliceVar(&zkQuorum, "zk-quorum", []string{"127.0.0.1:2181"}, "zookeeper quorum")
 	topicCmd.PersistentFlags().UintVar(&zkTimeout, "zk-timeout", 5000, "zookeeper timeout")
 
-	coordClient := zk.NewZKCoordClient(zkQuorum, zkTimeout)
-
 	topicCmd.AddCommand(
-		NewCreateTopicCmd(coordClient),
-		NewDeleteTopicCmd(coordClient),
+		NewCreateTopicCmd(),
+		NewDeleteTopicCmd(),
 	)
 
 	return topicCmd
 }
 
-func NewCreateTopicCmd(coordClient coordinating.CoordClient) *cobra.Command {
+func newZkCoordClient() *zk.CoordClient {
+	return zk.NewZKCoordClient(zkQuorum, zkTimeout)
+}
+
+func NewCreateTopicCmd() *cobra.Command {
 
 	var createTopicCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create topic",
 		Run: func(cmd *cobra.Command, args []string) {
+			coordClient := newZkCoordClient()
 			if err := coordClient.Connect(); err != nil {
 				panic(err)
 			}
@@ -60,12 +62,13 @@ func NewCreateTopicCmd(coordClient coordinating.CoordClient) *cobra.Command {
 	return createTopicCmd
 }
 
-func NewDeleteTopicCmd(coordClient coordinating.CoordClient) *cobra.Command {
+func NewDeleteTopicCmd() *cobra.Command {
 
 	var deleteTopicCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete topic",
 		Run: func(cmd *cobra.Command, args []string) {
+			coordClient := newZkCoordClient()
 			if err := coordClient.Connect(); err != nil {
 				panic(err)
 			}
