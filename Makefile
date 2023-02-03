@@ -140,7 +140,8 @@ install-config:
 	mkdir -p ${INSTALL_AGENT_CONFIG_DIR} && cp ${AGENT_CONFIG_DIR}/${CONFIG_NAME}.yml ${INSTALL_AGENT_CONFIG_DIR}/
 
 install: build
-	cp ${BROKER_BIN_DIR}/${BROKER_BIN_NAME} ${INSTALL_BIN_DIR}/
+	cp $(BROKER_BIN) $(INSTALL_BIN_DIR)/
+	cp $(CLIENT_BIN) $(INSTALL_BIN_DIR)/
 
 clean:
 	rm -f $(BROKER_BIN)
