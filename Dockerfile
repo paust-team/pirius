@@ -4,20 +4,6 @@ RUN apk update && apk add build-base git \
   gcc file cmake autoconf automake libtool curl make linux-headers zlib-dev \
   g++ unzip dep bash coreutils zstd-dev snappy-dev lz4-dev
 
-ENV USER=piriususer
-ENV UID=11010
-ENV GID=11011
-
-RUN addgroup --gid "$GID" "$USER" \
-    && adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "$(pwd)" \
-    --ingroup "$USER" \
-    --no-create-home \
-    --uid "$UID" \
-    "$USER"
-
 ENV HOME_DIR=/pirius
 WORKDIR ${HOME_DIR}
 RUN uname -a
@@ -40,6 +26,20 @@ COPY --from=builder /pirius/start-broker.sh /pirius/start-broker.sh
 COPY --from=builder /pirius/.pirius/config /pirius/config
 
 WORKDIR /pirius
+ENV USER=piriususer
+ENV UID=11010
+ENV GID=11011
+
+RUN addgroup --gid "$GID" "$USER" \
+    && adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "$(pwd)" \
+    --ingroup "$USER" \
+    --no-create-home \
+    --uid "$UID" \
+    "$USER"
+
 RUN chown -R piriususer:piriususer /pirius && chmod -R 777 /pirius
 USER piriususer:piriususer
 EXPOSE 1101
